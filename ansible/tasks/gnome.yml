@@ -1,0 +1,60 @@
+---
+- name: Disable auto suspend on ac
+  community.general.dconf:
+    key: "/org/gnome/settings-daemon/plugins/power/sleep-inactive-ac-type"
+    value: "'nothing'"
+  
+- name: Disable auto suspend on battery
+  community.general.dconf:
+    key: "/org/gnome/settings-daemon/plugins/power/sleep-inactive-battery-type"
+    value: "'nothing'"
+  
+- name: Use F1 for Volume mute
+  community.general.dconf:
+    key: "/org/gnome/settings-daemon/plugins/media-keys/volume-mute"
+    value: "['F1']"
+
+- name: Use F2 for Volume down
+  community.general.dconf:
+    key: "/org/gnome/settings-daemon/plugins/media-keys/volume-down"
+    value: "['F2']"
+
+- name: Use F3 for Volume up
+  community.general.dconf:
+    key: "/org/gnome/settings-daemon/plugins/media-keys/volume-up"
+    value: "['F3']"
+
+- name: Disable automatic brightness
+  community.general.dconf:
+    key: "/org/gnome/settings-daemon/plugins/power/ambient-enabled"
+    value: "false"
+  
+- name: Set favourite apps
+  community.general.dconf:
+    key: "/org/gnome/shell/favorite-apps"
+    value: "['google-chrome.desktop', 'spotify.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', 'code.desktop']"
+
+- name: Use dark terminal theme
+  community.general.dconf:
+    key: "/org/gnome/terminal/legacy/theme-variant"
+    value: "'dark'"
+
+- name: Use Alt+Tab to switch windows (not applications)
+  community.general.dconf:
+    key: "/org/gnome/desktop/wm/keybindings/switch-windows"
+    value: "['<Alt>Tab']"
+
+- name: Disable default switch application binding (which conflicts with above setting)
+  community.general.dconf:
+    key: "/org/gnome/desktop/wm/keybindings/switch-applications"
+    value: "@as []"
+
+- name: Configure keyboard layouts
+  community.general.dconf:
+    key: "/org/gnome/desktop/input-sources/sources"
+    value: "[('xkb', 'us'), ('xkb', 'us+intl')]"
+
+- name: Enable night light
+  community.general.dconf:
+    key: "/org/gnome/settings-daemon/plugins/color/night-light-enabled"
+    value: "true"

@@ -1,0 +1,96 @@
+---
+- name: Setup Yoga laptop
+  hosts: yoga
+  roles:
+  - role: gantsign.visual-studio-code
+    users:
+      - username: daan
+        visual_studio_code_extensions:
+          - vscodevim.vim
+          - BazelBuild.vscode-bazel
+          - xaver.clang-format
+          - golang.Go
+          - james-yu.latex-workshop
+          - rust-lang.rust
+        visual_studio_code_settings: {
+          "workbench.startupEditor": "none",
+          "extensions.ignoreRecommendations": true,
+          "editor.formatOnSave": true,
+          "[c]": {
+              "editor.defaultFormatter": "xaver.clang-format"
+          }
+        }
+  - role: gantsign.golang
+    golang_version: '1.18.2'
+  - role: hurricanehrndz.rustup
+    rustup_user: daan
+    rustup_cargo_crates: 
+    - cargo-watch
+  handlers:
+  - name: update grub
+    become: true
+    ansible.builtin.command: update-grub
+
+  tasks:
+  - include_tasks: tasks/google-chrome.yml
+  - include_tasks: tasks/spotify.yml
+  - name: Enable non-free sources (for firmware)
+    become: true
+    ansible.builtin.apt_repository:
+      repo: deb http://deb.debian.org/debian/ bullseye main contrib non-free 
+      state: present
+  - name: Install APT Packages
+    become: true
+    apt:
+      update_cache: true
+      cache_valid_time: 3600
+      pkg:
+      - firmware-amd-graphics
+      - firmware-iwlwifi
+      - google-chrome-stable
+      - spotify-client
+      - build-essential
+      - git
+      - vim-gtk3
+      - gimp
+      - inkscape
+      - python-is-python3
+      - python3-psutil # Allows Ansible to set keyboard shortcuts
+      - sshpass # To use ask-ssh-pass with Ansible
+      - bash-completion # Enable bash completion (e.g. for Bazel)
+      - clang-format
+
+  - name: Make user daan member of sudo
+    ansible.builtin.user:
+      name: daan
+      groups: sudo 
+      append: yes
+
+  - name: Use Vim as editor 
+    become: true
+    community.general.alternatives:
+      name: editor
+      path: /usr/bin/vim.gtk3
+
+  - include_tasks: tasks/gnome.yml
+
+  - name: Shut down when the lid is closed (on battery)
+    become: true
+    ansible.builtin.lineinfile:
+      path: /etc/systemd/logind.conf 
+      regexp: '^HandleLidSwitch='
+      line: HandleLidSwitch=poweroff
+  - name: Ignore when lid is closed (on AC)
+    become: true
+    ansible.builtin.lineinfile:
+      path: /etc/systemd/logind.conf 
+      regexp: '^HandleLidSwitchExternalPower='
+      line: HandleLidSwitchExternalPower=ignore
+  
+  - name: Set grub timeout to 0
+    become: true
+    ansible.builtin.lineinfile:
+      path: /etc/default/grub 
+      regexp: '^GRUB_TIMEOUT='
+      line: GRUB_TIMEOUT=0 
+    notify: update grub
