@@ -31,7 +31,7 @@ function rclone_backup_failmail() {
 
 function rclone_backup_gitconfig() {
     file="$HOME/.gitconfig"
-    $RCLONE copy $file configbackup:
+    $RCLONE copy "$file" configbackup:
     echo "Backed up $file"
 }
 

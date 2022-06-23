@@ -26,6 +26,11 @@
     rustup_user: daan
     rustup_cargo_crates: 
     - cargo-watch
+  - role: geerlingguy.docker
+    become: true
+    docker_install_compose: false
+    docker_users:
+    - daan
   handlers:
   - name: update grub
     become: true

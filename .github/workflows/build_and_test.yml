@@ -1,0 +1,11 @@
+name: Build and test 
+on: [push]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: ansible-galaxy install -r ansible/requirements.yml
+      - run: ansible-playbook ansible/build.yml
+      - run: bazel build //...
+      - run: bazel test //...
