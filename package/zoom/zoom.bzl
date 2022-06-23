@@ -1,2 +1,2 @@
-ZOOM_URL="https://cdn.zoom.us/prod/5.11.0.3540/zoom_amd64.deb"
-ZOOM_SHA256="e2505be37fb44f7778435a50557cf8addcd89b8754302208b924a25887920470"
+ZOOM_URL = "https://cdn.zoom.us/prod/5.11.0.3540/zoom_amd64.deb"
+ZOOM_SHA256 = "e2505be37fb44f7778435a50557cf8addcd89b8754302208b924a25887920470"

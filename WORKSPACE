@@ -1,7 +1,7 @@
 workspace(name = "com_github_wildarch_mono")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
-load("//package/zoom:zoom.bzl", "ZOOM_URL", "ZOOM_SHA256")
+load("//package/zoom:zoom.bzl", "ZOOM_SHA256", "ZOOM_URL")
 
 # System binaries
 new_local_repository(

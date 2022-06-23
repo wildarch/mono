@@ -102,3 +102,17 @@
       regexp: '^GRUB_TIMEOUT='
       line: GRUB_TIMEOUT=0 
     notify: update grub
+
+  - name: Add go path to $PATH
+    ansible.builtin.blockinfile:
+      path: /home/daan/.profile
+      block: |
+        # set PATH so it includes user's go bin if it exists
+        if [ -d "$HOME/go/bin" ] ; then
+            PATH="$HOME/go/bin:$PATH"
+        fi
+
+  - name: Install buildifier
+    ansible.builtin.command: 
+      cmd: go install github.com/bazelbuild/buildtools/buildifier@latest
+      creates: /home/daan/go/bin/buildifier
