@@ -1,0 +1,78 @@
+---
+- name: Set up living room speaker 
+  hosts: speaker
+  become: true
+  handlers:
+  - name: restart spocon 
+    ansible.builtin.systemd:
+      state: restarted
+      name: spocon
+  tasks:
+  - name: Add authorized SSH Keys
+    ansible.posix.authorized_key:
+      user: daan
+      state: present
+      key: "{{ item }}"
+    with_file:
+      - /home/daan/.ssh/id_rsa.pub
+      - /home/daan/.ssh/id_ed25519.pub
+
+  - name: Delete password set for 'daan' during installation 
+    ansible.builtin.user:
+      name: daan
+      password: ''
+
+  - name: Upgrade packages
+    apt:
+      upgrade: dist
+      update_cache: yes
+      cache_valid_time: 3600
+
+  - name: Install base packages
+    apt:
+      pkg:
+      - openjdk-8-jre
+      - vim-nox
+
+  - name: openjdk-11-jre must not be installed, it does not run on armv6
+    apt:
+      name: openjdk-11-jre
+      state: absent
+  
+  - name: Download Zulu 11 JDK
+    ansible.builtin.unarchive:
+      src: https://cdn.azul.com/zulu-embedded/bin/zulu11.54.23-ca-jdk11.0.14-linux_aarch32hf.tar.gz 
+      dest: /opt
+      remote_src: yes
+      creates: /opt/zulu11.54.23-ca-jdk11.0.14-linux_aarch32hf
+
+  - name: Use Zulu JRE by default (java)
+    community.general.alternatives:
+      name: java
+      path: /opt/zulu11.54.23-ca-jdk11.0.14-linux_aarch32hf/bin/java
+      priority: 1
+
+  - name: Add Spocon APT key
+    become: true
+    apt_key:
+      keyserver: keyserver.ubuntu.com
+      id: 7DBE8BF06EA39B78
+      state: present
+    
+  - name: Add Spocon APT repository 
+    become: true
+    apt_repository:
+      repo: deb http://ppa.launchpad.net/spocon/spocon/ubuntu bionic main
+      state: present
+      filename: zotero 
+    
+  - name: Install spocon 
+    apt:
+      name: spocon
+
+  - name: Set spocon device name
+    ansible.builtin.lineinfile:
+      path: /opt/spocon/config.toml
+      regexp: '^deviceName ='
+      line: 'deviceName = "Songs for the Elderly"'
+    notify: restart spocon
