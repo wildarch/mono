@@ -1,0 +1,6 @@
+genrule(
+    name = "zoom_deb",
+    srcs = ["@zoom_deb//file"],
+    outs = ["zoom.deb"],
+    cmd = "cp $(location @zoom_deb//file) $@",
+)

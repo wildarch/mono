@@ -40,6 +40,7 @@
   - include_tasks: tasks/google-chrome.yml
   - include_tasks: tasks/spotify.yml
   - include_tasks: tasks/zotero.yml
+  - include_tasks: tasks/zoom.yml
   - name: Enable non-free sources (for firmware)
     become: true
     ansible.builtin.apt_repository:
