@@ -39,6 +39,7 @@
   tasks:
   - include_tasks: tasks/google-chrome.yml
   - include_tasks: tasks/spotify.yml
+  - include_tasks: tasks/zotero.yml
   - name: Enable non-free sources (for firmware)
     become: true
     ansible.builtin.apt_repository:
@@ -64,6 +65,7 @@
       - sshpass # To use ask-ssh-pass with Ansible
       - bash-completion # Enable bash completion (e.g. for Bazel)
       - clang-format
+      - zotero
 
   - name: Make user daan member of sudo
     ansible.builtin.user:

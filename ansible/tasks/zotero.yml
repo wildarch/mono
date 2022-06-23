@@ -1,0 +1,13 @@
+---
+- name: Add Zotero APT key
+  become: true
+  apt_key:
+    url: https://raw.githubusercontent.com/retorquere/zotero-deb/master/zotero-archive-keyring.gpg 
+    state: present
+  
+- name: Add Zotero APT repository 
+  become: true
+  apt_repository:
+    repo: deb [arch=amd64] https://zotero.retorque.re/file/apt-package-archive ./
+    state: present
+    filename: zotero 
