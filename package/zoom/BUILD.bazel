@@ -1,3 +1,10 @@
+load("//rules:shell.bzl", "sh_binary")
+
+sh_binary(
+    name = "update",
+    srcs = ["update.sh"],
+)
+
 genrule(
     name = "zoom_deb",
     srcs = ["@zoom_deb//file"],

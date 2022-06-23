@@ -1,6 +1,7 @@
 workspace(name = "com_github_wildarch_mono")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("//package/zoom:zoom.bzl", "ZOOM_URL", "ZOOM_SHA256")
 
 # System binaries
 new_local_repository(
@@ -24,6 +25,6 @@ http_file(
 
 http_file(
     name = "zoom_deb",
-    sha256 = "e2505be37fb44f7778435a50557cf8addcd89b8754302208b924a25887920470",
-    urls = ["https://cdn.zoom.us/prod/5.11.0.3540/zoom_amd64.deb"],
+    sha256 = ZOOM_SHA256,
+    urls = [ZOOM_URL],
 )
