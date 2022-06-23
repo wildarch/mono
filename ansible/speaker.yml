@@ -22,6 +22,35 @@
       name: daan
       password: ''
 
+  - name: Make sure 3.5mm jack audio out is not enabled
+    ansible.builtin.lineinfile:
+      path: /boot/config.txt
+      state: absent
+      regexp: 'dtparam=audio=on'
+
+  - name: Ensure audio over HDMI is turned off
+    ansible.builtin.lineinfile:
+      path: /boot/config.txt
+      regexp: '^dtoverlay=vc4-kms-v3d'
+      line: dtoverlay=vc4-kms-v3d,audio=off
+
+  - name: Enable hifiberry dac overlay
+    ansible.builtin.lineinfile:
+      path: /boot/config.txt
+      regexp: '^dtoverlay=hifiberry-dac'
+      line: dtoverlay=hifiberry-dac
+
+  - name: Create alsa config
+    ansible.builtin.copy:
+      content: |
+        pcm.!default {
+          type hw card 0
+        }
+        ctl.!default {
+          type hw card 0
+        }
+      dest: /etc/asound.conf
+
   - name: Upgrade packages
     apt:
       upgrade: dist
