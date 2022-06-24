@@ -41,17 +41,14 @@
   - include_tasks: tasks/spotify.yml
   - include_tasks: tasks/zotero.yml
   - include_tasks: tasks/zoom.yml
-  - name: Enable non-free sources (for firmware)
-    become: true
-    ansible.builtin.apt_repository:
-      repo: deb http://deb.debian.org/debian/ bullseye main contrib non-free 
-      state: present
   - name: Install APT Packages
     become: true
     apt:
       update_cache: true
       cache_valid_time: 3600
       pkg:
+      # Assumes non-free repository is enabled.
+      # Should be the default if installing from an unofficial non-free image
       - firmware-amd-graphics
       - firmware-iwlwifi
       - google-chrome-stable
