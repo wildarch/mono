@@ -31,6 +31,14 @@
     docker_install_compose: false
     docker_users:
     - daan
+  - role: gantsign.intellij
+    users:
+    - username: daan
+      intellij_jdks:
+      - name: Default JDK
+        home: '/usr/lib/jvm/default-java'
+      intellij_plugins:
+      - 'com.google.idea.bazel.ijwb'
   handlers:
   - name: update grub
     become: true
@@ -54,6 +62,7 @@
       - google-chrome-stable
       - spotify-client
       - build-essential
+      - default-jdk
       - git
       - vim-gtk3
       - gimp
@@ -64,6 +73,11 @@
       - bash-completion # Enable bash completion (e.g. for Bazel)
       - clang-format
       - zotero
+      - latexmk
+      - texlive-latex-recommended
+      - texlive-fonts-recommended
+      - texlive-science
+      - texlive-extra-utils
 
   - name: Make user daan member of sudo
     ansible.builtin.user:
