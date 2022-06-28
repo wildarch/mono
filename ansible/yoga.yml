@@ -73,11 +73,14 @@
       - bash-completion # Enable bash completion (e.g. for Bazel)
       - clang-format
       - zotero
+      # Latex related
       - latexmk
       - texlive-latex-recommended
       - texlive-fonts-recommended
       - texlive-science
       - texlive-extra-utils
+      # End Latex related
+      - sqlite3
 
   - name: Make user daan member of sudo
     ansible.builtin.user:
