@@ -1,0 +1,20 @@
+load("@io_bazel_rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+
+kt_jvm_library(
+    name = "CoreCompiler",
+    srcs = [
+        "CoreCompiler.kt",
+        "Parser.kt",
+    ],
+    deps = [
+        "//experiments/corecompiler:Core",
+        "//src/main/java/dev/wildarch/experiments/corecompiler/syntax",
+        "@antlr4_runtime//jar",
+    ],
+)
+
+java_binary(
+    name = "CoreCompiler_run",
+    main_class = "dev.wildarch.experiments.corecompiler.CoreCompilerKt",
+    runtime_deps = [":CoreCompiler"],
+)
