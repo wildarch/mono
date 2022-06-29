@@ -9,29 +9,43 @@ sc: var+ '=' expr;
 expr:
 	var # ExprVar
 	| num # ExprNum
-	| 'Pack' '{' num ',' num '}' # ExprPack
+	| 'Pack' '{' num ',' num '}' # ExprConstr
 	| '(' expr ')' # ExprParen
 	// Prec 6
 	| expr expr # ExprApp // Application
 	// Prec 5
-	| <assoc = right> expr ('*' | '/') expr # ExprMulDiv
+	| <assoc = right> expr op=(MUL | DIV) expr # ExprMulDiv
 	// Prec 4
-	| <assoc = right> expr ('+' | '-') expr # ExprAddSub
+	| <assoc = right> expr op=(ADD | SUB) expr # ExprAddSub
 	// Prec 3
-	| <assoc = right> expr (
-		'=='
-		| '~='
-		| '>'
-		| '>='
-		| '<'
-		| '<='
+	| <assoc = right> expr op=(
+		EQ
+		| NEQ
+		| GT
+		| GTE
+		| LT
+		| LTE
 	) expr # ExprCompare
 	| <assoc = right> expr '&' expr # ExprAnd
 	| <assoc = right> expr '|' expr # ExprOr
-	| 'let' defns 'in' expr # ExprLet
-	| 'letrec' defns 'in' expr # ExprLetRec
+	| rec=(LET | LETREC) defns 'in' expr # ExprLet
 	| 'case' expr 'of' alts # ExprCase
-	| '\\' var+ '.' expr # ExprVarDef;
+	| '\\' var+ '.' expr # ExprLam;
+
+MUL : '*';
+DIV : '/';
+ADD : '+';
+SUB : '-';
+EQ : '==';
+NEQ : '~=';
+GT : '>';
+GTE : '>=';
+LT : '<';
+LTE : '<=';
+
+LET : 'let';
+LETREC : 'letrec';
+
 defns: defn (',' defn)*;
 defn: var '=' expr;
 
