@@ -20,6 +20,33 @@ class CompilerTest {
         assertEvaluatesTo("main = S K K 3", 3)
     }
 
+    @Test
+    fun compileLet() {
+        assertEvaluatesTo("""
+             main = 
+               let 
+                 i = I 
+               in 
+                 i 42
+        """.trimIndent(), 42)
+    }
+
+    @Test
+    fun compileLetRec() {
+        assertEvaluatesTo("""
+            pair x y f = f x y ;
+            fst p = p K ;
+            snd p = p K1 ;
+            f x y =
+              letrec
+                a = pair x b ;
+                b = pair y a
+              in
+                fst (snd (snd (snd a))) ;
+            main = f 3 4
+        """.trimIndent(), 4)
+    }
+
     private fun assertEvaluatesTo(program: String, num: Int) {
         val parsed = parse(program)
         val compiled = compile(parsed)

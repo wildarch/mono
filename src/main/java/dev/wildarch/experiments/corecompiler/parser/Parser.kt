@@ -4,18 +4,20 @@ import dev.wildarch.corecompiler.CoreBaseVisitor
 import dev.wildarch.corecompiler.CoreLexer
 import dev.wildarch.corecompiler.CoreParser
 import dev.wildarch.experiments.corecompiler.syntax.*
-import org.antlr.v4.runtime.CharStreams
-import org.antlr.v4.runtime.CommonTokenStream
+import org.antlr.v4.runtime.*
 import org.antlr.v4.runtime.tree.ParseTree
-import org.antlr.v4.runtime.tree.Trees
 
 fun parse(source: String) : Program {
     val lexer = CoreLexer(CharStreams.fromString(source))
     val tokens = CommonTokenStream(lexer)
     val parser = CoreParser(tokens)
+    parser.removeErrorListeners()
+    val errorListener = ErrorListener()
+    parser.addErrorListener(errorListener)
     val tree: ParseTree = parser.program()
-    println("Tree: " + Trees.toStringTree(tree))
-
+    if (errorListener.errors.isNotEmpty()) {
+        error("${errorListener.errors.size} parse errors: ${errorListener.errors.joinToString(separator = "\n")}")
+    }
     val astParser = Parser()
     return astParser.visit(tree) as Program
 }
@@ -138,7 +140,7 @@ class Parser : CoreBaseVisitor<AstNode>() {
 
     override fun visitExprCase(ctx: CoreParser.ExprCaseContext): Case {
         val expr = visit(ctx.expr()) as Expr
-        var alts = ctx.alts().alt().map(::visitAlt)
+        val alts = ctx.alts().alt().map(::visitAlt)
 
         return Case(expr, alts)
     }
@@ -156,5 +158,20 @@ class Parser : CoreBaseVisitor<AstNode>() {
         val body = visit(ctx.expr()) as Expr
 
         return Lam(params, body)
+    }
+}
+
+class ErrorListener : BaseErrorListener() {
+    val errors = mutableListOf<String>()
+    override fun syntaxError(
+        recognizer: Recognizer<*, *>,
+        offendingSymbol: Any,
+        line: Int,
+        charPositionInLine: Int,
+        msg: String,
+        e: RecognitionException?
+    ) {
+        val stack = (recognizer as CoreParser).ruleInvocationStack.reversed()
+        errors += "rule stack: $stack\nline $line:$charPositionInLine at $offendingSymbol: $msg"
     }
 }

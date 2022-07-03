@@ -25,7 +25,6 @@ private fun buildInitialHeap(scDefs: List<ScDefn>): Pair<Heap, Globals> {
 }
 
 fun eval(state: TiState): List<TiState> {
-    var state = state
     val trace = mutableListOf(state)
     while (true) {
         val newState = step(trace.last()) ?: break
@@ -82,15 +81,59 @@ private fun instantiate(body: Expr, heap: Heap, env: Globals): Pair<Heap, Addr> 
             val addr = env[body.name] ?: error("Undefined name ${body.name}")
             return Pair(heap, addr)
         }
+        is Let -> if (body.isRec) {
+            val letEnv = env.toMutableMap()
+            var nextAddr = heap.size + 1
+
+            // Add all defs to the environment first
+            body.defs.forEachIndexed { index, def ->
+                val defSize = heapSize(def.expr)
+                if (defSize == 0) {
+                    val defVar = def.expr as Var
+                    letEnv[def.name] = env[defVar.name] ?: error("Undefined name ${defVar.name}")
+                } else {
+                    nextAddr += defSize
+                    // Point to the element last added to the heap
+                    letEnv[def.name] = nextAddr - 1
+                }
+            }
+
+            var newHeap = heap
+            for (def in body.defs) {
+                val (h, addr) = instantiate(def.expr, newHeap, letEnv)
+                newHeap = h
+                letEnv[def.name] = addr
+            }
+            return instantiate(body.body, newHeap, letEnv)
+        } else {
+            var newHeap = heap
+            val letEnv = env.toMutableMap()
+            for (def in body.defs) {
+                val (h, addr) = instantiate(def.expr, newHeap, env)
+                newHeap = h
+                letEnv[def.name] = addr
+            }
+            return instantiate(body.body, newHeap, letEnv)
+        }
         else -> error("Cannot instantiate: $body")
+    }
+}
+
+private fun heapSize(e: Expr) : Int {
+    return when (e) {
+        is Num -> 1
+        is Ap -> heapSize(e.func) + heapSize(e.arg) + 1
+        is Var -> 0
+        is Let -> e.defs.sumOf { def -> heapSize(def.expr) } + heapSize(e.body)
+        else -> error("Unknown heap size: $e")
     }
 }
 
 private fun heapAlloc(heap: Heap, node: Node) : Pair<Heap, Addr> {
     val addr = 1 + heap.size
-    val heap = heap.toMutableMap()
-    heap[addr] = node
-    return Pair(heap, addr)
+    val newHeap = heap.toMutableMap()
+    newHeap[addr] = node
+    return Pair(newHeap, addr)
 }
 
 fun showResults(states: List<TiState>): String {
