@@ -1,8 +1,24 @@
-package dev.wildarch.experiments.corecompiler
+package dev.wildarch.experiments.corecompiler.parser
 
 import dev.wildarch.corecompiler.CoreBaseVisitor
+import dev.wildarch.corecompiler.CoreLexer
 import dev.wildarch.corecompiler.CoreParser
 import dev.wildarch.experiments.corecompiler.syntax.*
+import org.antlr.v4.runtime.CharStreams
+import org.antlr.v4.runtime.CommonTokenStream
+import org.antlr.v4.runtime.tree.ParseTree
+import org.antlr.v4.runtime.tree.Trees
+
+fun parse(source: String) : Program {
+    val lexer = CoreLexer(CharStreams.fromString(source))
+    val tokens = CommonTokenStream(lexer)
+    val parser = CoreParser(tokens)
+    val tree: ParseTree = parser.program()
+    println("Tree: " + Trees.toStringTree(tree))
+
+    val astParser = Parser()
+    return astParser.visit(tree) as Program
+}
 
 class Parser : CoreBaseVisitor<AstNode>() {
     override fun visitProgram(ctx: CoreParser.ProgramContext): Program {

@@ -2,6 +2,7 @@ package dev.wildarch.experiments.corecompiler
 
 import dev.wildarch.corecompiler.CoreLexer
 import dev.wildarch.corecompiler.CoreParser
+import dev.wildarch.experiments.corecompiler.parser.Parser
 import dev.wildarch.experiments.corecompiler.syntax.Program
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
