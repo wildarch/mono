@@ -60,7 +60,7 @@ class CompilerTest {
             """.trimIndent(), 3
         )
         val steps = trace.last().stats
-        assertThat(steps).isEqualTo(138)
+        assertThat(steps).isEqualTo(139)
     }
 
     private fun assertEvaluatesTo(program: String, num: Int): List<TiState> {

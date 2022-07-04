@@ -64,17 +64,14 @@ private fun step(state: TiState): TiState? {
             }
             val argMap = node.args.zip(argAddrs).toMap()
             val combGlobals = state.globals + argMap
-            val (newHeap, resultAddr) = instantiate(node.body, state.heap, combGlobals)
-            val newStack = state.stack.subList(0, argsStart) + resultAddr
 
-            // Add indirection node to skip evaluating the supercombinator a second time
-            val newHeapInd = newHeap.toMutableMap()
-            // Instead of an Ap for the first argument, next time we will jump straight to the result
-            newHeapInd[state.stack[argsStart]] = NInd(resultAddr)
+            // Instantiate over the old redex root
+            val newHeap = instantiateAndUpdate(node.body, state.heap, combGlobals, state.stack[argsStart])
+            val newStack = state.stack.subList(0, argsStart+1)
 
             return state.copy(
                 stack = newStack,
-                heap = newHeapInd,
+                heap = newHeap,
             )
         }
         is NInd -> {
@@ -87,16 +84,32 @@ private fun step(state: TiState): TiState? {
 }
 
 private fun instantiate(body: Expr, heap: Heap, env: Globals): Pair<Heap, Addr> {
+    val (heap1, node) = instantiateNode(body, heap, env)
+    return when (node) {
+        is NInd -> Pair(heap1, node.addr)
+        else -> heapAlloc(heap1, node)
+    }
+}
+
+private fun instantiateAndUpdate(body: Expr, heap: Heap, env: Globals, toUpdate: Addr) : Heap {
+    val (heap1, node) = instantiateNode(body, heap, env)
+    val heap2 = heap1.toMutableMap()
+    heap2[toUpdate] = node
+    return heap2
+}
+
+// Instantiates body, returning an updated heap and the node representing the expression.
+private fun instantiateNode(body: Expr, heap: Heap, env: Globals): Pair<Heap, Node> {
     return when (body) {
-        is Num -> heapAlloc(heap, NNum(body.value))
+        is Num -> Pair(heap, NNum(body.value))
         is Ap -> {
             val (heap1, addr_fun) = instantiate(body.func, heap, env)
             val (heap2, addr_arg) = instantiate(body.arg, heap1, env)
-            return heapAlloc(heap2, NAp(addr_fun, addr_arg))
+            return Pair(heap2, NAp(addr_fun, addr_arg))
         }
         is Var -> {
             val addr = env[body.name] ?: error("Undefined name ${body.name}")
-            return Pair(heap, addr)
+            return Pair(heap, NInd(addr))
         }
         is Let -> if (body.isRec) {
             val letEnv = env.toMutableMap()
@@ -121,7 +134,7 @@ private fun instantiate(body: Expr, heap: Heap, env: Globals): Pair<Heap, Addr> 
                 newHeap = h
                 letEnv[def.name] = addr
             }
-            return instantiate(body.body, newHeap, letEnv)
+            return instantiateNode(body.body, newHeap, letEnv)
         } else {
             var newHeap = heap
             val letEnv = env.toMutableMap()
@@ -130,7 +143,7 @@ private fun instantiate(body: Expr, heap: Heap, env: Globals): Pair<Heap, Addr> 
                 newHeap = h
                 letEnv[def.name] = addr
             }
-            return instantiate(body.body, newHeap, letEnv)
+            return instantiateNode(body.body, newHeap, letEnv)
         }
         else -> error("Cannot instantiate: $body")
     }
