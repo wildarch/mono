@@ -28,9 +28,15 @@ fun eval(state: TiState): List<TiState> {
     val trace = mutableListOf(state)
     while (true) {
         val newState = step(trace.last()) ?: break
-        trace.add(newState)
+        trace.add(updateStats(newState))
     }
     return trace
+}
+
+private fun updateStats(state: TiState): TiState {
+    return state.copy(
+        stats = state.stats + 1
+    )
 }
 
 // Returns null if the state is final
@@ -51,8 +57,8 @@ private fun step(state: TiState): TiState? {
             val argsStart = argsEnd - node.args.size
             // TODO: Check if need to reverse
             val argAddrs = state.stack.subList(argsStart, argsEnd).asReversed().map {
-                when (val node = state.heap[it]) {
-                    is NAp -> node.arg
+                when (val argNode = state.heap[it]) {
+                    is NAp -> argNode.arg
                     else -> error("Arg on stack should point to NAp")
                 }
             }
@@ -61,9 +67,20 @@ private fun step(state: TiState): TiState? {
             val (newHeap, resultAddr) = instantiate(node.body, state.heap, combGlobals)
             val newStack = state.stack.subList(0, argsStart) + resultAddr
 
+            // Add indirection node to skip evaluating the supercombinator a second time
+            val newHeapInd = newHeap.toMutableMap()
+            // Instead of an Ap for the first argument, next time we will jump straight to the result
+            newHeapInd[state.stack[argsStart]] = NInd(resultAddr)
+
             return state.copy(
                 stack = newStack,
-                heap = newHeap,
+                heap = newHeapInd,
+            )
+        }
+        is NInd -> {
+            val newStack = state.stack.subList(0, state.stack.size - 1) + node.addr
+            return state.copy(
+                stack = newStack,
             )
         }
     }
@@ -86,7 +103,7 @@ private fun instantiate(body: Expr, heap: Heap, env: Globals): Pair<Heap, Addr> 
             var nextAddr = heap.size + 1
 
             // Add all defs to the environment first
-            body.defs.forEachIndexed { index, def ->
+            for (def in body.defs) {
                 val defSize = heapSize(def.expr)
                 if (defSize == 0) {
                     val defVar = def.expr as Var
@@ -119,7 +136,7 @@ private fun instantiate(body: Expr, heap: Heap, env: Globals): Pair<Heap, Addr> 
     }
 }
 
-private fun heapSize(e: Expr) : Int {
+private fun heapSize(e: Expr): Int {
     return when (e) {
         is Num -> 1
         is Ap -> heapSize(e.func) + heapSize(e.arg) + 1
@@ -129,7 +146,7 @@ private fun heapSize(e: Expr) : Int {
     }
 }
 
-private fun heapAlloc(heap: Heap, node: Node) : Pair<Heap, Addr> {
+private fun heapAlloc(heap: Heap, node: Node): Pair<Heap, Addr> {
     val addr = 1 + heap.size
     val newHeap = heap.toMutableMap()
     newHeap[addr] = node
@@ -160,3 +177,4 @@ sealed class Node
 data class NAp(val func: Addr, val arg: Addr) : Node()
 data class NSuperComb(val name: Name, val args: List<Name>, val body: Expr) : Node()
 data class NNum(val num: Int) : Node()
+data class NInd(val addr: Addr) : Node()

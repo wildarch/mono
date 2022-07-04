@@ -22,18 +22,21 @@ class CompilerTest {
 
     @Test
     fun compileLet() {
-        assertEvaluatesTo("""
+        assertEvaluatesTo(
+            """
              main = 
                let 
                  i = I 
                in 
                  i 42
-        """.trimIndent(), 42)
+        """.trimIndent(), 42
+        )
     }
 
     @Test
     fun compileLetRec() {
-        assertEvaluatesTo("""
+        assertEvaluatesTo(
+            """
             pair x y f = f x y ;
             fst p = p K ;
             snd p = p K1 ;
@@ -44,10 +47,23 @@ class CompilerTest {
               in
                 fst (snd (snd (snd a))) ;
             main = f 3 4
-        """.trimIndent(), 4)
+        """.trimIndent(), 4
+        )
     }
 
-    private fun assertEvaluatesTo(program: String, num: Int) {
+    @Test
+    fun compileUpdates() {
+        val trace = assertEvaluatesTo(
+            """
+                id x = x ;
+                main = twice twice twice id 3
+            """.trimIndent(), 3
+        )
+        val steps = trace.last().stats
+        assertThat(steps).isEqualTo(138)
+    }
+
+    private fun assertEvaluatesTo(program: String, num: Int): List<TiState> {
         val parsed = parse(program)
         val compiled = compile(parsed)
         val trace = eval(compiled)
@@ -60,5 +76,6 @@ class CompilerTest {
         val finalNode = finalState.heap[finalAddr] ?: error("Invalid final addr")
         val finalNum = finalNode as NNum
         assertThat(finalNum.num).isEqualTo(num)
+        return trace
     }
 }
