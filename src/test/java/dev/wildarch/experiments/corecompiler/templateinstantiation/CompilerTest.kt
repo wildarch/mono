@@ -63,6 +63,79 @@ class CompilerTest {
         assertThat(steps).isEqualTo(139)
     }
 
+    @Test
+    fun exampleBasicUltra() {
+        assertEvaluatesTo("main = I 3", 3)
+        assertEvaluatesTo(
+            """
+            id = S K K ;
+            main = id 3
+        """.trimIndent(), 3
+        )
+        assertEvaluatesTo(
+            """
+            id = S K K ;
+            main = twice twice twice id 3
+        """.trimIndent(), 3
+        )
+    }
+
+    @Test
+    fun exampleBasicUpdating() {
+        assertEvaluatesTo("main = twice (I I I) 3", 3)
+    }
+
+    @Test
+    fun exampleBasicInteresting() {
+        assertEvaluatesTo(
+            """
+            cons a b cc cn = cc a b ;
+            nil      cc cn = cn ;
+            hd list = list K abort ;
+            tl list = list K1 abort ;
+            abort = abort ;
+            
+            infinite x = cons x (infinite x) ;
+            
+            main = hd (tl (infinite 4))
+        """.trimIndent(), 4
+        )
+    }
+
+    @Test
+    fun exampleLetRec() {
+        assertEvaluatesTo(
+            """
+            main = let id1 = I I I
+                   in id1 id1 3
+        """.trimIndent(), 3
+        )
+
+        assertEvaluatesTo(
+            """
+            oct g x = let h = twice g
+                      in let k = twice h
+                      in k (k x) ;
+            main = oct I 4
+        """.trimIndent(), 4
+        )
+
+        assertEvaluatesTo(
+            """
+            cons a b cc cn = cc a b ;
+            nil      cc cn = cn ;
+            hd list = list K abort ;
+            tl list = list K1 abort ;
+            abort = abort ;
+            
+            infinite x = letrec xs = cons x xs
+                       in xs ;
+            
+            main = hd (tl (tl (infinite 4)))
+        """.trimIndent(), 4
+        )
+    }
+
     private fun assertEvaluatesTo(program: String, num: Int): List<TiState> {
         val parsed = parse(program)
         val compiled = compile(parsed)
