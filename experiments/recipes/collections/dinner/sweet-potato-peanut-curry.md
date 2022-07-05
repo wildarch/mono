@@ -15,7 +15,7 @@ Serves: 4.
 - 1 lime
 - 50g unsalted peanuts
 - 300g rice 
-- 2 Naan breads (optional)
+- 2 naan breads
 
 ## Instructions
 1. Chop onion and fry for 5 minutes.
@@ -28,5 +28,5 @@ then add 400ml coconut milk and 200ml water.
 
 4. Stir through 200g spinach and the juice of 1 lime, and season well. Serve with cooked rice, sprinkle over peanuts (roasted).
 
-# Info
+## Notes
 original recipe: https://www.bbcgoodfood.com/recipes/satay-sweet-potato-curry
