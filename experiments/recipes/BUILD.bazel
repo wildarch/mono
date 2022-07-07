@@ -2,7 +2,7 @@ load("//rules:shell.bzl", "sh_test")
 
 filegroup(
     name = "recipes",
-    srcs = glob(["collections/dinner/*.md"]),
+    srcs = glob(["collections/**/*.md"]),
 )
 
 sh_test(
