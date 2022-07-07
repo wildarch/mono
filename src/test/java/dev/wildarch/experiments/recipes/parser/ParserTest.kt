@@ -19,6 +19,13 @@ class ParserTest {
     }
 
     @Test
+    fun hyphen() {
+        val parsed = parseIngredient("thumb-sized piece of ginger")
+
+        assertThat(parsed).isEqualTo(Ingredient(name = "thumb-sized piece of ginger"))
+    }
+
+    @Test
     fun parseJackFruitIngredients() {
         val ingredientsRaw = listOf(
             "1 red onion",

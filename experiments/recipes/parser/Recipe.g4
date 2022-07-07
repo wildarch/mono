@@ -9,7 +9,7 @@ TBSP: 'tbsp';
 G: 'g';
 ML: 'ml';
 
-WORD: [a-zA-Z] [a-zA-Z0-9]*;
+WORD: [a-zA-Z] [a-zA-Z0-9\-]*;
 
 ingredient: quantity? name EOF;
 

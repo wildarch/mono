@@ -86,6 +86,7 @@ maven_install(
     artifacts = [
         "junit:junit:4.12",
         "com.google.truth:truth:1.1.3",
+        "org.commonmark:commonmark:0.18.1",
     ],
     repositories = [
         "https://maven.google.com",
