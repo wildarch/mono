@@ -1,0 +1,16 @@
+load("@rules_antlr//antlr:antlr4.bzl", "antlr")
+
+antlr(
+    name = "parser",
+    srcs = ["Recipe.g4"],
+    package = "dev.wildarch.corecompiler",
+    visibility = ["//visibility:public"],
+    visitor = True,
+)
+
+java_library(
+    name = "parser_java",
+    srcs = [":parser"],
+    visibility = ["//visibility:public"],
+    deps = ["@antlr4_runtime//jar"],
+)
