@@ -11,15 +11,21 @@ fun compile(prog: Program): TiState {
     val mainAddr = globals["main"] ?: error("main is not defined")
     val stack = listOf(mainAddr)
 
-    return TiState(stack, TiDump(), initialHeap, globals, stats = 0)
+    return TiState(stack, listOf(), initialHeap, globals, stats = 0)
 }
 
 private fun buildInitialHeap(scDefs: List<ScDefn>): Pair<Heap, Globals> {
-    val heap = mutableMapOf<Addr, Node>()
+    var heap = mapOf<Addr, Node>()
     val globals = mutableMapOf<Name, Addr>()
-    scDefs.forEachIndexed { index, scDefn ->
-        heap[index] = NSuperComb(scDefn.name, scDefn.params, scDefn.body)
-        globals[scDefn.name] = index
+    for (def in scDefs) {
+        val (newHeap, addr) = heapAlloc(heap, NSuperComb(def.name, def.params, def.body))
+        heap = newHeap
+        globals[def.name] = addr
+    }
+    for ((name, prim) in PRIMITIVES) {
+        val (newHeap, addr) = heapAlloc(heap, NPrim(name, prim))
+        heap = newHeap
+        globals[name] = addr
     }
     return Pair(heap, globals)
 }
@@ -41,21 +47,39 @@ private fun updateStats(state: TiState): TiState {
 
 // Returns null if the state is final
 private fun step(state: TiState): TiState? {
-    val node = state.heap[state.stack.last()] ?: error("nothing to step, stack is empty")
+    val nodeAddr = state.stack.last()
+    val node = state.heap[nodeAddr] ?: error("nothing to step, stack is empty")
     return when (node) {
         is NNum -> if (state.stack.size > 1) {
             error("num on stack, but more addresses follow")
+        } else if (state.dump.isNotEmpty()) {
+            // Restore previous stack from dump
+            return state.copy(
+                stack = state.dump.last(),
+                dump = state.dump.dropLast(1),
+            )
         } else {
             // Nothing left to reduce
             null
         }
-        is NAp -> state.copy(
-            stack = state.stack + node.func,
-        )
+        is NAp -> {
+            when (val arg = state.heap[node.arg]) {
+                // Special case to remove indirection on arg addrs (rule 2.8)
+                is NInd -> {
+                    val newHeap = state.heap.toMutableMap()
+                    newHeap[nodeAddr] = NAp(node.func, arg.addr)
+                    return state.copy(
+                        heap = newHeap,
+                    )
+                }
+                else -> state.copy(
+                    stack = state.stack + node.func,
+                )
+            }
+        }
         is NSuperComb -> {
             val argsEnd = state.stack.size - 1
             val argsStart = argsEnd - node.args.size
-            // TODO: Check if need to reverse
             val argAddrs = state.stack.subList(argsStart, argsEnd).asReversed().map {
                 when (val argNode = state.heap[it]) {
                     is NAp -> argNode.arg
@@ -67,7 +91,7 @@ private fun step(state: TiState): TiState? {
 
             // Instantiate over the old redex root
             val newHeap = instantiateAndUpdate(node.body, state.heap, combGlobals, state.stack[argsStart])
-            val newStack = state.stack.subList(0, argsStart+1)
+            val newStack = state.stack.subList(0, argsStart + 1)
 
             return state.copy(
                 stack = newStack,
@@ -80,6 +104,41 @@ private fun step(state: TiState): TiState? {
                 stack = newStack,
             )
         }
+        is NPrim -> {
+            when (node.prim) {
+                Primitive.NEG -> {
+                    // The node on the stack before the NPrim must be NAp with the argument
+                    val argApAddr = state.stack[state.stack.size - 2]
+                    val argAp = state.heap[argApAddr] as NAp
+                    val argNode = state.heap[argAp.arg]
+                    when (argNode) {
+                        is NNum -> {
+                            // Argument has already been evaluated
+                            val newHeap = state.heap.toMutableMap()
+                            newHeap[argApAddr] = NNum(-argNode.num)
+                            val newStack = state.stack.dropLast(1)
+                            return state.copy(
+                                stack = newStack,
+                                heap = newHeap,
+                            )
+                        }
+                        else -> {
+                            // Argument needs to be evaluated first
+                            val newStack = listOf(argAp.arg)
+                            val newDump = state.dump + listOf(listOf(argApAddr))
+                            return state.copy(
+                                stack = newStack,
+                                dump = newDump,
+                            )
+                        }
+                    }
+                }
+                Primitive.ADD -> TODO()
+                Primitive.SUB -> TODO()
+                Primitive.MUL -> TODO()
+                Primitive.DIV -> TODO()
+            }
+        }
     }
 }
 
@@ -91,7 +150,7 @@ private fun instantiate(body: Expr, heap: Heap, env: Globals): Pair<Heap, Addr> 
     }
 }
 
-private fun instantiateAndUpdate(body: Expr, heap: Heap, env: Globals, toUpdate: Addr) : Heap {
+private fun instantiateAndUpdate(body: Expr, heap: Heap, env: Globals, toUpdate: Addr): Heap {
     val (heap1, node) = instantiateNode(body, heap, env)
     val heap2 = heap1.toMutableMap()
     heap2[toUpdate] = node
@@ -175,19 +234,36 @@ typealias Addr = Int
 typealias Name = String
 typealias Heap = Map<Addr, Node>
 typealias Globals = Map<Name, Addr>
+typealias TiStack = List<Addr>
+typealias TiDump = List<TiStack>
 
 data class TiState(
-    val stack: List<Addr>,
+    val stack: TiStack,
     val dump: TiDump,
     val heap: Map<Addr, Node>,
     val globals: Map<Name, Addr>,
     val stats: Int
 )
 
-class TiDump
-
 sealed class Node
 data class NAp(val func: Addr, val arg: Addr) : Node()
 data class NSuperComb(val name: Name, val args: List<Name>, val body: Expr) : Node()
 data class NNum(val num: Int) : Node()
 data class NInd(val addr: Addr) : Node()
+data class NPrim(val name: String, val prim: Primitive) : Node()
+
+enum class Primitive {
+    NEG,
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+}
+
+val PRIMITIVES = mapOf(
+    "negate" to Primitive.NEG,
+    "+" to Primitive.ADD,
+    "-" to Primitive.SUB,
+    "*" to Primitive.MUL,
+    "/" to Primitive.DIV,
+)

@@ -64,6 +64,27 @@ class CompilerTest {
     }
 
     @Test
+    fun compileBasicNegate() {
+        assertEvaluatesTo("""
+            main = negate 3
+        """.trimIndent(), -3)
+    }
+
+    @Test
+    fun compileDoubleNegate() {
+        assertEvaluatesTo("""
+            main = twice negate 3
+        """.trimIndent(), 3)
+    }
+
+    @Test
+    fun compileIndirectionNegate() {
+        assertEvaluatesTo("""
+            main = negate (I 3)
+        """.trimIndent(), -3)
+    }
+
+    @Test
     fun exampleBasicUltra() {
         assertEvaluatesTo("main = I 3", 3)
         assertEvaluatesTo(
