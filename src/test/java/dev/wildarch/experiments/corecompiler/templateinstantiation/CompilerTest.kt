@@ -64,24 +64,45 @@ class CompilerTest {
     }
 
     @Test
-    fun compileBasicNegate() {
+    fun compileNegateBasic() {
         assertEvaluatesTo("""
             main = negate 3
         """.trimIndent(), -3)
     }
 
     @Test
-    fun compileDoubleNegate() {
+    fun compileNegateTwice() {
         assertEvaluatesTo("""
             main = twice negate 3
         """.trimIndent(), 3)
     }
 
     @Test
-    fun compileIndirectionNegate() {
+    fun compileNegateIndirection() {
         assertEvaluatesTo("""
             main = negate (I 3)
         """.trimIndent(), -3)
+    }
+
+    @Test
+    fun compileAddBasic() {
+        assertEvaluatesTo("""
+            main = 3 + 3
+        """.trimIndent(), 6)
+    }
+
+    @Test
+    fun compileSubTwice() {
+        assertEvaluatesTo("""
+             main = (3 - 2) - 1
+        """.trimIndent(), 0)
+    }
+
+    @Test
+    fun compileMulIndirect() {
+        assertEvaluatesTo("""
+            main = (I 6) * (I 8)
+        """.trimIndent(), 48)
     }
 
     @Test

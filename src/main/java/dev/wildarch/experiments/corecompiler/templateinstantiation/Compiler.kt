@@ -107,8 +107,9 @@ private fun step(state: TiState): TiState? {
         is NPrim -> {
             when (node.prim) {
                 Primitive.NEG -> {
+                    assert(state.stack.size == 2)
                     // The node on the stack before the NPrim must be NAp with the argument
-                    val argApAddr = state.stack[state.stack.size - 2]
+                    val argApAddr = state.stack.first()
                     val argAp = state.heap[argApAddr] as NAp
                     val argNode = state.heap[argAp.arg]
                     when (argNode) {
@@ -133,10 +134,51 @@ private fun step(state: TiState): TiState? {
                         }
                     }
                 }
-                Primitive.ADD -> TODO()
-                Primitive.SUB -> TODO()
-                Primitive.MUL -> TODO()
-                Primitive.DIV -> TODO()
+                else -> {
+                    // Must have two NAp as parent and grandparent
+                    assert(state.stack.size == 3)
+                    val argLhsApAddr = state.stack[1]
+                    val argLhsAp = state.heap[argLhsApAddr] as NAp
+                    val argLhsNode = state.heap[argLhsAp.arg]
+                    if (argLhsNode !is NNum) {
+                        // Left-hand side has not been evaluated yet
+                        val newStack = listOf(argLhsAp.arg)
+                        val newDump = state.dump + listOf(listOf(state.stack.first()))
+                        return state.copy(
+                            stack = newStack,
+                            dump = newDump,
+                        )
+                    }
+                    val argRhsApAddr = state.stack.first()
+                    val argRhsAp = state.heap[argRhsApAddr] as NAp
+                    val argRhsNode = state.heap[argRhsAp.arg]
+                    if (argRhsNode !is NNum) {
+                        // Right-hand side has not been evaluated yet
+                        val newStack = listOf(argRhsAp.arg)
+                        val newDump = state.dump + listOf(listOf(state.stack.first()))
+                        return state.copy(
+                            stack = newStack,
+                            dump = newDump,
+                        )
+                    }
+                    // Both arguments have been evaluated
+                    val lhsVal = argLhsNode.num
+                    val rhsVal = argRhsNode.num
+                    val result = when(node.prim) {
+                        Primitive.ADD -> lhsVal + rhsVal
+                        Primitive.SUB -> lhsVal - rhsVal
+                        Primitive.MUL -> lhsVal * rhsVal
+                        Primitive.DIV -> lhsVal / rhsVal
+                        else -> error("Not a binary primitive")
+                    }
+                    val newHeap = state.heap.toMutableMap()
+                    newHeap[argRhsApAddr] = NNum(result)
+                    val newStack = state.stack.dropLast(2)
+                    return state.copy(
+                        stack = newStack,
+                        heap = newHeap,
+                    )
+                }
             }
         }
     }
@@ -162,9 +204,9 @@ private fun instantiateNode(body: Expr, heap: Heap, env: Globals): Pair<Heap, No
     return when (body) {
         is Num -> Pair(heap, NNum(body.value))
         is Ap -> {
-            val (heap1, addr_fun) = instantiate(body.func, heap, env)
-            val (heap2, addr_arg) = instantiate(body.arg, heap1, env)
-            return Pair(heap2, NAp(addr_fun, addr_arg))
+            val (heap1, addrFun) = instantiate(body.func, heap, env)
+            val (heap2, addrArg) = instantiate(body.arg, heap1, env)
+            return Pair(heap2, NAp(addrFun, addrArg))
         }
         is Var -> {
             val addr = env[body.name] ?: error("Undefined name ${body.name}")
@@ -203,6 +245,27 @@ private fun instantiateNode(body: Expr, heap: Heap, env: Globals): Pair<Heap, No
                 letEnv[def.name] = addr
             }
             return instantiateNode(body.body, newHeap, letEnv)
+        }
+        is BinOp -> {
+            val prim = when (body.op) {
+                Operator.ADD -> NPrim("+", Primitive.ADD)
+                Operator.SUB -> NPrim("-", Primitive.SUB)
+                Operator.MUL -> NPrim("*", Primitive.MUL)
+                Operator.DIV -> NPrim("/", Primitive.DIV)
+                Operator.EQ -> TODO()
+                Operator.NEQ -> TODO()
+                Operator.GT -> TODO()
+                Operator.GTE -> TODO()
+                Operator.LT -> TODO()
+                Operator.LTE -> TODO()
+                Operator.AND -> TODO()
+                Operator.OR -> TODO()
+            }
+            val (heap1, addrPrim) = heapAlloc(heap, prim)
+            val (heap2, addrArgLhs) = instantiate(body.lhs, heap1, env)
+            val (heap3, addrAp1) = heapAlloc(heap2, NAp(addrPrim, addrArgLhs))
+            val (heap4, addrArgRhs) = instantiate(body.rhs, heap3, env)
+            return Pair(heap4, NAp(addrAp1, addrArgRhs))
         }
         else -> error("Cannot instantiate: $body")
     }
