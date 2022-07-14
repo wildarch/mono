@@ -62,6 +62,18 @@ private fun step(state: TiState): TiState? {
             // Nothing left to reduce
             null
         }
+        is NData -> if (state.stack.size > 1) {
+            error("data on stack, but more addresses follow")
+        } else if (state.dump.isNotEmpty()) {
+            // Restore previous stack from dump
+            return state.copy(
+                stack = state.dump.last(),
+                dump = state.dump.dropLast(1),
+            )
+        } else {
+            // Nothing left to reduce
+            null
+        }
         is NAp -> {
             when (val arg = state.heap[node.arg]) {
                 // Special case to remove indirection on arg addrs (rule 2.8)
@@ -118,6 +130,49 @@ private fun step(state: TiState): TiState? {
                             val newHeap = state.heap.toMutableMap()
                             newHeap[argApAddr] = NNum(-argNode.num)
                             val newStack = state.stack.dropLast(1)
+                            return state.copy(
+                                stack = newStack,
+                                heap = newHeap,
+                            )
+                        }
+                        else -> {
+                            // Argument needs to be evaluated first
+                            val newStack = listOf(argAp.arg)
+                            val newDump = state.dump + listOf(listOf(argApAddr))
+                            return state.copy(
+                                stack = newStack,
+                                dump = newDump,
+                            )
+                        }
+                    }
+                }
+                Primitive.IF -> {
+                    assert(state.stack.size == 2)
+                    // The node on the stack before the NPrim must be NAp with the argument
+                    val argApAddr = state.stack.first()
+                    val argAp = state.heap[argApAddr] as NAp
+                    val argNode = state.heap[argAp.arg]
+                    when (argNode) {
+                        is NData -> {
+                            // Argument has already been evaluated
+                            assert(argNode.fields.isEmpty())
+                            val targetAddr = when (argNode.tag) {
+                                2 -> {
+                                    // True
+                                    TODO()
+                                }
+                                1 -> {
+                                    // False
+                                    TODO()
+                                }
+                                else -> {
+                                    error("Invalid tag for if")
+                                }
+                            }
+
+                            val newHeap = state.heap.toMutableMap()
+                            newHeap[argApAddr] = NInd(targetAddr)
+                            val newStack = listOf(targetAddr)
                             return state.copy(
                                 stack = newStack,
                                 heap = newHeap,
@@ -252,12 +307,12 @@ private fun instantiateNode(body: Expr, heap: Heap, env: Globals): Pair<Heap, No
                 Operator.SUB -> NPrim("-", Primitive.SUB)
                 Operator.MUL -> NPrim("*", Primitive.MUL)
                 Operator.DIV -> NPrim("/", Primitive.DIV)
-                Operator.EQ -> TODO()
-                Operator.NEQ -> TODO()
-                Operator.GT -> TODO()
-                Operator.GTE -> TODO()
-                Operator.LT -> TODO()
-                Operator.LTE -> TODO()
+                Operator.EQ -> NPrim("==", Primitive.EQ)
+                Operator.NEQ -> NPrim("~=", Primitive.NEQ)
+                Operator.GT -> NPrim(">", Primitive.GT)
+                Operator.GTE -> NPrim(">=", Primitive.GTE)
+                Operator.LT -> NPrim("<", Primitive.LT)
+                Operator.LTE -> NPrim("<=", Primitive.LTE)
                 Operator.AND -> TODO()
                 Operator.OR -> TODO()
             }
@@ -314,6 +369,7 @@ data class NSuperComb(val name: Name, val args: List<Name>, val body: Expr) : No
 data class NNum(val num: Int) : Node()
 data class NInd(val addr: Addr) : Node()
 data class NPrim(val name: String, val prim: Primitive) : Node()
+data class NData(val tag: Int, val fields: List<Addr>) : Node()
 
 enum class Primitive {
     NEG,
@@ -321,6 +377,14 @@ enum class Primitive {
     SUB,
     MUL,
     DIV,
+    CONSTR,
+    IF,
+    GT,
+    GTE,
+    LT,
+    LTE,
+    EQ,
+    NEQ,
 }
 
 val PRIMITIVES = mapOf(
@@ -329,4 +393,11 @@ val PRIMITIVES = mapOf(
     "-" to Primitive.SUB,
     "*" to Primitive.MUL,
     "/" to Primitive.DIV,
+    "if" to Primitive.IF,
+    ">" to Primitive.GT,
+    ">=" to Primitive.GTE,
+    "<" to Primitive.LT,
+    "<=" to Primitive.LTE,
+    "==" to Primitive.EQ,
+    "~=" to Primitive.NEQ,
 )

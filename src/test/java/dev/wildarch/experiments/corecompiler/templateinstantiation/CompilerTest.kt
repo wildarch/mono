@@ -106,6 +106,14 @@ class CompilerTest {
     }
 
     @Test
+    fun compileFactorial() {
+        assertEvaluatesTo("""
+            fac n = if (n == 0) 1 (n * fac (n-1)) ;
+            main = fac 3
+        """.trimIndent(), 6)
+    }
+
+    @Test
     fun exampleBasicUltra() {
         assertEvaluatesTo("main = I 3", 3)
         assertEvaluatesTo(
