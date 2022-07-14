@@ -22,6 +22,8 @@ Line a baking tray with parchment paper, lightly dust with flour, and place the 
 4. Preheat the oven to 230°C. 
 Bring a wide pot of water to a boil, add in 1 tbsp of honey per liter of water.
 Boil the bagels in batches, 1 or 2 minutes per side. 
+Put the bagels in upside down, so that after you flip them over to boil the other side, 
+you can scoop them out onto the baking tray without flipping them again.
 Sprinkle half of them with sesame seeds while they are still wet.
 Once all bagels have been boiled, bake them in the oven for 20-25 minutes.
 
