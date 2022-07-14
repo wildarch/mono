@@ -11,7 +11,6 @@ data class Ap(val func: Expr, val arg: Expr) : Expr()
 data class Let(val isRec: Boolean, val defs: List<Def>, val body: Expr) : Expr()
 data class Case(val expr: Expr, val alters: List<Alter>): Expr()
 data class Lam(val params: List<String>, val body: Expr): Expr()
-// TODO: Check if we want this
 data class BinOp(val lhs: Expr, val op: Operator, val rhs: Expr) : Expr()
 
 data class Alter(val tag: Int, val binds: List<String>, val body: Expr) : AstNode()

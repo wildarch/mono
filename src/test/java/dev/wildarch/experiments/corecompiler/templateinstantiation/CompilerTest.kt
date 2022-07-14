@@ -65,52 +65,81 @@ class CompilerTest {
 
     @Test
     fun compileNegateBasic() {
-        assertEvaluatesTo("""
+        assertEvaluatesTo(
+            """
             main = negate 3
-        """.trimIndent(), -3)
+        """.trimIndent(), -3
+        )
     }
 
     @Test
     fun compileNegateTwice() {
-        assertEvaluatesTo("""
+        assertEvaluatesTo(
+            """
             main = twice negate 3
-        """.trimIndent(), 3)
+        """.trimIndent(), 3
+        )
     }
 
     @Test
     fun compileNegateIndirection() {
-        assertEvaluatesTo("""
+        assertEvaluatesTo(
+            """
             main = negate (I 3)
-        """.trimIndent(), -3)
+        """.trimIndent(), -3
+        )
     }
 
     @Test
     fun compileAddBasic() {
-        assertEvaluatesTo("""
+        assertEvaluatesTo(
+            """
             main = 3 + 3
-        """.trimIndent(), 6)
+        """.trimIndent(), 6
+        )
     }
 
     @Test
     fun compileSubTwice() {
-        assertEvaluatesTo("""
+        assertEvaluatesTo(
+            """
              main = (3 - 2) - 1
-        """.trimIndent(), 0)
+        """.trimIndent(), 0
+        )
     }
 
     @Test
     fun compileMulIndirect() {
-        assertEvaluatesTo("""
+        assertEvaluatesTo(
+            """
             main = (I 6) * (I 8)
-        """.trimIndent(), 48)
+        """.trimIndent(), 48
+        )
+    }
+
+    @Test
+    fun compileIf() {
+        assertEvaluatesTo(
+            """
+            main = if (1 == 2) 1000 42
+        """.trimIndent(), 42
+        )
+
+        assertEvaluatesTo(
+            """
+            main = if (1 < 2) 1000 42
+        """.trimIndent(), 1000
+        )
     }
 
     @Test
     fun compileFactorial() {
-        assertEvaluatesTo("""
+        assertEvaluatesTo(
+            """
             fac n = if (n == 0) 1 (n * fac (n-1)) ;
             main = fac 3
-        """.trimIndent(), 6)
+        """.trimIndent(), 6
+        )
     }
 
     @Test
@@ -183,6 +212,33 @@ class CompilerTest {
             
             main = hd (tl (tl (infinite 4)))
         """.trimIndent(), 4
+        )
+    }
+
+    @Test
+    fun exampleArithmetic() {
+        assertEvaluatesTo(
+            """
+            main = 4*5+(2-5)
+        """.trimIndent(), 17
+        )
+
+        assertEvaluatesTo(
+            """
+            inc x = x+1;
+            main = twice twice inc 4
+        """.trimIndent(), 8
+        )
+
+        assertEvaluatesTo(
+            """
+            cons a b cc cn = cc a b ;
+            nil      cc cn = cn ;
+            length xs = xs length1 0 ;
+            length1 x xs = 1 + (length xs) ;
+            
+            main = length (cons 3 (cons 3 (cons 3 nil)))
+        """.trimIndent(), 3
         )
     }
 

@@ -118,7 +118,7 @@ private fun step(state: TiState): TiState? {
         }
         is NPrim -> {
             when (node.prim) {
-                Primitive.NEG -> {
+                is PrimNeg -> {
                     assert(state.stack.size == 2)
                     // The node on the stack before the NPrim must be NAp with the argument
                     val argApAddr = state.stack.first()
@@ -146,48 +146,40 @@ private fun step(state: TiState): TiState? {
                         }
                     }
                 }
-                Primitive.IF -> {
-                    assert(state.stack.size == 2)
-                    // The node on the stack before the NPrim must be NAp with the argument
-                    val argApAddr = state.stack.first()
-                    val argAp = state.heap[argApAddr] as NAp
-                    val argNode = state.heap[argAp.arg]
-                    when (argNode) {
-                        is NData -> {
-                            // Argument has already been evaluated
-                            assert(argNode.fields.isEmpty())
-                            val targetAddr = when (argNode.tag) {
-                                2 -> {
-                                    // True
-                                    TODO()
-                                }
-                                1 -> {
-                                    // False
-                                    TODO()
-                                }
-                                else -> {
-                                    error("Invalid tag for if")
-                                }
-                            }
+                is PrimIf -> {
+                    // Must have three NAp as ancestors
+                    assert(state.stack.size == 4)
 
-                            val newHeap = state.heap.toMutableMap()
-                            newHeap[argApAddr] = NInd(targetAddr)
-                            val newStack = listOf(targetAddr)
-                            return state.copy(
-                                stack = newStack,
-                                heap = newHeap,
-                            )
-                        }
-                        else -> {
-                            // Argument needs to be evaluated first
-                            val newStack = listOf(argAp.arg)
-                            val newDump = state.dump + listOf(listOf(argApAddr))
-                            return state.copy(
-                                stack = newStack,
-                                dump = newDump,
-                            )
-                        }
+                    // Condition
+                    val argCondApAddr = state.stack[2]
+                    val argCondAp = state.heap[argCondApAddr] as NAp
+                    val argCondNode = state.heap[argCondAp.arg]
+                    if (argCondNode !is NData) {
+                        // cond has not been evaluated yet
+                        val newStack = listOf(argCondAp.arg)
+                        val newDump = state.dump + listOf(listOf(state.stack.first()))
+                        return state.copy(
+                            stack = newStack,
+                            dump = newDump,
+                        )
                     }
+
+                    val takenApAddr = when (argCondNode.tag) {
+                        1 -> state.stack[0]
+                        2 -> state.stack[1]
+                        else -> error("Invalid tag for if")
+                    }
+                    val takenAp = state.heap[takenApAddr] as NAp
+                    // This is the address of the expression we want to evaluate
+                    val takenAddr = takenAp.arg
+
+                    val newHeap = state.heap.toMutableMap()
+                    newHeap[state.stack.first()] = NInd(takenAddr)
+                    val newStack = listOf(takenAddr)
+                    return state.copy(
+                        stack = newStack,
+                        heap = newHeap,
+                    )
                 }
                 else -> {
                     // Must have two NAp as parent and grandparent
@@ -219,15 +211,21 @@ private fun step(state: TiState): TiState? {
                     // Both arguments have been evaluated
                     val lhsVal = argLhsNode.num
                     val rhsVal = argRhsNode.num
-                    val result = when(node.prim) {
-                        Primitive.ADD -> lhsVal + rhsVal
-                        Primitive.SUB -> lhsVal - rhsVal
-                        Primitive.MUL -> lhsVal * rhsVal
-                        Primitive.DIV -> lhsVal / rhsVal
+                    val result = when (node.prim) {
+                        is PrimAdd -> NNum(lhsVal + rhsVal)
+                        is PrimSub -> NNum(lhsVal - rhsVal)
+                        is PrimMul -> NNum(lhsVal * rhsVal)
+                        is PrimDiv -> NNum(lhsVal / rhsVal)
+                        PrimEq -> toNBool(lhsVal == rhsVal)
+                        PrimGt -> toNBool(lhsVal > rhsVal)
+                        PrimGte -> toNBool(lhsVal >= rhsVal)
+                        PrimLt -> toNBool(lhsVal < rhsVal)
+                        PrimLte -> toNBool(lhsVal <= rhsVal)
+                        PrimNeq -> toNBool(lhsVal != rhsVal)
                         else -> error("Not a binary primitive")
                     }
                     val newHeap = state.heap.toMutableMap()
-                    newHeap[argRhsApAddr] = NNum(result)
+                    newHeap[argRhsApAddr] = result
                     val newStack = state.stack.dropLast(2)
                     return state.copy(
                         stack = newStack,
@@ -303,16 +301,16 @@ private fun instantiateNode(body: Expr, heap: Heap, env: Globals): Pair<Heap, No
         }
         is BinOp -> {
             val prim = when (body.op) {
-                Operator.ADD -> NPrim("+", Primitive.ADD)
-                Operator.SUB -> NPrim("-", Primitive.SUB)
-                Operator.MUL -> NPrim("*", Primitive.MUL)
-                Operator.DIV -> NPrim("/", Primitive.DIV)
-                Operator.EQ -> NPrim("==", Primitive.EQ)
-                Operator.NEQ -> NPrim("~=", Primitive.NEQ)
-                Operator.GT -> NPrim(">", Primitive.GT)
-                Operator.GTE -> NPrim(">=", Primitive.GTE)
-                Operator.LT -> NPrim("<", Primitive.LT)
-                Operator.LTE -> NPrim("<=", Primitive.LTE)
+                Operator.ADD -> NPrim("+", PrimAdd)
+                Operator.SUB -> NPrim("-", PrimSub)
+                Operator.MUL -> NPrim("*", PrimMul)
+                Operator.DIV -> NPrim("/", PrimDiv)
+                Operator.EQ -> NPrim("==", PrimEq)
+                Operator.NEQ -> NPrim("~=", PrimNeq)
+                Operator.GT -> NPrim(">", PrimGt)
+                Operator.GTE -> NPrim(">=", PrimGte)
+                Operator.LT -> NPrim("<", PrimLt)
+                Operator.LTE -> NPrim("<=", PrimLte)
                 Operator.AND -> TODO()
                 Operator.OR -> TODO()
             }
@@ -356,11 +354,7 @@ typealias TiStack = List<Addr>
 typealias TiDump = List<TiStack>
 
 data class TiState(
-    val stack: TiStack,
-    val dump: TiDump,
-    val heap: Map<Addr, Node>,
-    val globals: Map<Name, Addr>,
-    val stats: Int
+    val stack: TiStack, val dump: TiDump, val heap: Map<Addr, Node>, val globals: Map<Name, Addr>, val stats: Int
 )
 
 sealed class Node
@@ -371,33 +365,37 @@ data class NInd(val addr: Addr) : Node()
 data class NPrim(val name: String, val prim: Primitive) : Node()
 data class NData(val tag: Int, val fields: List<Addr>) : Node()
 
-enum class Primitive {
-    NEG,
-    ADD,
-    SUB,
-    MUL,
-    DIV,
-    CONSTR,
-    IF,
-    GT,
-    GTE,
-    LT,
-    LTE,
-    EQ,
-    NEQ,
-}
+sealed class Primitive
+object PrimNeg : Primitive()
+object PrimAdd : Primitive()
+object PrimSub : Primitive()
+object PrimMul : Primitive()
+object PrimDiv : Primitive()
+data class PrimConstr(val tag: Int, val arity: Int) : Primitive()
+object PrimIf : Primitive()
+object PrimGt : Primitive()
+object PrimGte : Primitive()
+object PrimLt : Primitive()
+object PrimLte : Primitive()
+object PrimEq : Primitive()
+object PrimNeq : Primitive()
 
 val PRIMITIVES = mapOf(
-    "negate" to Primitive.NEG,
-    "+" to Primitive.ADD,
-    "-" to Primitive.SUB,
-    "*" to Primitive.MUL,
-    "/" to Primitive.DIV,
-    "if" to Primitive.IF,
-    ">" to Primitive.GT,
-    ">=" to Primitive.GTE,
-    "<" to Primitive.LT,
-    "<=" to Primitive.LTE,
-    "==" to Primitive.EQ,
-    "~=" to Primitive.NEQ,
+    "negate" to PrimNeg,
+    "+" to PrimAdd,
+    "-" to PrimSub,
+    "*" to PrimMul,
+    "/" to PrimDiv,
+    "if" to PrimIf,
+    ">" to PrimGt,
+    ">=" to PrimGte,
+    "<" to PrimLt,
+    "<=" to PrimLte,
+    "==" to PrimEq,
+    "~=" to PrimNeq,
 )
+
+val NFALSE = NData(1, listOf())
+val NTRUE = NData(2, listOf())
+
+private fun toNBool(b: Boolean): NData = if (b) NTRUE else NFALSE
