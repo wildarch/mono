@@ -143,6 +143,25 @@ class CompilerTest {
     }
 
     @Test
+    fun compilePair() {
+        assertEvaluatesTo("""
+            MkPair = Pack{1,2} ;
+            fst p = casePair p K ;
+            snd p = casePair p K1 ;
+            
+            main = fst (snd (MkPair (MkPair 1 2) (MkPair 3 4)))
+        """.trimIndent(), 2)
+
+        assertEvaluatesTo("""
+            MkPair = Pack{1,2} ;
+            fst p = casePair p K ;
+            snd p = casePair p K1 ;
+            
+            main = fst (snd (fst (MkPair (MkPair 1 (MkPair 2 3)) 4)))
+        """.trimIndent(), 2)
+    }
+
+    @Test
     fun exampleBasicUltra() {
         assertEvaluatesTo("main = I 3", 3)
         assertEvaluatesTo(
@@ -240,6 +259,16 @@ class CompilerTest {
             main = length (cons 3 (cons 3 (cons 3 nil)))
         """.trimIndent(), 3
         )
+    }
+
+    @Test
+    fun exampleGcd() {
+        assertEvaluatesTo("""
+            gcd a b = if (a==b)
+                        a
+                      (if (a<b) (gcd b a) (gcd b (a-b))) ; 
+            main = gcd 6 10
+        """.trimIndent(), 2)
     }
 
     private fun assertEvaluatesTo(program: String, num: Int): List<TiState> {

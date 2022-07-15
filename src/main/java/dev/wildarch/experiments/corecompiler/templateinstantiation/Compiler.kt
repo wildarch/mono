@@ -92,6 +92,9 @@ private fun step(state: TiState): TiState? {
         is NSuperComb -> {
             val argsEnd = state.stack.size - 1
             val argsStart = argsEnd - node.args.size
+            if (argsStart < 0) {
+                error("Not enough args")
+            }
             val argAddrs = state.stack.subList(argsStart, argsEnd).asReversed().map {
                 when (val argNode = state.heap[it]) {
                     is NAp -> argNode.arg
@@ -181,6 +184,61 @@ private fun step(state: TiState): TiState? {
                         heap = newHeap,
                     )
                 }
+                is PrimConstr -> {
+                    val constr = node.prim
+                    assert(state.stack.size == constr.arity + 1)
+                    // Get the fields
+                    val fields = mutableListOf<Addr>()
+                    val apAddrs = state.stack.subList(0, state.stack.size - 1)
+                    for (apAddr in apAddrs.reversed()) {
+                        val ap = state.heap[apAddr] as NAp
+                        fields.add(ap.arg)
+                    }
+
+                    val newHeap = state.heap.toMutableMap()
+                    newHeap[state.stack.first()] = NData(constr.tag, fields)
+                    val newStack = listOf(state.stack.first())
+                    return state.copy(
+                        stack = newStack,
+                        heap = newHeap,
+                    )
+                }
+                is PrimCasePair -> {
+                    // Must have two NAp as parent and grandparent
+                    assert(state.stack.size == 3)
+
+                    val argDataApAddr = state.stack[1]
+                    val argDataAp = state.heap[argDataApAddr] as NAp
+                    val argData = state.heap[argDataAp.arg]
+                    if (argData !is NData) {
+                        // Pair has not been evaluated yet
+                        val newStack = listOf(argDataAp.arg)
+                        val newDump = state.dump + listOf(listOf(state.stack.first()))
+                        return state.copy(
+                            stack = newStack,
+                            dump = newDump,
+                        )
+                    }
+                    assert(argData.tag == 1)
+                    assert(argData.fields.size == 2)
+                    val lhsAddr = argData.fields[0]
+                    val rhsAddr = argData.fields[1]
+
+                    val argFuncApAddr = state.stack[0]
+                    val argFuncAp = state.heap[argFuncApAddr] as NAp
+
+                    val newHeap = state.heap.toMutableMap()
+                    newHeap[nodeAddr] = NInd(argFuncAp.arg)
+                    newHeap[argDataApAddr] = NAp(argFuncAp.arg, lhsAddr)
+                    newHeap[argFuncApAddr] = NAp(argDataApAddr, rhsAddr)
+
+                    val newStack = listOf(argFuncApAddr)
+
+                    return state.copy(
+                        stack = newStack,
+                        heap = newHeap,
+                    )
+                }
                 else -> {
                     // Must have two NAp as parent and grandparent
                     assert(state.stack.size == 3)
@@ -188,6 +246,7 @@ private fun step(state: TiState): TiState? {
                     val argLhsAp = state.heap[argLhsApAddr] as NAp
                     val argLhsNode = state.heap[argLhsAp.arg]
                     if (argLhsNode !is NNum) {
+                        assert(argLhsNode !is NData)
                         // Left-hand side has not been evaluated yet
                         val newStack = listOf(argLhsAp.arg)
                         val newDump = state.dump + listOf(listOf(state.stack.first()))
@@ -200,6 +259,7 @@ private fun step(state: TiState): TiState? {
                     val argRhsAp = state.heap[argRhsApAddr] as NAp
                     val argRhsNode = state.heap[argRhsAp.arg]
                     if (argRhsNode !is NNum) {
+                        assert(argRhsNode !is NData)
                         // Right-hand side has not been evaluated yet
                         val newStack = listOf(argRhsAp.arg)
                         val newDump = state.dump + listOf(listOf(state.stack.first()))
@@ -320,6 +380,7 @@ private fun instantiateNode(body: Expr, heap: Heap, env: Globals): Pair<Heap, No
             val (heap4, addrArgRhs) = instantiate(body.rhs, heap3, env)
             return Pair(heap4, NAp(addrAp1, addrArgRhs))
         }
+        is Constr -> Pair(heap, NPrim("Pack", PrimConstr(body.tag, body.arity)))
         else -> error("Cannot instantiate: $body")
     }
 }
@@ -379,6 +440,7 @@ object PrimLt : Primitive()
 object PrimLte : Primitive()
 object PrimEq : Primitive()
 object PrimNeq : Primitive()
+object PrimCasePair : Primitive()
 
 val PRIMITIVES = mapOf(
     "negate" to PrimNeg,
@@ -393,6 +455,7 @@ val PRIMITIVES = mapOf(
     "<=" to PrimLte,
     "==" to PrimEq,
     "~=" to PrimNeq,
+    "casePair" to PrimCasePair,
 )
 
 val NFALSE = NData(1, listOf())
