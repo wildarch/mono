@@ -228,7 +228,6 @@ private fun step(state: TiState): TiState? {
                     val argFuncAp = state.heap[argFuncApAddr] as NAp
 
                     val newHeap = state.heap.toMutableMap()
-                    newHeap[nodeAddr] = NInd(argFuncAp.arg)
                     newHeap[argDataApAddr] = NAp(argFuncAp.arg, lhsAddr)
                     newHeap[argFuncApAddr] = NAp(argDataApAddr, rhsAddr)
 

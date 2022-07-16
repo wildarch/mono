@@ -145,12 +145,11 @@ class CompilerTest {
     @Test
     fun compilePair() {
         assertEvaluatesTo("""
-            MkPair = Pack{1,2} ;
             fst p = casePair p K ;
             snd p = casePair p K1 ;
             
-            main = fst (snd (MkPair (MkPair 1 2) (MkPair 3 4)))
-        """.trimIndent(), 2)
+            main = fst (snd (Pack{1,2} (1) (Pack{1,2} 3 4)))
+        """.trimIndent(), 3)
 
         assertEvaluatesTo("""
             MkPair = Pack{1,2} ;
