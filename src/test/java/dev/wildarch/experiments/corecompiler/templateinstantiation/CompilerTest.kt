@@ -270,6 +270,28 @@ class CompilerTest {
         """.trimIndent(), 2)
     }
 
+    // Modified version of nfib, because nfib has a bug for nfib 2 (does not terminate).
+    @Test
+    fun fibonacci() {
+        assertEvaluatesTo("""
+            fib n = if (n <= 1) n (fib (n-1) + fib (n-2)) ;
+            main = fib 7
+        """.trimIndent(), 13)
+    }
+
+    /* TODO: Enable once list printing works
+    @Test
+    fun exampleListOutput() {
+        assertEvaluatesTo("""
+            cons = Pack{2,2} ;
+            nil = Pack{1,0} ;
+            
+            downfrom n = if (n==0) nil (cons n (downfrom (n-1))) ;
+            main = downfrom 4
+        """.trimIndent(), 42)
+    }
+    */
+
     private fun assertEvaluatesTo(program: String, num: Int): List<TiState> {
         val parsed = parse(program)
         val compiled = compile(parsed)

@@ -30,13 +30,13 @@ private fun buildInitialHeap(scDefs: List<ScDefn>): Pair<Heap, Globals> {
     return Pair(heap, globals)
 }
 
-fun eval(state: TiState): List<TiState> {
+fun eval(state: TiState, maxSteps: Int = 2000): List<TiState> {
     val trace = mutableListOf(state)
-    while (true) {
-        val newState = step(trace.last()) ?: break
+    for(i in 0..maxSteps) {
+        val newState = step(trace.last()) ?: return trace
         trace.add(updateStats(newState))
     }
-    return trace
+    error("did not terminate after $maxSteps steps")
 }
 
 private fun updateStats(state: TiState): TiState {
