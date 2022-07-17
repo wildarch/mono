@@ -203,6 +203,18 @@ class CompilerTest {
     }
 
     @Test
+    fun compilePrint() {
+        assertEvaluatesTo("""
+            Nil = Pack{1,0} ;
+            Cons x xs = Pack{2,2} x xs ;
+            printList xs = caseList xs stop printCons ;
+            printCons h t = print h (printList t) ;
+            
+            main = printList (Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil))))
+        """.trimIndent(), listOf(1, 2, 3, 4))
+    }
+
+    @Test
     fun exampleBasicUltra() {
         assertEvaluatesTo("main = I 3", 3)
         assertEvaluatesTo(
@@ -321,18 +333,19 @@ class CompilerTest {
         """.trimIndent(), 13)
     }
 
-    /* TODO: Enable once list printing works
     @Test
     fun exampleListOutput() {
         assertEvaluatesTo("""
             cons = Pack{2,2} ;
             nil = Pack{1,0} ;
+            printList xs = caseList xs stop printCons ;
+            printCons h t = print h (printList t) ;
             
             downfrom n = if (n==0) nil (cons n (downfrom (n-1))) ;
-            main = downfrom 4
-        """.trimIndent(), 42)
+            
+            main = printList (downfrom 6)
+        """.trimIndent(), listOf(6, 5, 4, 3, 2, 1))
     }
-    */
 
     private fun assertEvaluatesTo(program: String, num: Int): List<TiState> {
         val parsed = parse(program)
@@ -347,6 +360,19 @@ class CompilerTest {
         val finalNode = finalState.heap[finalAddr] ?: error("Invalid final addr")
         val finalNum = finalNode as NNum
         assertThat(finalNum.num).isEqualTo(num)
+        return trace
+    }
+
+    private fun assertEvaluatesTo(program: String, output: List<Int>): List<TiState> {
+        val parsed = parse(program)
+        val compiled = compile(parsed)
+        val trace = eval(compiled)
+
+        showResults(trace)
+
+        val finalState = trace.last()
+        assertThat(finalState.stack).isEmpty();
+        assertThat(finalState.output).containsExactlyElementsIn(output)
         return trace
     }
 

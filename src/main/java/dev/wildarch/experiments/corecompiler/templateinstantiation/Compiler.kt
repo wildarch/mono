@@ -11,7 +11,7 @@ fun compile(prog: Program): TiState {
     val mainAddr = globals["main"] ?: error("main is not defined")
     val stack = listOf(mainAddr)
 
-    return TiState(stack, listOf(), initialHeap, globals, stats = 0)
+    return TiState(stack, listOf(), initialHeap, globals, stats = 0, output = emptyList())
 }
 
 private fun buildInitialHeap(scDefs: List<ScDefn>): Pair<Heap, Globals> {
@@ -47,6 +47,9 @@ private fun updateStats(state: TiState): TiState {
 
 // Returns null if the state is final
 private fun step(state: TiState): TiState? {
+    if (state.stack.isEmpty()) {
+        return null
+    }
     val nodeAddr = state.stack.last()
     val node = state.heap[nodeAddr] ?: error("nothing to step, stack is empty")
     return when (node) {
@@ -295,6 +298,43 @@ private fun step(state: TiState): TiState? {
                     assert(state.stack.size == 1)
                     throw AbortException()
                 }
+                is PrimStop -> {
+                    assert(state.stack.size == 1)
+                    assert(state.dump.isEmpty())
+                    return state.copy(
+                        stack = emptyList(),
+                    )
+                }
+                is PrimPrint -> {
+                    // Must have two NAp as parent and grandparent
+                    assert(state.stack.size == 3)
+
+                    val numApAddr = state.stack[1]
+                    val numAp = state.heap[numApAddr] as NAp
+                    val numAddr = numAp.arg
+                    val num = state.heap[numAddr]
+                    if (num !is NNum) {
+                        // Num must be evaluated first
+                        val newStack = listOf(numAddr)
+                        val newDump = state.dump + listOf(listOf(state.stack.first()))
+                        return state.copy(
+                            stack = newStack,
+                            dump = newDump,
+                        )
+                    }
+
+                    val nextApAddr = state.stack[0]
+                    val nextAp = state.heap[nextApAddr] as NAp
+                    val nextAddr = nextAp.arg
+
+                    val newOutput = state.output + num.num
+                    val newStack = listOf(nextAddr)
+
+                    return state.copy(
+                        stack = newStack,
+                        output = newOutput,
+                    )
+                }
                 else -> {
                     // Must have two NAp as parent and grandparent
                     assert(state.stack.size == 3)
@@ -471,7 +511,12 @@ typealias TiStack = List<Addr>
 typealias TiDump = List<TiStack>
 
 data class TiState(
-    val stack: TiStack, val dump: TiDump, val heap: Map<Addr, Node>, val globals: Map<Name, Addr>, val stats: Int
+    val stack: TiStack,
+    val dump: TiDump,
+    val heap: Map<Addr, Node>,
+    val globals: Map<Name, Addr>,
+    val stats: Int,
+    val output: List<Int>,
 )
 
 sealed class Node
@@ -499,6 +544,8 @@ object PrimNeq : Primitive()
 object PrimCasePair : Primitive()
 object PrimCaseList : Primitive()
 object PrimAbort : Primitive()
+object PrimStop : Primitive()
+object PrimPrint : Primitive()
 
 val PRIMITIVES = mapOf(
     "negate" to PrimNeg,
@@ -516,6 +563,8 @@ val PRIMITIVES = mapOf(
     "casePair" to PrimCasePair,
     "caseList" to PrimCaseList,
     "abort" to PrimAbort,
+    "stop" to PrimStop,
+    "print" to PrimPrint,
 )
 
 val NFALSE = NData(1, listOf())
