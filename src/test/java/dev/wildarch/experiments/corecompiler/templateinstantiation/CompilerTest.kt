@@ -161,6 +161,20 @@ class CompilerTest {
     }
 
     @Test
+    fun compileLength() {
+        assertEvaluatesTo("""
+            Nil = Pack{1,0} ;
+            Cons x xs = Pack{2,2} x xs ;
+            
+            length xs = caseList xs 0 length' ;
+            length' x xs = 1 + length xs ;
+            
+            main = length (Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil))))
+            
+        """.trimIndent(), 4)
+    }
+
+    @Test
     fun exampleBasicUltra() {
         assertEvaluatesTo("main = I 3", 3)
         assertEvaluatesTo(

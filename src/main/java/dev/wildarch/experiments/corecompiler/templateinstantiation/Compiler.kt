@@ -238,6 +238,59 @@ private fun step(state: TiState): TiState? {
                         heap = newHeap,
                     )
                 }
+                is PrimCaseList -> {
+                    // Must have three NAp as ancestors
+                    assert(state.stack.size == 4)
+
+                    val argDataApAddr = state.stack[2]
+                    val argDataAp = state.heap[argDataApAddr] as NAp
+                    val argData = state.heap[argDataAp.arg]
+                    if (argData !is NData) {
+                        // List has not been evaluated yet
+                        val newStack = listOf(argDataAp.arg)
+                        val newDump = state.dump + listOf(listOf(state.stack.first()))
+                        return state.copy(
+                            stack = newStack,
+                            dump = newDump,
+                        )
+                    }
+                    val newHeap = state.heap.toMutableMap()
+                    val newStack : TiStack
+                    when (argData.tag) {
+                        1 -> {
+                            // Nil
+                            assert(argData.fields.isEmpty())
+
+                            val targetApAddr = state.stack[1]
+                            val targetAp = state.heap[targetApAddr] as NAp
+                            // This is the case nil address
+                            val targetAddr = targetAp.arg
+                            newHeap[state.stack.first()] = NInd(targetAddr)
+                            newStack = listOf(targetAddr)
+                        }
+                        2 -> {
+                            // Cons
+                            assert(argData.fields.size == 2)
+                            val headAddr = argData.fields[0]
+                            val tailAddr = argData.fields[1]
+
+                            val targetApAddr = state.stack[0]
+                            val targetAp = state.heap[targetApAddr] as NAp
+                            // This is the case cons address
+                            val targetAddr = targetAp.arg
+
+                            newHeap[state.stack[1]] = NAp(targetAddr, headAddr)
+                            newHeap[state.stack[0]] = NAp(state.stack[1], tailAddr)
+                            newStack = listOf(state.stack[0])
+                        }
+                        else -> error("Invalid tag for list")
+                    }
+
+                    return state.copy(
+                        stack = newStack,
+                        heap = newHeap,
+                    )
+                }
                 else -> {
                     // Must have two NAp as parent and grandparent
                     assert(state.stack.size == 3)
@@ -440,6 +493,7 @@ object PrimLte : Primitive()
 object PrimEq : Primitive()
 object PrimNeq : Primitive()
 object PrimCasePair : Primitive()
+object PrimCaseList : Primitive()
 
 val PRIMITIVES = mapOf(
     "negate" to PrimNeg,
@@ -455,6 +509,7 @@ val PRIMITIVES = mapOf(
     "==" to PrimEq,
     "~=" to PrimNeq,
     "casePair" to PrimCasePair,
+    "caseList" to PrimCaseList,
 )
 
 val NFALSE = NData(1, listOf())

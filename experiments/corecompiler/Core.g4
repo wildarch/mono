@@ -26,7 +26,7 @@ CASE : 'case';
 OF : 'of';
 
 WS: [ \t\r\n]+ -> skip;
-VAR: [a-zA-Z] [a-zA-Z0-9_]*;
+VAR: [a-zA-Z] [a-zA-Z0-9_']*;
 NUM: [0-9]+;
 
 program: sc (';' sc)* EOF;
