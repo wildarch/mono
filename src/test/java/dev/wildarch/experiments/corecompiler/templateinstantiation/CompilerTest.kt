@@ -2,6 +2,7 @@ package dev.wildarch.experiments.corecompiler.templateinstantiation
 
 import com.google.common.truth.Truth.assertThat
 import dev.wildarch.experiments.corecompiler.parser.parse
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class CompilerTest {
@@ -175,6 +176,33 @@ class CompilerTest {
     }
 
     @Test
+    fun compileHead() {
+        assertEvaluatesTo("""
+            Nil = Pack{1,0} ;
+            Cons x xs = Pack{2,2} x xs ;
+            head xs = caseList xs abort K ;
+            
+            main = head (Cons 1 Nil)
+        """.trimIndent(), 1)
+
+        assertEvaluatesTo("""
+            Nil = Pack{1,0} ;
+            Cons x xs = Pack{2,2} x xs ;
+            head xs = caseList xs abort K ;
+            
+            main = head (Cons 4 (Cons 3 Nil))
+        """.trimIndent(), 4)
+
+        assertAborts("""
+            Nil = Pack{1,0} ;
+            Cons x xs = Pack{2,2} x xs ;
+            head xs = caseList xs abort K ;
+            
+            main = head Nil
+        """.trimIndent())
+    }
+
+    @Test
     fun exampleBasicUltra() {
         assertEvaluatesTo("main = I 3", 3)
         assertEvaluatesTo(
@@ -320,5 +348,11 @@ class CompilerTest {
         val finalNum = finalNode as NNum
         assertThat(finalNum.num).isEqualTo(num)
         return trace
+    }
+
+    private fun assertAborts(program: String) {
+        val parsed = parse(program)
+        val compiled = compile(parsed)
+        assertThrows(AbortException::class.java) { eval(compiled) }
     }
 }

@@ -32,7 +32,7 @@ private fun buildInitialHeap(scDefs: List<ScDefn>): Pair<Heap, Globals> {
 
 fun eval(state: TiState, maxSteps: Int = 2000): List<TiState> {
     val trace = mutableListOf(state)
-    for(i in 0..maxSteps) {
+    for (i in 0..maxSteps) {
         val newState = step(trace.last()) ?: return trace
         trace.add(updateStats(newState))
     }
@@ -255,7 +255,7 @@ private fun step(state: TiState): TiState? {
                         )
                     }
                     val newHeap = state.heap.toMutableMap()
-                    val newStack : TiStack
+                    val newStack: TiStack
                     when (argData.tag) {
                         1 -> {
                             // Nil
@@ -290,6 +290,10 @@ private fun step(state: TiState): TiState? {
                         stack = newStack,
                         heap = newHeap,
                     )
+                }
+                is PrimAbort -> {
+                    assert(state.stack.size == 1)
+                    throw AbortException()
                 }
                 else -> {
                     // Must have two NAp as parent and grandparent
@@ -494,6 +498,7 @@ object PrimEq : Primitive()
 object PrimNeq : Primitive()
 object PrimCasePair : Primitive()
 object PrimCaseList : Primitive()
+object PrimAbort : Primitive()
 
 val PRIMITIVES = mapOf(
     "negate" to PrimNeg,
@@ -510,9 +515,12 @@ val PRIMITIVES = mapOf(
     "~=" to PrimNeq,
     "casePair" to PrimCasePair,
     "caseList" to PrimCaseList,
+    "abort" to PrimAbort,
 )
 
 val NFALSE = NData(1, listOf())
 val NTRUE = NData(2, listOf())
 
 private fun toNBool(b: Boolean): NData = if (b) NTRUE else NFALSE
+
+class AbortException : Exception()
