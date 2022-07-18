@@ -95,6 +95,8 @@ Instead we can extract a list of ingredients with a dedicated markdown parser, a
 
 The current grammar is used to check that we can parse the ingredients of all recipes, but since the grammar is very lenient, I do not think it actually validates much, besides checking that an ingredients section exists.
 
+Since all this code is very experimental, it currently lives under `//experiments//recipes`.
+
 ## Mapping to product available at AH
 For this we need some kind of database or lookup table with valid product names.
 Just having a list of valid product names will make parsing much more reliable.

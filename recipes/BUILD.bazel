@@ -1,0 +1,5 @@
+filegroup(
+    name = "recipes",
+    srcs = glob(["collections/**/*.md"]),
+    visibility = ["//visibility:public"],
+)
