@@ -1,0 +1,10 @@
+load("@io_bazel_rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+
+kt_jvm_library(
+    name = "syntax",
+    srcs = [
+        "Expr.kt",
+        "Program.kt",
+    ],
+    visibility = ["//src/main/java/dev/wildarch/experiments/corecompiler:package"],
+)

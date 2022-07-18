@@ -1,0 +1,29 @@
+load("@io_bazel_rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+
+kt_jvm_library(
+    name = "CoreCompiler",
+    srcs = [
+        "CoreCompiler.kt",
+    ],
+    deps = [
+        "//src/main/java/dev/wildarch/experiments/corecompiler/parser",
+    ],
+)
+
+java_binary(
+    name = "CoreCompiler_run",
+    main_class = "dev.wildarch.experiments.corecompiler.CoreCompilerKt",
+    runtime_deps = [":CoreCompiler"],
+)
+
+package_group(
+    name = "package",
+    packages = [
+        "//src/main/java/dev/wildarch/experiments/corecompiler",
+        "//src/main/java/dev/wildarch/experiments/corecompiler/parser",
+        "//src/main/java/dev/wildarch/experiments/corecompiler/prelude",
+        "//src/main/java/dev/wildarch/experiments/corecompiler/syntax",
+        "//src/main/java/dev/wildarch/experiments/corecompiler/templateinstantiation",
+        "//src/test/java/dev/wildarch/experiments/corecompiler/templateinstantiation",
+    ],
+)
