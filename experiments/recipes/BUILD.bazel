@@ -1,0 +1,19 @@
+load("//rules:shell.bzl", "sh_test")
+
+filegroup(
+    name = "recipes",
+    srcs = glob(["collections/**/*.md"]),
+)
+
+sh_test(
+    name = "validate_recipes",
+    srcs = ["validate_recipes.sh"],
+    data = [
+        ":recipes",
+        "//src/main/java/dev/wildarch/experiments/recipes:RecipeValidator",
+    ],
+    env = {
+        "VALIDATOR": "$(location //src/main/java/dev/wildarch/experiments/recipes:RecipeValidator)",
+        "RECIPES": "$(locations :recipes)",
+    },
+)

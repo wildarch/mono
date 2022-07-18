@@ -46,7 +46,7 @@ kotlin_repositories()  # if you want the default. Otherwise see custom kotlinc d
 
 load("@io_bazel_rules_kotlin//kotlin:core.bzl", "kt_register_toolchains")
 
-kt_register_toolchains()  # to use the default toolchain, otherwise see toolchains below
+kt_register_toolchains()
 
 # ANTLR
 http_archive(
@@ -86,6 +86,7 @@ maven_install(
     artifacts = [
         "junit:junit:4.12",
         "com.google.truth:truth:1.1.3",
+        "org.commonmark:commonmark:0.18.1",
     ],
     repositories = [
         "https://maven.google.com",
