@@ -11,7 +11,7 @@
           - xaver.clang-format
           - golang.Go
           - james-yu.latex-workshop
-          - rust-lang.rust
+          - rust-lang.rust-analyzer
         visual_studio_code_settings: {
           "workbench.startupEditor": "none",
           "extensions.ignoreRecommendations": true,
