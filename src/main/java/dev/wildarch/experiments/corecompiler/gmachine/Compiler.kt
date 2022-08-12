@@ -167,7 +167,18 @@ private fun compileC(expr: Expr, env: GmEnv): GmCode {
         is Case -> TODO()
         is Constr -> TODO()
         is Lam -> TODO()
-        is Let -> TODO()
+        is Let -> if (expr.isRec) {
+            TODO()
+        } else {
+            val letBinds = buildMap {
+                expr.defs.forEachIndexed { index, def ->
+                    put(def.name, expr.defs.size - 1 - index)
+                }
+            }
+            return expr.defs.flatMapIndexed { index, def ->
+                compileC(def.expr, argOffset(env, index))
+            } + compileC(expr.body, argOffset(env, expr.defs.size) + letBinds) + listOf(Slide(expr.defs.size))
+        }
         is Num -> listOf(Pushint(expr.value))
         is Var -> {
             val name = expr.name

@@ -21,6 +21,20 @@ class CompilerTest {
     }
 
     @Test
+    fun compileLet() {
+        assertEvaluatesTo(
+            """
+             main = 
+               let 
+                 i = I 
+               in 
+                 i 42
+        """.trimIndent(), 42
+        )
+    }
+
+
+    @Test
     fun exampleBasicUltra() {
         assertEvaluatesTo("main = I 3", 3)
         assertEvaluatesTo(
