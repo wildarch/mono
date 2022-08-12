@@ -1,5 +1,8 @@
 package dev.wildarch.experiments.corecompiler.gmachine
 
+import dev.wildarch.experiments.corecompiler.prelude.preludeDefs
+import dev.wildarch.experiments.corecompiler.syntax.*
+
 fun eval(initialState: GmState): List<GmState> {
     val trace = mutableListOf(initialState)
     while (!trace.last().isFinal()) {
@@ -64,7 +67,18 @@ private fun slide(n: Int, state: GmState): GmState {
 }
 
 private fun unwind(state: GmState): GmState {
-    TODO("Not yet implemented")
+    val top = state.stack.last()
+    return when (val topNode = state.heap[top]!!) {
+        // Evaluation is done
+        is NNum -> state
+        // Continue to unwind from next node in Ap chain
+        is NAp -> state.copy(code = listOf(Unwind), stack = state.stack + topNode.func)
+        is NGlobal -> {
+            assert(state.stack.size > topNode.argc) { "Not enough arguments to supercombinator" }
+            return state.copy(code = topNode.code)
+        }
+    }
+
 }
 
 private fun doAdmin(state: GmState): GmState {
@@ -80,6 +94,67 @@ private fun heapAlloc(heap: GmHeap, node: Node): Pair<GmHeap, Addr> {
     return Pair(newHeap, addr)
 }
 
+fun compile(program: Program): GmState {
+    val initialCode = listOf(
+        Pushglobal("main"),
+        Unwind,
+    )
+    val statInitial = 0
+    val scDefs = program.defs + preludeDefs()
+    val (heap, globals) = buildInitialHeap(scDefs)
+    return GmState(
+        code = initialCode,
+        stack = emptyList(),
+        heap = heap,
+        globals = globals,
+        stats = statInitial,
+    )
+}
+
+private fun buildInitialHeap(defs: List<ScDefn>): Pair<GmHeap, GmGlobals> {
+    val globals = mutableMapOf<Name, Addr>()
+    var heap: GmHeap = emptyMap()
+    for (def in defs) {
+        val compiled = compileSc(def)
+        val (newHeap, addr) = heapAlloc(heap, compiled)
+        heap = newHeap
+        globals[def.name] = addr
+    }
+    return Pair(heap, globals)
+}
+
+private fun compileSc(def: ScDefn): NGlobal {
+    val env = mutableMapOf<Name, Int>()
+    def.params.forEachIndexed { index, param -> env[param] = index }
+    return NGlobal(def.params.size, compileR(def.body, env, def.params.size))
+}
+
+private fun compileR(expr: Expr, env: GmEnv, arity: Int): GmCode {
+    return compileC(expr, env) + listOf(Slide(arity + 1), Unwind)
+}
+
+private fun compileC(expr: Expr, env: GmEnv): GmCode {
+    return when (expr) {
+        is Ap -> return compileC(expr.arg, env) + compileC(expr.func, argOffset(env, 1)) + listOf(MkAp)
+        is BinOp -> TODO()
+        is Case -> TODO()
+        is Constr -> TODO()
+        is Lam -> TODO()
+        is Let -> TODO()
+        is Num -> listOf(Pushint(expr.value))
+        is Var -> {
+            val name = expr.name
+            when (val argIndex = env[name]) {
+                // Not found in environment, must be a global
+                null -> listOf(Pushglobal(name))
+                // Local variable
+                else -> listOf(Push(argIndex))
+            }
+        }
+    }
+}
+
+private fun argOffset(env: GmEnv, offset: Int) = env.mapValues { it.value + offset }
 
 data class GmState(
     val code: GmCode,
@@ -100,6 +175,7 @@ typealias GmStack = List<Addr>
 typealias GmHeap = Map<Addr, Node>
 typealias GmGlobals = Map<Name, Addr>
 typealias GmStats = Int
+typealias GmEnv = Map<Name, Int>
 typealias Addr = Int
 typealias Name = String
 
