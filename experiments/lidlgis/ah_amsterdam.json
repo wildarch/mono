@@ -1,0 +1,3397 @@
+[
+    {
+        "data": {
+            "stores": {
+                "result": [
+                    {
+                        "id": 1090,
+                        "name": "AH1090 AMSTERDAM",
+                        "storeType": "REGULAR",
+                        "phone": "0204702495",
+                        "distance": null,
+                        "address": {
+                            "city": "Amsterdam",
+                            "street": "Amstelveenseweg",
+                            "houseNumber": "186",
+                            "houseNumberExtra": null,
+                            "postalCode": "1075XR",
+                            "countryCode": "NLD",
+                            "__typename": "StoreAddress"
+                        },
+                        "geoLocation": {
+                            "latitude": 52.35254,
+                            "longitude": 4.855586,
+                            "__typename": "GeoLocation"
+                        },
+                        "services": [
+                            {
+                                "code": "AOS",
+                                "description": "Is er een product niet geleverd of beschadigd bij je online bestelling? Of wil je je blauwe klapkratten inleveren? Kom langs bij het ah.nl servicepunt",
+                                "shortDescription": "Ah.nl servicepunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLP",
+                                "description": "Ook voor mooie bloemen en planten kun je bij ons terecht. Voor jezelf of om cadeau te geven.",
+                                "shortDescription": "Bloemen en planten",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "FTS",
+                                "description": "Foto's bestellen voor een scherpe prijs. En de beste inspiratie voor je mooiste foto's.",
+                                "shortDescription": "Fotoservice",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "OVS",
+                                "description": "Voor het kopen en opladen van een anonieme OV-chipkaart of een wegwerpchipkaart. ",
+                                "shortDescription": "OV-service",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "PKB",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (betaald)",
+                                "__typename": "StoreService"
+                            }
+                        ],
+                        "openingDays": [
+                            {
+                                "dayName": "maandag",
+                                "type": "PAST",
+                                "date": "2022-08-08",
+                                "nextWeekDate": "2022-08-15",
+                                "openingHour": {
+                                    "date": "2022-08-08",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-15",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "dinsdag",
+                                "type": "PAST",
+                                "date": "2022-08-09",
+                                "nextWeekDate": "2022-08-16",
+                                "openingHour": {
+                                    "date": "2022-08-09",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-16",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "woensdag",
+                                "type": "CURRENT",
+                                "date": "2022-08-10",
+                                "nextWeekDate": "2022-08-17",
+                                "openingHour": {
+                                    "date": "2022-08-10",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-17",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "donderdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-11",
+                                "nextWeekDate": "2022-08-18",
+                                "openingHour": {
+                                    "date": "2022-08-11",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-18",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "vrijdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-12",
+                                "nextWeekDate": "2022-08-19",
+                                "openingHour": {
+                                    "date": "2022-08-12",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-19",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zaterdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-13",
+                                "nextWeekDate": "2022-08-20",
+                                "openingHour": {
+                                    "date": "2022-08-13",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-20",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zondag",
+                                "type": "FUTURE",
+                                "date": "2022-08-14",
+                                "nextWeekDate": "2022-08-21",
+                                "openingHour": {
+                                    "date": "2022-08-14",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-21",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            }
+                        ],
+                        "__typename": "Store"
+                    },
+                    {
+                        "id": 1340,
+                        "name": "AH1340 AMSTERDAM",
+                        "storeType": "REGULAR",
+                        "phone": "0206154201",
+                        "distance": null,
+                        "address": {
+                            "city": "Amsterdam",
+                            "street": "August Allebéplein",
+                            "houseNumber": "12",
+                            "houseNumberExtra": null,
+                            "postalCode": "1062AC",
+                            "countryCode": "NLD",
+                            "__typename": "StoreAddress"
+                        },
+                        "geoLocation": {
+                            "latitude": 52.363747,
+                            "longitude": 4.83779,
+                            "__typename": "GeoLocation"
+                        },
+                        "services": [
+                            {
+                                "code": "AOS",
+                                "description": "Is er een product niet geleverd of beschadigd bij je online bestelling? Of wil je je blauwe klapkratten inleveren? Kom langs bij het ah.nl servicepunt",
+                                "shortDescription": "Ah.nl servicepunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLA",
+                                "description": "Tijdens het boodschappen doen je bol.com bestelling afhalen.",
+                                "shortDescription": "Bol.com afhaalpunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLP",
+                                "description": "Ook voor mooie bloemen en planten kun je bij ons terecht. Voor jezelf of om cadeau te geven.",
+                                "shortDescription": "Bloemen en planten",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "FTS",
+                                "description": "Foto's bestellen voor een scherpe prijs. En de beste inspiratie voor je mooiste foto's.",
+                                "shortDescription": "Fotoservice",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "GDA",
+                                "description": "Voor contant geld kun je bij AH-winkels met een geldautomaat pinnen.",
+                                "shortDescription": "Geldautomaat",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "GGG",
+                                "description": "Gall & Gall Gemak biedt je een compleet assortiment whisky, cognac, likeuren, mixables en binnenlands gedistilleerd.",
+                                "shortDescription": "Gall en Gall gemak",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "HLA",
+                                "description": "AH verkoopt rund-, lams- en kippenvlees dat 100% halal is.",
+                                "shortDescription": "Halal assortiment",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "LTR",
+                                "description": "Loten van je favoriete loterij koop je bij AH-winkels met een servicebalie (assortiment kan verschillen per winkel).",
+                                "shortDescription": "Loterijen",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "OVS",
+                                "description": "Voor het kopen en opladen van een anonieme OV-chipkaart of een wegwerpchipkaart. ",
+                                "shortDescription": "OV-service",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "PBZ",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (blauwe zone)",
+                                "__typename": "StoreService"
+                            }
+                        ],
+                        "openingDays": [
+                            {
+                                "dayName": "maandag",
+                                "type": "PAST",
+                                "date": "2022-08-08",
+                                "nextWeekDate": "2022-08-15",
+                                "openingHour": {
+                                    "date": "2022-08-08",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-15",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "dinsdag",
+                                "type": "PAST",
+                                "date": "2022-08-09",
+                                "nextWeekDate": "2022-08-16",
+                                "openingHour": {
+                                    "date": "2022-08-09",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-16",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "woensdag",
+                                "type": "CURRENT",
+                                "date": "2022-08-10",
+                                "nextWeekDate": "2022-08-17",
+                                "openingHour": {
+                                    "date": "2022-08-10",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-17",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "donderdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-11",
+                                "nextWeekDate": "2022-08-18",
+                                "openingHour": {
+                                    "date": "2022-08-11",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-18",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "vrijdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-12",
+                                "nextWeekDate": "2022-08-19",
+                                "openingHour": {
+                                    "date": "2022-08-12",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-19",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zaterdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-13",
+                                "nextWeekDate": "2022-08-20",
+                                "openingHour": {
+                                    "date": "2022-08-13",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-20",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zondag",
+                                "type": "FUTURE",
+                                "date": "2022-08-14",
+                                "nextWeekDate": "2022-08-21",
+                                "openingHour": {
+                                    "date": "2022-08-14",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-21",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            }
+                        ],
+                        "__typename": "Store"
+                    },
+                    {
+                        "id": 1598,
+                        "name": "AH1598 AMSTERDAM",
+                        "storeType": "REGULAR",
+                        "phone": "0206142016",
+                        "distance": null,
+                        "address": {
+                            "city": "Amsterdam",
+                            "street": "Belgieplein",
+                            "houseNumber": "107",
+                            "houseNumberExtra": null,
+                            "postalCode": "1066RC",
+                            "countryCode": "NLD",
+                            "__typename": "StoreAddress"
+                        },
+                        "geoLocation": {
+                            "latitude": 52.345864,
+                            "longitude": 4.811772,
+                            "__typename": "GeoLocation"
+                        },
+                        "services": [
+                            {
+                                "code": "AOS",
+                                "description": "Is er een product niet geleverd of beschadigd bij je online bestelling? Of wil je je blauwe klapkratten inleveren? Kom langs bij het ah.nl servicepunt",
+                                "shortDescription": "Ah.nl servicepunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLA",
+                                "description": "Tijdens het boodschappen doen je bol.com bestelling afhalen.",
+                                "shortDescription": "Bol.com afhaalpunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "FTS",
+                                "description": "Foto's bestellen voor een scherpe prijs. En de beste inspiratie voor je mooiste foto's.",
+                                "shortDescription": "Fotoservice",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "GDA",
+                                "description": "Voor contant geld kun je bij AH-winkels met een geldautomaat pinnen.",
+                                "shortDescription": "Geldautomaat",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "LTR",
+                                "description": "Loten van je favoriete loterij koop je bij AH-winkels met een servicebalie (assortiment kan verschillen per winkel).",
+                                "shortDescription": "Loterijen",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "OVS",
+                                "description": "Voor het kopen en opladen van een anonieme OV-chipkaart of een wegwerpchipkaart. ",
+                                "shortDescription": "OV-service",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "PBZ",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (blauwe zone)",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "ZFS",
+                                "description": "Je kan in deze winkel zelf je boodschappen scannen.",
+                                "shortDescription": "Zelfscan",
+                                "__typename": "StoreService"
+                            }
+                        ],
+                        "openingDays": [
+                            {
+                                "dayName": "maandag",
+                                "type": "PAST",
+                                "date": "2022-08-08",
+                                "nextWeekDate": "2022-08-15",
+                                "openingHour": {
+                                    "date": "2022-08-08",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-15",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "dinsdag",
+                                "type": "PAST",
+                                "date": "2022-08-09",
+                                "nextWeekDate": "2022-08-16",
+                                "openingHour": {
+                                    "date": "2022-08-09",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-16",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "woensdag",
+                                "type": "CURRENT",
+                                "date": "2022-08-10",
+                                "nextWeekDate": "2022-08-17",
+                                "openingHour": {
+                                    "date": "2022-08-10",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-17",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "donderdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-11",
+                                "nextWeekDate": "2022-08-18",
+                                "openingHour": {
+                                    "date": "2022-08-11",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-18",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "vrijdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-12",
+                                "nextWeekDate": "2022-08-19",
+                                "openingHour": {
+                                    "date": "2022-08-12",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-19",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zaterdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-13",
+                                "nextWeekDate": "2022-08-20",
+                                "openingHour": {
+                                    "date": "2022-08-13",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-20",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zondag",
+                                "type": "FUTURE",
+                                "date": "2022-08-14",
+                                "nextWeekDate": "2022-08-21",
+                                "openingHour": {
+                                    "date": "2022-08-14",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-21",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            }
+                        ],
+                        "__typename": "Store"
+                    },
+                    {
+                        "id": 1879,
+                        "name": "AH1879 AMSTERDAM",
+                        "storeType": "REGULAR",
+                        "phone": "0203034217",
+                        "distance": null,
+                        "address": {
+                            "city": "Amsterdam",
+                            "street": "Bercylaan",
+                            "houseNumber": "5",
+                            "houseNumberExtra": null,
+                            "postalCode": "1031KP",
+                            "countryCode": "NLD",
+                            "__typename": "StoreAddress"
+                        },
+                        "geoLocation": {
+                            "latitude": 52.385078,
+                            "longitude": 4.903564,
+                            "__typename": "GeoLocation"
+                        },
+                        "services": [
+                            {
+                                "code": "AOS",
+                                "description": "Is er een product niet geleverd of beschadigd bij je online bestelling? Of wil je je blauwe klapkratten inleveren? Kom langs bij het ah.nl servicepunt",
+                                "shortDescription": "Ah.nl servicepunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "OVS",
+                                "description": "Voor het kopen en opladen van een anonieme OV-chipkaart of een wegwerpchipkaart. ",
+                                "shortDescription": "OV-service",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "PGR",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (gratis)",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "WFS",
+                                "description": "Om gebruik te maken van internet in de winkels bieden we gratis draadloos internet aan.",
+                                "shortDescription": "WiFi-service",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "ZFS",
+                                "description": "Je kan in deze winkel zelf je boodschappen scannen.",
+                                "shortDescription": "Zelfscan",
+                                "__typename": "StoreService"
+                            }
+                        ],
+                        "openingDays": [
+                            {
+                                "dayName": "maandag",
+                                "type": "PAST",
+                                "date": "2022-08-08",
+                                "nextWeekDate": "2022-08-15",
+                                "openingHour": {
+                                    "date": "2022-08-08",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-15",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "dinsdag",
+                                "type": "PAST",
+                                "date": "2022-08-09",
+                                "nextWeekDate": "2022-08-16",
+                                "openingHour": {
+                                    "date": "2022-08-09",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-16",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "woensdag",
+                                "type": "CURRENT",
+                                "date": "2022-08-10",
+                                "nextWeekDate": "2022-08-17",
+                                "openingHour": {
+                                    "date": "2022-08-10",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-17",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "donderdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-11",
+                                "nextWeekDate": "2022-08-18",
+                                "openingHour": {
+                                    "date": "2022-08-11",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-18",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "vrijdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-12",
+                                "nextWeekDate": "2022-08-19",
+                                "openingHour": {
+                                    "date": "2022-08-12",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-19",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zaterdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-13",
+                                "nextWeekDate": "2022-08-20",
+                                "openingHour": {
+                                    "date": "2022-08-13",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-20",
+                                    "openFrom": "08:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zondag",
+                                "type": "FUTURE",
+                                "date": "2022-08-14",
+                                "nextWeekDate": "2022-08-21",
+                                "openingHour": {
+                                    "date": "2022-08-14",
+                                    "openFrom": "10:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-21",
+                                    "openFrom": "10:00",
+                                    "openUntil": "21:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            }
+                        ],
+                        "__typename": "Store"
+                    },
+                    {
+                        "id": 1117,
+                        "name": "AH1117 AMSTERDAM",
+                        "storeType": "REGULAR",
+                        "phone": "0206833040",
+                        "distance": null,
+                        "address": {
+                            "city": "Amsterdam",
+                            "street": "Bilderdijkstraat",
+                            "houseNumber": "37",
+                            "houseNumberExtra": "H",
+                            "postalCode": "1053KK",
+                            "countryCode": "NLD",
+                            "__typename": "StoreAddress"
+                        },
+                        "geoLocation": {
+                            "latitude": 52.370895,
+                            "longitude": 4.8703,
+                            "__typename": "GeoLocation"
+                        },
+                        "services": [
+                            {
+                                "code": "AOS",
+                                "description": "Is er een product niet geleverd of beschadigd bij je online bestelling? Of wil je je blauwe klapkratten inleveren? Kom langs bij het ah.nl servicepunt",
+                                "shortDescription": "Ah.nl servicepunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLA",
+                                "description": "Tijdens het boodschappen doen je bol.com bestelling afhalen.",
+                                "shortDescription": "Bol.com afhaalpunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLP",
+                                "description": "Ook voor mooie bloemen en planten kun je bij ons terecht. Voor jezelf of om cadeau te geven.",
+                                "shortDescription": "Bloemen en planten",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "GDA",
+                                "description": "Voor contant geld kun je bij AH-winkels met een geldautomaat pinnen.",
+                                "shortDescription": "Geldautomaat",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "HLA",
+                                "description": "AH verkoopt rund-, lams- en kippenvlees dat 100% halal is.",
+                                "shortDescription": "Halal assortiment",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "LTR",
+                                "description": "Loten van je favoriete loterij koop je bij AH-winkels met een servicebalie (assortiment kan verschillen per winkel).",
+                                "shortDescription": "Loterijen",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "OVS",
+                                "description": "Voor het kopen en opladen van een anonieme OV-chipkaart of een wegwerpchipkaart. ",
+                                "shortDescription": "OV-service",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "PKB",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (betaald)",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "SB",
+                                "description": "Verse sushi die de hele dag door in de winkel wordt bereid door gespecialiseerde sushichefs.",
+                                "shortDescription": "Sushibar",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "WFS",
+                                "description": "Om gebruik te maken van internet in de winkels bieden we gratis draadloos internet aan.",
+                                "shortDescription": "WiFi-service",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "ZFS",
+                                "description": "Je kan in deze winkel zelf je boodschappen scannen.",
+                                "shortDescription": "Zelfscan",
+                                "__typename": "StoreService"
+                            }
+                        ],
+                        "openingDays": [
+                            {
+                                "dayName": "maandag",
+                                "type": "PAST",
+                                "date": "2022-08-08",
+                                "nextWeekDate": "2022-08-15",
+                                "openingHour": {
+                                    "date": "2022-08-08",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-15",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "dinsdag",
+                                "type": "PAST",
+                                "date": "2022-08-09",
+                                "nextWeekDate": "2022-08-16",
+                                "openingHour": {
+                                    "date": "2022-08-09",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-16",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "woensdag",
+                                "type": "CURRENT",
+                                "date": "2022-08-10",
+                                "nextWeekDate": "2022-08-17",
+                                "openingHour": {
+                                    "date": "2022-08-10",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-17",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "donderdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-11",
+                                "nextWeekDate": "2022-08-18",
+                                "openingHour": {
+                                    "date": "2022-08-11",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-18",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "vrijdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-12",
+                                "nextWeekDate": "2022-08-19",
+                                "openingHour": {
+                                    "date": "2022-08-12",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-19",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zaterdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-13",
+                                "nextWeekDate": "2022-08-20",
+                                "openingHour": {
+                                    "date": "2022-08-13",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-20",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zondag",
+                                "type": "FUTURE",
+                                "date": "2022-08-14",
+                                "nextWeekDate": "2022-08-21",
+                                "openingHour": {
+                                    "date": "2022-08-14",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-21",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            }
+                        ],
+                        "__typename": "Store"
+                    },
+                    {
+                        "id": 1276,
+                        "name": "AH1276 AMSTERDAM",
+                        "storeType": "REGULAR",
+                        "phone": "0204868080",
+                        "distance": null,
+                        "address": {
+                            "city": "Amsterdam",
+                            "street": "Bos en Lommerweg",
+                            "houseNumber": "117",
+                            "houseNumberExtra": null,
+                            "postalCode": "1055DR",
+                            "countryCode": "NLD",
+                            "__typename": "StoreAddress"
+                        },
+                        "geoLocation": {
+                            "latitude": 52.381849,
+                            "longitude": 4.855705,
+                            "__typename": "GeoLocation"
+                        },
+                        "services": [
+                            {
+                                "code": "AOS",
+                                "description": "Is er een product niet geleverd of beschadigd bij je online bestelling? Of wil je je blauwe klapkratten inleveren? Kom langs bij het ah.nl servicepunt",
+                                "shortDescription": "Ah.nl servicepunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLP",
+                                "description": "Ook voor mooie bloemen en planten kun je bij ons terecht. Voor jezelf of om cadeau te geven.",
+                                "shortDescription": "Bloemen en planten",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "GDA",
+                                "description": "Voor contant geld kun je bij AH-winkels met een geldautomaat pinnen.",
+                                "shortDescription": "Geldautomaat",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "HLA",
+                                "description": "AH verkoopt rund-, lams- en kippenvlees dat 100% halal is.",
+                                "shortDescription": "Halal assortiment",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "OVS",
+                                "description": "Voor het kopen en opladen van een anonieme OV-chipkaart of een wegwerpchipkaart. ",
+                                "shortDescription": "OV-service",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "PKB",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (betaald)",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "WFS",
+                                "description": "Om gebruik te maken van internet in de winkels bieden we gratis draadloos internet aan.",
+                                "shortDescription": "WiFi-service",
+                                "__typename": "StoreService"
+                            }
+                        ],
+                        "openingDays": [
+                            {
+                                "dayName": "maandag",
+                                "type": "PAST",
+                                "date": "2022-08-08",
+                                "nextWeekDate": "2022-08-15",
+                                "openingHour": {
+                                    "date": "2022-08-08",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-15",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "dinsdag",
+                                "type": "PAST",
+                                "date": "2022-08-09",
+                                "nextWeekDate": "2022-08-16",
+                                "openingHour": {
+                                    "date": "2022-08-09",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-16",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "woensdag",
+                                "type": "CURRENT",
+                                "date": "2022-08-10",
+                                "nextWeekDate": "2022-08-17",
+                                "openingHour": {
+                                    "date": "2022-08-10",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-17",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "donderdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-11",
+                                "nextWeekDate": "2022-08-18",
+                                "openingHour": {
+                                    "date": "2022-08-11",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-18",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "vrijdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-12",
+                                "nextWeekDate": "2022-08-19",
+                                "openingHour": {
+                                    "date": "2022-08-12",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-19",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zaterdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-13",
+                                "nextWeekDate": "2022-08-20",
+                                "openingHour": {
+                                    "date": "2022-08-13",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-20",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zondag",
+                                "type": "FUTURE",
+                                "date": "2022-08-14",
+                                "nextWeekDate": "2022-08-21",
+                                "openingHour": {
+                                    "date": "2022-08-14",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-21",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            }
+                        ],
+                        "__typename": "Store"
+                    },
+                    {
+                        "id": 1146,
+                        "name": "AH1146 AMSTERDAM",
+                        "storeType": "REGULAR",
+                        "phone": "0206363838",
+                        "distance": null,
+                        "address": {
+                            "city": "Amsterdam",
+                            "street": "Buikslotermeerplein",
+                            "houseNumber": "310",
+                            "houseNumberExtra": null,
+                            "postalCode": "1025GB",
+                            "countryCode": "NLD",
+                            "__typename": "StoreAddress"
+                        },
+                        "geoLocation": {
+                            "latitude": 52.397455,
+                            "longitude": 4.939774,
+                            "__typename": "GeoLocation"
+                        },
+                        "services": [
+                            {
+                                "code": "AOS",
+                                "description": "Is er een product niet geleverd of beschadigd bij je online bestelling? Of wil je je blauwe klapkratten inleveren? Kom langs bij het ah.nl servicepunt",
+                                "shortDescription": "Ah.nl servicepunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLA",
+                                "description": "Tijdens het boodschappen doen je bol.com bestelling afhalen.",
+                                "shortDescription": "Bol.com afhaalpunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "FTS",
+                                "description": "Foto's bestellen voor een scherpe prijs. En de beste inspiratie voor je mooiste foto's.",
+                                "shortDescription": "Fotoservice",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "GDA",
+                                "description": "Voor contant geld kun je bij AH-winkels met een geldautomaat pinnen.",
+                                "shortDescription": "Geldautomaat",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "HLA",
+                                "description": "AH verkoopt rund-, lams- en kippenvlees dat 100% halal is.",
+                                "shortDescription": "Halal assortiment",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "LTR",
+                                "description": "Loten van je favoriete loterij koop je bij AH-winkels met een servicebalie (assortiment kan verschillen per winkel).",
+                                "shortDescription": "Loterijen",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "OVS",
+                                "description": "Voor het kopen en opladen van een anonieme OV-chipkaart of een wegwerpchipkaart. ",
+                                "shortDescription": "OV-service",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "PKB",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (betaald)",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "SMS",
+                                "description": "Je kleding schoon en fris met onze stomerijservice.",
+                                "shortDescription": "Stomerijservice",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "ZFS",
+                                "description": "Je kan in deze winkel zelf je boodschappen scannen.",
+                                "shortDescription": "Zelfscan",
+                                "__typename": "StoreService"
+                            }
+                        ],
+                        "openingDays": [
+                            {
+                                "dayName": "maandag",
+                                "type": "PAST",
+                                "date": "2022-08-08",
+                                "nextWeekDate": "2022-08-15",
+                                "openingHour": {
+                                    "date": "2022-08-08",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-15",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "dinsdag",
+                                "type": "PAST",
+                                "date": "2022-08-09",
+                                "nextWeekDate": "2022-08-16",
+                                "openingHour": {
+                                    "date": "2022-08-09",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-16",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "woensdag",
+                                "type": "CURRENT",
+                                "date": "2022-08-10",
+                                "nextWeekDate": "2022-08-17",
+                                "openingHour": {
+                                    "date": "2022-08-10",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-17",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "donderdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-11",
+                                "nextWeekDate": "2022-08-18",
+                                "openingHour": {
+                                    "date": "2022-08-11",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-18",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "vrijdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-12",
+                                "nextWeekDate": "2022-08-19",
+                                "openingHour": {
+                                    "date": "2022-08-12",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-19",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zaterdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-13",
+                                "nextWeekDate": "2022-08-20",
+                                "openingHour": {
+                                    "date": "2022-08-13",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-20",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zondag",
+                                "type": "FUTURE",
+                                "date": "2022-08-14",
+                                "nextWeekDate": "2022-08-21",
+                                "openingHour": {
+                                    "date": "2022-08-14",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-21",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            }
+                        ],
+                        "__typename": "Store"
+                    },
+                    {
+                        "id": 1847,
+                        "name": "AH1847 AMSTERDAM",
+                        "storeType": "REGULAR",
+                        "phone": "0206929004",
+                        "distance": null,
+                        "address": {
+                            "city": "Amsterdam",
+                            "street": "Celebesstraat",
+                            "houseNumber": "43",
+                            "houseNumberExtra": null,
+                            "postalCode": "1094EN",
+                            "countryCode": "NLD",
+                            "__typename": "StoreAddress"
+                        },
+                        "geoLocation": {
+                            "latitude": 52.363112,
+                            "longitude": 4.931771,
+                            "__typename": "GeoLocation"
+                        },
+                        "services": [
+                            {
+                                "code": "AOS",
+                                "description": "Is er een product niet geleverd of beschadigd bij je online bestelling? Of wil je je blauwe klapkratten inleveren? Kom langs bij het ah.nl servicepunt",
+                                "shortDescription": "Ah.nl servicepunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLA",
+                                "description": "Tijdens het boodschappen doen je bol.com bestelling afhalen.",
+                                "shortDescription": "Bol.com afhaalpunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLP",
+                                "description": "Ook voor mooie bloemen en planten kun je bij ons terecht. Voor jezelf of om cadeau te geven.",
+                                "shortDescription": "Bloemen en planten",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "FTS",
+                                "description": "Foto's bestellen voor een scherpe prijs. En de beste inspiratie voor je mooiste foto's.",
+                                "shortDescription": "Fotoservice",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "GDA",
+                                "description": "Voor contant geld kun je bij AH-winkels met een geldautomaat pinnen.",
+                                "shortDescription": "Geldautomaat",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "LTR",
+                                "description": "Loten van je favoriete loterij koop je bij AH-winkels met een servicebalie (assortiment kan verschillen per winkel).",
+                                "shortDescription": "Loterijen",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "OVS",
+                                "description": "Voor het kopen en opladen van een anonieme OV-chipkaart of een wegwerpchipkaart. ",
+                                "shortDescription": "OV-service",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "PKB",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (betaald)",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "WFS",
+                                "description": "Om gebruik te maken van internet in de winkels bieden we gratis draadloos internet aan.",
+                                "shortDescription": "WiFi-service",
+                                "__typename": "StoreService"
+                            }
+                        ],
+                        "openingDays": [
+                            {
+                                "dayName": "maandag",
+                                "type": "PAST",
+                                "date": "2022-08-08",
+                                "nextWeekDate": "2022-08-15",
+                                "openingHour": {
+                                    "date": "2022-08-08",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-15",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "dinsdag",
+                                "type": "PAST",
+                                "date": "2022-08-09",
+                                "nextWeekDate": "2022-08-16",
+                                "openingHour": {
+                                    "date": "2022-08-09",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-16",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "woensdag",
+                                "type": "CURRENT",
+                                "date": "2022-08-10",
+                                "nextWeekDate": "2022-08-17",
+                                "openingHour": {
+                                    "date": "2022-08-10",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-17",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "donderdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-11",
+                                "nextWeekDate": "2022-08-18",
+                                "openingHour": {
+                                    "date": "2022-08-11",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-18",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "vrijdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-12",
+                                "nextWeekDate": "2022-08-19",
+                                "openingHour": {
+                                    "date": "2022-08-12",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-19",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zaterdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-13",
+                                "nextWeekDate": "2022-08-20",
+                                "openingHour": {
+                                    "date": "2022-08-13",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-20",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zondag",
+                                "type": "FUTURE",
+                                "date": "2022-08-14",
+                                "nextWeekDate": "2022-08-21",
+                                "openingHour": {
+                                    "date": "2022-08-14",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-21",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            }
+                        ],
+                        "__typename": "Store"
+                    },
+                    {
+                        "id": 5820,
+                        "name": "AH5820 AMSTERDAM",
+                        "storeType": "TOGO",
+                        "phone": "0886714510",
+                        "distance": null,
+                        "address": {
+                            "city": "Amsterdam",
+                            "street": "Cornelis Lelylaan",
+                            "houseNumber": "35",
+                            "houseNumberExtra": null,
+                            "postalCode": "1062HD",
+                            "countryCode": "NLD",
+                            "__typename": "StoreAddress"
+                        },
+                        "geoLocation": {
+                            "latitude": 52.357642,
+                            "longitude": 4.833389,
+                            "__typename": "GeoLocation"
+                        },
+                        "services": [
+                            {
+                                "code": "BLP",
+                                "description": "Ook voor mooie bloemen en planten kun je bij ons terecht. Voor jezelf of om cadeau te geven.",
+                                "shortDescription": "Bloemen en planten",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "OVS",
+                                "description": "Voor het kopen en opladen van een anonieme OV-chipkaart of een wegwerpchipkaart. ",
+                                "shortDescription": "OV-service",
+                                "__typename": "StoreService"
+                            }
+                        ],
+                        "openingDays": [
+                            {
+                                "dayName": "maandag",
+                                "type": "PAST",
+                                "date": "2022-08-08",
+                                "nextWeekDate": "2022-08-15",
+                                "openingHour": {
+                                    "date": "2022-08-08",
+                                    "openFrom": "06:30",
+                                    "openUntil": "16:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-15",
+                                    "openFrom": "06:30",
+                                    "openUntil": "16:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "dinsdag",
+                                "type": "PAST",
+                                "date": "2022-08-09",
+                                "nextWeekDate": "2022-08-16",
+                                "openingHour": {
+                                    "date": "2022-08-09",
+                                    "openFrom": "06:30",
+                                    "openUntil": "16:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-16",
+                                    "openFrom": "06:30",
+                                    "openUntil": "16:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "woensdag",
+                                "type": "CURRENT",
+                                "date": "2022-08-10",
+                                "nextWeekDate": "2022-08-17",
+                                "openingHour": {
+                                    "date": "2022-08-10",
+                                    "openFrom": "06:30",
+                                    "openUntil": "16:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-17",
+                                    "openFrom": "06:30",
+                                    "openUntil": "16:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "donderdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-11",
+                                "nextWeekDate": "2022-08-18",
+                                "openingHour": {
+                                    "date": "2022-08-11",
+                                    "openFrom": "06:30",
+                                    "openUntil": "16:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-18",
+                                    "openFrom": "06:30",
+                                    "openUntil": "16:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "vrijdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-12",
+                                "nextWeekDate": "2022-08-19",
+                                "openingHour": {
+                                    "date": "2022-08-12",
+                                    "openFrom": "06:30",
+                                    "openUntil": "16:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-19",
+                                    "openFrom": "06:30",
+                                    "openUntil": "16:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zaterdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-13",
+                                "nextWeekDate": "2022-08-20",
+                                "openingHour": null,
+                                "nextWeekOpeningHour": null,
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zondag",
+                                "type": "FUTURE",
+                                "date": "2022-08-14",
+                                "nextWeekDate": "2022-08-21",
+                                "openingHour": null,
+                                "nextWeekOpeningHour": null,
+                                "__typename": "StoreOpeningDay"
+                            }
+                        ],
+                        "__typename": "Store"
+                    },
+                    {
+                        "id": 1562,
+                        "name": "AH1562 AMSTERDAM",
+                        "storeType": "REGULAR",
+                        "phone": "0206646559",
+                        "distance": null,
+                        "address": {
+                            "city": "Amsterdam",
+                            "street": "Cornelis Troostplein",
+                            "houseNumber": "11",
+                            "houseNumberExtra": null,
+                            "postalCode": "1072JJ",
+                            "countryCode": "NLD",
+                            "__typename": "StoreAddress"
+                        },
+                        "geoLocation": {
+                            "latitude": 52.351195,
+                            "longitude": 4.891634,
+                            "__typename": "GeoLocation"
+                        },
+                        "services": [
+                            {
+                                "code": "AOS",
+                                "description": "Is er een product niet geleverd of beschadigd bij je online bestelling? Of wil je je blauwe klapkratten inleveren? Kom langs bij het ah.nl servicepunt",
+                                "shortDescription": "Ah.nl servicepunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLA",
+                                "description": "Tijdens het boodschappen doen je bol.com bestelling afhalen.",
+                                "shortDescription": "Bol.com afhaalpunt",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "BLP",
+                                "description": "Ook voor mooie bloemen en planten kun je bij ons terecht. Voor jezelf of om cadeau te geven.",
+                                "shortDescription": "Bloemen en planten",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "FTS",
+                                "description": "Foto's bestellen voor een scherpe prijs. En de beste inspiratie voor je mooiste foto's.",
+                                "shortDescription": "Fotoservice",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "GDA",
+                                "description": "Voor contant geld kun je bij AH-winkels met een geldautomaat pinnen.",
+                                "shortDescription": "Geldautomaat",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "HLA",
+                                "description": "AH verkoopt rund-, lams- en kippenvlees dat 100% halal is.",
+                                "shortDescription": "Halal assortiment",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "LTR",
+                                "description": "Loten van je favoriete loterij koop je bij AH-winkels met een servicebalie (assortiment kan verschillen per winkel).",
+                                "shortDescription": "Loterijen",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "OVS",
+                                "description": "Voor het kopen en opladen van een anonieme OV-chipkaart of een wegwerpchipkaart. ",
+                                "shortDescription": "OV-service",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "PKB",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (betaald)",
+                                "__typename": "StoreService"
+                            },
+                            {
+                                "code": "SB",
+                                "description": "Verse sushi die de hele dag door in de winkel wordt bereid door gespecialiseerde sushichefs.",
+                                "shortDescription": "Sushibar",
+                                "__typename": "StoreService"
+                            }
+                        ],
+                        "openingDays": [
+                            {
+                                "dayName": "maandag",
+                                "type": "PAST",
+                                "date": "2022-08-08",
+                                "nextWeekDate": "2022-08-15",
+                                "openingHour": {
+                                    "date": "2022-08-08",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-15",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "dinsdag",
+                                "type": "PAST",
+                                "date": "2022-08-09",
+                                "nextWeekDate": "2022-08-16",
+                                "openingHour": {
+                                    "date": "2022-08-09",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-16",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "woensdag",
+                                "type": "CURRENT",
+                                "date": "2022-08-10",
+                                "nextWeekDate": "2022-08-17",
+                                "openingHour": {
+                                    "date": "2022-08-10",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-17",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "donderdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-11",
+                                "nextWeekDate": "2022-08-18",
+                                "openingHour": {
+                                    "date": "2022-08-11",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-18",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "vrijdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-12",
+                                "nextWeekDate": "2022-08-19",
+                                "openingHour": {
+                                    "date": "2022-08-12",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-19",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zaterdag",
+                                "type": "FUTURE",
+                                "date": "2022-08-13",
+                                "nextWeekDate": "2022-08-20",
+                                "openingHour": {
+                                    "date": "2022-08-13",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-20",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            },
+                            {
+                                "dayName": "zondag",
+                                "type": "FUTURE",
+                                "date": "2022-08-14",
+                                "nextWeekDate": "2022-08-21",
+                                "openingHour": {
+                                    "date": "2022-08-14",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "nextWeekOpeningHour": {
+                                    "date": "2022-08-21",
+                                    "openFrom": "08:00",
+                                    "openUntil": "22:00",
+                                    "__typename": "StoreOpeningHour"
+                                },
+                                "__typename": "StoreOpeningDay"
+                            }
+                        ],
+                        "__typename": "Store"
+                    }
+                ],
+                "page": {
+                    "total": 103,
+                    "hasNextPage": true,
+                    "__typename": "PageInfo"
+                },
+                "__typename": "StoresResult"
+            }
+        }
+    },
+    {
+        "data": {
+            "stores": {
+                "aggregation": {
+                    "services": [
+                        {
+                            "count": 71,
+                            "service": {
+                                "code": "AOS",
+                                "description": "Is er een product niet geleverd of beschadigd bij je online bestelling? Of wil je je blauwe klapkratten inleveren? Kom langs bij het ah.nl servicepunt",
+                                "shortDescription": "Ah.nl servicepunt",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 55,
+                            "service": {
+                                "code": "BLP",
+                                "description": "Ook voor mooie bloemen en planten kun je bij ons terecht. Voor jezelf of om cadeau te geven.",
+                                "shortDescription": "Bloemen en planten",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 62,
+                            "service": {
+                                "code": "FTS",
+                                "description": "Foto's bestellen voor een scherpe prijs. En de beste inspiratie voor je mooiste foto's.",
+                                "shortDescription": "Fotoservice",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 78,
+                            "service": {
+                                "code": "OVS",
+                                "description": "Voor het kopen en opladen van een anonieme OV-chipkaart of een wegwerpchipkaart. ",
+                                "shortDescription": "OV-service",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 59,
+                            "service": {
+                                "code": "PKB",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (betaald)",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 64,
+                            "service": {
+                                "code": "BLA",
+                                "description": "Tijdens het boodschappen doen je bol.com bestelling afhalen.",
+                                "shortDescription": "Bol.com afhaalpunt",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 66,
+                            "service": {
+                                "code": "GDA",
+                                "description": "Voor contant geld kun je bij AH-winkels met een geldautomaat pinnen.",
+                                "shortDescription": "Geldautomaat",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 2,
+                            "service": {
+                                "code": "GGG",
+                                "description": "Gall & Gall Gemak biedt je een compleet assortiment whisky, cognac, likeuren, mixables en binnenlands gedistilleerd.",
+                                "shortDescription": "Gall en Gall gemak",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 36,
+                            "service": {
+                                "code": "HLA",
+                                "description": "AH verkoopt rund-, lams- en kippenvlees dat 100% halal is.",
+                                "shortDescription": "Halal assortiment",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 64,
+                            "service": {
+                                "code": "LTR",
+                                "description": "Loten van je favoriete loterij koop je bij AH-winkels met een servicebalie (assortiment kan verschillen per winkel).",
+                                "shortDescription": "Loterijen",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 8,
+                            "service": {
+                                "code": "PBZ",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (blauwe zone)",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 41,
+                            "service": {
+                                "code": "ZFS",
+                                "description": "Je kan in deze winkel zelf je boodschappen scannen.",
+                                "shortDescription": "Zelfscan",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 4,
+                            "service": {
+                                "code": "PGR",
+                                "description": "Het parkeerbeleid verschilt per AH-winkel. ",
+                                "shortDescription": "Parkeren (gratis)",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 59,
+                            "service": {
+                                "code": "WFS",
+                                "description": "Om gebruik te maken van internet in de winkels bieden we gratis draadloos internet aan.",
+                                "shortDescription": "WiFi-service",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 19,
+                            "service": {
+                                "code": "SB",
+                                "description": "Verse sushi die de hele dag door in de winkel wordt bereid door gespecialiseerde sushichefs.",
+                                "shortDescription": "Sushibar",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        },
+                        {
+                            "count": 9,
+                            "service": {
+                                "code": "SMS",
+                                "description": "Je kleding schoon en fris met onze stomerijservice.",
+                                "shortDescription": "Stomerijservice",
+                                "__typename": "StoreService"
+                            },
+                            "__typename": "StoreServiceCount"
+                        }
+                    ],
+                    "openingHours": [
+                        {
+                            "type": "NOW",
+                            "count": 102,
+                            "__typename": "StoreOpeningHourCount"
+                        },
+                        {
+                            "type": "EVENING",
+                            "count": 93,
+                            "__typename": "StoreOpeningHourCount"
+                        },
+                        {
+                            "type": "SUNDAY",
+                            "count": 97,
+                            "__typename": "StoreOpeningHourCount"
+                        }
+                    ],
+                    "storeTypes": [
+                        {
+                            "type": "REGULAR",
+                            "count": 80,
+                            "__typename": "StoreTypeCount"
+                        },
+                        {
+                            "type": "TOGO",
+                            "count": 21,
+                            "__typename": "StoreTypeCount"
+                        },
+                        {
+                            "type": "XL",
+                            "count": 2,
+                            "__typename": "StoreTypeCount"
+                        }
+                    ],
+                    "__typename": "StoresResultAggregation"
+                },
+                "page": {
+                    "total": 103,
+                    "__typename": "PageInfo"
+                },
+                "__typename": "StoresResult"
+            }
+        }
+    },
+    {
+        "data": {
+            "storeLocations": [
+                {
+                    "id": 1090,
+                    "name": "AH1090 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.35254,
+                        "longitude": 4.855586,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1340,
+                    "name": "AH1340 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.363747,
+                        "longitude": 4.83779,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1598,
+                    "name": "AH1598 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.345864,
+                        "longitude": 4.811772,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1879,
+                    "name": "AH1879 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.385078,
+                        "longitude": 4.903564,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1117,
+                    "name": "AH1117 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.370895,
+                        "longitude": 4.8703,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1276,
+                    "name": "AH1276 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.381849,
+                        "longitude": 4.855705,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1146,
+                    "name": "AH1146 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.397455,
+                        "longitude": 4.939774,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1847,
+                    "name": "AH1847 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.363112,
+                        "longitude": 4.931771,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5820,
+                    "name": "AH5820 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.357642,
+                        "longitude": 4.833389,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1562,
+                    "name": "AH1562 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.351195,
+                        "longitude": 4.891634,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5606,
+                    "name": "AH5606 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.374104,
+                        "longitude": 4.89364,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5501,
+                    "name": "AH5501 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.335479,
+                        "longitude": 4.859922,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1335,
+                    "name": "AH1335 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.349134,
+                        "longitude": 4.839996,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5870,
+                    "name": "AH5870 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.380056,
+                        "longitude": 4.899697,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 2211,
+                    "name": "AH2211 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.373156,
+                        "longitude": 4.964246,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 2203,
+                    "name": "AH2203 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.356624,
+                        "longitude": 4.912281,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 8614,
+                    "name": "AH8614 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.362529,
+                        "longitude": 4.925156,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 8684,
+                    "name": "AH8684 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.369981,
+                        "longitude": 4.881528,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 8636,
+                    "name": "AH8636 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.375238,
+                        "longitude": 4.872966,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1061,
+                    "name": "AH1061 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.361363,
+                        "longitude": 4.900842,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1080,
+                    "name": "AH1080 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.331297,
+                        "longitude": 4.876907,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "XL",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1363,
+                    "name": "AH1363 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.348961,
+                        "longitude": 4.877658,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1105,
+                    "name": "AH1105 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.378614,
+                        "longitude": 4.845948,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1425,
+                    "name": "AH1425 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.381848,
+                        "longitude": 4.888516,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 8598,
+                    "name": "AH8598 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.385672,
+                        "longitude": 4.88353,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1006,
+                    "name": "AH1006 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.349894,
+                        "longitude": 4.939671,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1493,
+                    "name": "AH1493 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.358513,
+                        "longitude": 4.989847,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 8760,
+                    "name": "AH8760 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.371379,
+                        "longitude": 4.85796,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1635,
+                    "name": "AH1635 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.361964,
+                        "longitude": 4.864373,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1282,
+                    "name": "AH1282 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.374979,
+                        "longitude": 4.861059,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1567,
+                    "name": "AH1567 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.369431,
+                        "longitude": 4.902561,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 2236,
+                    "name": "AH2236 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.313013,
+                        "longitude": 4.945703,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1302,
+                    "name": "AH1302 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.353832,
+                        "longitude": 4.869397,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5817,
+                    "name": "AH5817 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.345503,
+                        "longitude": 4.91886,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1497,
+                    "name": "AH1497 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.366724,
+                        "longitude": 4.870157,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 8634,
+                    "name": "AH8634 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.369956,
+                        "longitude": 4.919778,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 2209,
+                    "name": "AH2209 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.367207,
+                        "longitude": 4.88916,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1315,
+                    "name": "AH1315 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.354842,
+                        "longitude": 4.919952,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1163,
+                    "name": "AH1163 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.377683,
+                        "longitude": 4.801285,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1436,
+                    "name": "AH1436 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.356908,
+                        "longitude": 4.928004,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 2217,
+                    "name": "AH2217 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.363429,
+                        "longitude": 4.882197,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5618,
+                    "name": "AH5618 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.364591,
+                        "longitude": 4.883225,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1662,
+                    "name": "AH1662 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.345935,
+                        "longitude": 4.894948,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5711,
+                    "name": "AH5711 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.294355,
+                        "longitude": 4.957171,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5617,
+                    "name": "AH5617 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.367392,
+                        "longitude": 4.901857,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5619,
+                    "name": "AH5619 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.367285,
+                        "longitude": 4.901858,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1284,
+                    "name": "AH1284 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.417387,
+                        "longitude": 4.892918,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1033,
+                    "name": "AH1033 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.362485,
+                        "longitude": 4.939544,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1873,
+                    "name": "AH1873 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.357381,
+                        "longitude": 4.940643,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1354,
+                    "name": "AH1354 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.390454,
+                        "longitude": 4.915024,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 2221,
+                    "name": "AH2221 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.400425,
+                        "longitude": 4.891671,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5614,
+                    "name": "AH5614 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.374749,
+                        "longitude": 4.893847,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1001,
+                    "name": "AH1001 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.372992,
+                        "longitude": 4.890011,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1314,
+                    "name": "AH1314 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.372834,
+                        "longitude": 4.89944,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 2205,
+                    "name": "AH2205 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.384187,
+                        "longitude": 4.856685,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1587,
+                    "name": "AH1587 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.374208,
+                        "longitude": 4.937899,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1647,
+                    "name": "AH1647 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.375954,
+                        "longitude": 4.904786,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5805,
+                    "name": "AH5805 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.389844,
+                        "longitude": 4.837129,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1027,
+                    "name": "AH1027 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.359139,
+                        "longitude": 4.802557,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "XL",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 2218,
+                    "name": "AH2218 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.362304,
+                        "longitude": 4.874505,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1460,
+                    "name": "AH1460 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.363005,
+                        "longitude": 4.874737,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1328,
+                    "name": "AH1328 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.359839,
+                        "longitude": 4.861943,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 4055,
+                    "name": "AH4055 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.33991,
+                        "longitude": 4.868634,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1868,
+                    "name": "AH1868 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.336126,
+                        "longitude": 4.87149,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 8515,
+                    "name": "AH8515 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.352315,
+                        "longitude": 4.798552,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1289,
+                    "name": "AH1289 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.364266,
+                        "longitude": 4.855049,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1040,
+                    "name": "AH1040 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.378372,
+                        "longitude": 4.896219,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5602,
+                    "name": "AH5602 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.366797,
+                        "longitude": 4.893765,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 2243,
+                    "name": "AH2243 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.349317,
+                        "longitude": 4.849828,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1461,
+                    "name": "AH1461 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.347798,
+                        "longitude": 4.904778,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1406,
+                    "name": "AH1406 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.343252,
+                        "longitude": 4.90662,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5624,
+                    "name": "AH5624 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.371397,
+                        "longitude": 4.892443,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1009,
+                    "name": "AH1009 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.362463,
+                        "longitude": 4.913075,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1321,
+                    "name": "AH1321 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.366551,
+                        "longitude": 4.924116,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1035,
+                    "name": "AH1035 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.344417,
+                        "longitude": 4.891211,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1400,
+                    "name": "AH1400 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.35502,
+                        "longitude": 4.826243,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1338,
+                    "name": "AH1338 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.391633,
+                        "longitude": 4.87755,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5861,
+                    "name": "AH5861 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.339181,
+                        "longitude": 4.873016,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1594,
+                    "name": "AH1594 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.35788,
+                        "longitude": 4.895567,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 4107,
+                    "name": "AH4107 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.344779,
+                        "longitude": 4.856988,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1318,
+                    "name": "AH1318 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.346041,
+                        "longitude": 4.863383,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5607,
+                    "name": "AH5607 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.378131,
+                        "longitude": 4.90041,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5822,
+                    "name": "AH5822 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.378576,
+                        "longitude": 4.900253,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5868,
+                    "name": "AH5868 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.379214,
+                        "longitude": 4.898133,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5622,
+                    "name": "AH5622 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.402418,
+                        "longitude": 4.932468,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 2213,
+                    "name": "AH2213 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.365566,
+                        "longitude": 4.897969,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1391,
+                    "name": "AH1391 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.357184,
+                        "longitude": 4.879663,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1490,
+                    "name": "AH1490 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.383744,
+                        "longitude": 4.875805,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1420,
+                    "name": "AH1420 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.352965,
+                        "longitude": 4.902344,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1112,
+                    "name": "AH1112 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.362763,
+                        "longitude": 4.891887,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 8702,
+                    "name": "AH8702 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.392066,
+                        "longitude": 4.955082,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1458,
+                    "name": "AH1458 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.374026,
+                        "longitude": 4.883685,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1482,
+                    "name": "AH1482 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.378594,
+                        "longitude": 4.884162,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1676,
+                    "name": "AH1676 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.359827,
+                        "longitude": 4.891589,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1812,
+                    "name": "AH1812 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.355857,
+                        "longitude": 4.910694,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1110,
+                    "name": "AH1110 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.380398,
+                        "longitude": 4.82372,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1832,
+                    "name": "AH1832 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.35072,
+                        "longitude": 4.853852,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5703,
+                    "name": "AH5703 AMSTERDAM",
+                    "geoLocation": {
+                        "latitude": 52.34061,
+                        "longitude": 4.871195,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1502,
+                    "name": "AH1502 AMSTERDAM ZUIDO",
+                    "geoLocation": {
+                        "latitude": 52.315777,
+                        "longitude": 4.954152,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1525,
+                    "name": "AH1525 AMSTERDAM ZUIDO",
+                    "geoLocation": {
+                        "latitude": 52.322636,
+                        "longitude": 4.972053,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5833,
+                    "name": "AH5833 AMSTERDAM ZUIDO",
+                    "geoLocation": {
+                        "latitude": 52.312041,
+                        "longitude": 4.947501,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 1347,
+                    "name": "AH1347 AMSTERDAM ZUIDO",
+                    "geoLocation": {
+                        "latitude": 52.316179,
+                        "longitude": 4.978609,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "REGULAR",
+                    "__typename": "StoreLocation"
+                },
+                {
+                    "id": 5701,
+                    "name": "AH5701 AMSTERDAM ZUIDO",
+                    "geoLocation": {
+                        "latitude": 52.295163,
+                        "longitude": 4.95765,
+                        "__typename": "GeoLocation"
+                    },
+                    "storeType": "TOGO",
+                    "__typename": "StoreLocation"
+                }
+            ]
+        }
+    }
+]
