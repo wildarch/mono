@@ -57,9 +57,8 @@ private fun makeAp(state: GmState): GmState {
 }
 
 private fun push(n: Int, state: GmState): GmState {
-    val argApAddr = state.stack[state.stack.size - 1 - (n + 1)]
-    val argAp = state.heap[argApAddr] as NAp
-    val newStack = state.stack + argAp.arg
+    val argAddr = state.stack[state.stack.size - 1 - n]
+    val newStack = state.stack + argAddr
     return state.copy(
         stack = newStack,
     )
@@ -82,7 +81,13 @@ private fun unwind(state: GmState): GmState {
         is NAp -> state.copy(code = listOf(Unwind), stack = state.stack + topNode.func)
         is NGlobal -> {
             assert(state.stack.size > topNode.argc) { "Not enough arguments to supercombinator" }
-            return state.copy(code = topNode.code)
+            // Rearrange the stack
+            val argAddrs = state.stack
+                .dropLast(1)                        // Drop the function
+                .takeLast(topNode.argc)                // Take the addrs to the Ap nodes containing the arguments
+                .map { (state.heap[it] as NAp).arg }   // Convert the Ap addrs into argument addrs
+            val newStack = state.stack.dropLast(topNode.argc) + argAddrs
+            return state.copy(code = topNode.code, stack = newStack)
         }
         is NInd -> state.copy(code = listOf(Unwind), stack = state.stack.dropLast(1) + topNode.addr)
     }
