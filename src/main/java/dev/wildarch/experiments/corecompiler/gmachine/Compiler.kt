@@ -3,10 +3,15 @@ package dev.wildarch.experiments.corecompiler.gmachine
 import dev.wildarch.experiments.corecompiler.prelude.preludeDefs
 import dev.wildarch.experiments.corecompiler.syntax.*
 
-fun eval(initialState: GmState): List<GmState> {
+fun eval(initialState: GmState, maxSteps: Int = 10000): List<GmState> {
     val trace = mutableListOf(initialState)
+    var steps = 0
     while (!trace.last().isFinal()) {
+        if (steps > maxSteps) {
+            error("Did not terminate after $maxSteps")
+        }
         trace.add(doAdmin(step(trace.last())))
+        steps++;
     }
     return trace
 }
@@ -25,6 +30,8 @@ private fun dispatch(instruction: Instruction, nextState: GmState) = when (instr
     is Push -> push(instruction.n, nextState)
     is Slide -> slide(instruction.n, nextState)
     is Unwind -> unwind(nextState)
+    is Update -> update(instruction.n, nextState)
+    is Pop -> pop(instruction.n, nextState)
 }
 
 private fun pushGlobal(name: Name, state: GmState): GmState {
@@ -77,8 +84,23 @@ private fun unwind(state: GmState): GmState {
             assert(state.stack.size > topNode.argc) { "Not enough arguments to supercombinator" }
             return state.copy(code = topNode.code)
         }
+        is NInd -> state.copy(code = listOf(Unwind), stack = state.stack.dropLast(1) + topNode.addr)
     }
 
+}
+
+private fun update(n: Int, state: GmState): GmState {
+    val resultAddr = state.stack.last()
+    val addrToUpdate = state.stack[state.stack.size - 1 - (n + 1)]
+    val newHeap = state.heap.toMutableMap()
+    newHeap[addrToUpdate] = NInd(resultAddr)
+    // Drop resultAddr
+    val newStack = state.stack.dropLast(1)
+    return state.copy(stack = newStack, heap = newHeap)
+}
+
+private fun pop(n: Int, state: GmState): GmState {
+    return state.copy(stack = state.stack.dropLast(n))
 }
 
 private fun doAdmin(state: GmState): GmState {
@@ -130,7 +152,7 @@ private fun compileSc(def: ScDefn): NGlobal {
 }
 
 private fun compileR(expr: Expr, env: GmEnv, arity: Int): GmCode {
-    return compileC(expr, env) + listOf(Slide(arity + 1), Unwind)
+    return compileC(expr, env) + listOf(Update(arity), Pop(arity), Unwind)
 }
 
 private fun compileC(expr: Expr, env: GmEnv): GmCode {
@@ -186,8 +208,11 @@ data class Pushint(val n: Int) : Instruction()
 data class Push(val n: Int) : Instruction()
 object MkAp : Instruction()
 data class Slide(val n: Int) : Instruction()
+data class Update(val n: Int) : Instruction()
+data class Pop(val n: Int) : Instruction()
 
 sealed class Node
 data class NNum(val n: Int) : Node()
 data class NAp(val func: Addr, val arg: Addr) : Node()
 data class NGlobal(val argc: Int, val code: GmCode) : Node()
+data class NInd(val addr: Addr) : Node()
