@@ -33,6 +33,33 @@ class CompilerTest {
         )
     }
 
+    @Test
+    fun compileLetRec() {
+        assertEvaluatesTo(
+            """
+             main = 
+               letrec 
+                 i = I 
+               in 
+                 i 42
+        """.trimIndent(), 42
+        )
+
+        assertEvaluatesTo(
+            """
+            pair x y f = f x y ;
+            fst p = p K ;
+            snd p = p K1 ;
+            f x y =
+              letrec
+                a = pair x b ;
+                b = pair y a
+              in
+                fst (snd (snd (snd a))) ;
+            main = f 3 4
+        """.trimIndent(), 4
+        )
+    }
 
     @Test
     fun exampleBasicUltra() {

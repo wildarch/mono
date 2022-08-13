@@ -32,6 +32,7 @@ private fun dispatch(instruction: Instruction, nextState: GmState) = when (instr
     is Unwind -> unwind(nextState)
     is Update -> update(instruction.n, nextState)
     is Pop -> pop(instruction.n, nextState)
+    is Alloc -> alloc(instruction.n, nextState)
 }
 
 private fun pushGlobal(name: Name, state: GmState): GmState {
@@ -108,6 +109,20 @@ private fun pop(n: Int, state: GmState): GmState {
     return state.copy(stack = state.stack.dropLast(n))
 }
 
+private fun alloc(n: Int, state: GmState): GmState {
+    var newHeap = state.heap
+    val newStack = state.stack.toMutableList()
+    for (i in 0 until n) {
+        val (heap, addr) = heapAlloc(newHeap, NInd(-1))
+        newHeap = heap
+        newStack.add(addr)
+    }
+    return state.copy(
+        stack = newStack,
+        heap = newHeap,
+    )
+}
+
 private fun doAdmin(state: GmState): GmState {
     return state.copy(
         stats = state.stats + 1,
@@ -168,7 +183,15 @@ private fun compileC(expr: Expr, env: GmEnv): GmCode {
         is Constr -> TODO()
         is Lam -> TODO()
         is Let -> if (expr.isRec) {
-            TODO()
+            val letBinds = buildMap {
+                expr.defs.forEachIndexed { index, def ->
+                    put(def.name, expr.defs.size - 1 - index)
+                }
+            }
+            val recEnv = argOffset(env, expr.defs.size) + letBinds
+            return listOf(Alloc(expr.defs.size)) + expr.defs.flatMapIndexed { index, def ->
+                compileC(def.expr, recEnv) + Update(expr.defs.size - 1 - index)
+            } + compileC(expr.body, recEnv) + listOf(Slide(expr.defs.size))
         } else {
             val letBinds = buildMap {
                 expr.defs.forEachIndexed { index, def ->
@@ -226,6 +249,7 @@ object MkAp : Instruction()
 data class Slide(val n: Int) : Instruction()
 data class Update(val n: Int) : Instruction()
 data class Pop(val n: Int) : Instruction()
+data class Alloc(val n: Int) : Instruction()
 
 sealed class Node
 data class NNum(val n: Int) : Node()
