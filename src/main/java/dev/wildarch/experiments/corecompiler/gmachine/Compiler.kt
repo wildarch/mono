@@ -3,7 +3,7 @@ package dev.wildarch.experiments.corecompiler.gmachine
 import dev.wildarch.experiments.corecompiler.prelude.preludeDefs
 import dev.wildarch.experiments.corecompiler.syntax.*
 
-fun eval(initialState: GmState, maxSteps: Int = 10000): List<GmState> {
+fun evaluate(initialState: GmState, maxSteps: Int = 10000): List<GmState> {
     val trace = mutableListOf(initialState)
     var steps = 0
     while (!trace.last().isFinal()) {
@@ -33,6 +33,19 @@ private fun dispatch(instruction: Instruction, nextState: GmState) = when (instr
     is Update -> update(instruction.n, nextState)
     is Pop -> pop(instruction.n, nextState)
     is Alloc -> alloc(instruction.n, nextState)
+    is Eval -> eval(nextState)
+    Add -> primBinOp(Add, nextState)
+    is Cond -> TODO()
+    Div -> TODO()
+    Eq -> TODO()
+    Ge -> TODO()
+    Gt -> TODO()
+    Le -> TODO()
+    Lt -> TODO()
+    Mul -> TODO()
+    Ne -> TODO()
+    Neg -> primNeg(nextState)
+    Sub -> TODO()
 }
 
 private fun pushGlobal(name: Name, state: GmState): GmState {
@@ -76,8 +89,21 @@ private fun slide(n: Int, state: GmState): GmState {
 private fun unwind(state: GmState): GmState {
     val top = state.stack.last()
     return when (val topNode = state.heap[top]!!) {
-        // Evaluation is done
-        is NNum -> state
+        is NNum -> when (val dumpEntry = state.dump.lastOrNull()) {
+            // Done
+            null -> return state
+            else -> {
+                assert(state.stack.size == 1)
+                val newCode = dumpEntry.first
+                val newStack = dumpEntry.second.toMutableList()
+                newStack.add(top)
+                return state.copy(
+                    code = newCode,
+                    stack = newStack,
+                    dump = state.dump.dropLast(1),
+                )
+            }
+        }
         // Continue to unwind from next node in Ap chain
         is NAp -> state.copy(code = listOf(Unwind), stack = state.stack + topNode.func)
         is NGlobal -> {
@@ -92,7 +118,6 @@ private fun unwind(state: GmState): GmState {
         }
         is NInd -> state.copy(code = listOf(Unwind), stack = state.stack.dropLast(1) + topNode.addr)
     }
-
 }
 
 private fun update(n: Int, state: GmState): GmState {
@@ -123,6 +148,50 @@ private fun alloc(n: Int, state: GmState): GmState {
     )
 }
 
+private fun eval(state: GmState): GmState {
+    val newCode = listOf(Unwind)
+    val newStack = listOf(state.stack.last())
+    val newDump = state.dump + Pair(state.code, state.stack.dropLast(1))
+    return state.copy(
+        code = newCode,
+        stack = newStack,
+        dump = newDump
+    )
+}
+
+private fun primNeg(state: GmState): GmState {
+    val num = state.heap[state.stack.last()] as NNum
+    val (newHeap, addr) = heapAlloc(state.heap, NNum(-num.n))
+    val newStack = state.stack.dropLast(1) + addr
+    return state.copy(
+        stack = newStack,
+        heap = newHeap,
+    )
+}
+
+private fun primBinOp(op: PrimBinary, state: GmState): GmState {
+    val lhs = (state.heap[state.stack[state.stack.size - 1]] as NNum).n
+    val rhs = (state.heap[state.stack[state.stack.size - 2]] as NNum).n
+    val res = when (op) {
+        Add -> lhs + rhs
+        Div -> TODO()
+        Eq -> TODO()
+        Ge -> TODO()
+        Gt -> TODO()
+        Le -> TODO()
+        Lt -> TODO()
+        Mul -> TODO()
+        Ne -> TODO()
+        Sub -> TODO()
+    }
+    val (newHeap, addr) = heapAlloc(state.heap, NNum(res))
+    val newStack = state.stack.dropLast(2) + addr
+    return state.copy(
+        stack = newStack,
+        heap = newHeap,
+    )
+}
+
 private fun doAdmin(state: GmState): GmState {
     return state.copy(
         stats = state.stats + 1,
@@ -147,6 +216,7 @@ fun compile(program: Program): GmState {
     return GmState(
         code = initialCode,
         stack = emptyList(),
+        dump = emptyList(),
         heap = heap,
         globals = globals,
         stats = statInitial,
@@ -161,6 +231,12 @@ private fun buildInitialHeap(defs: List<ScDefn>): Pair<GmHeap, GmGlobals> {
         val (newHeap, addr) = heapAlloc(heap, compiled)
         heap = newHeap
         globals[def.name] = addr
+    }
+    for (prim in COMPILED_PRIMITIVES) {
+        val (name, compiled) = prim
+        val (newHeap, addr) = heapAlloc(heap, compiled)
+        heap = newHeap
+        globals[name] = addr
     }
     return Pair(heap, globals)
 }
@@ -178,7 +254,7 @@ private fun compileR(expr: Expr, env: GmEnv, arity: Int): GmCode {
 private fun compileC(expr: Expr, env: GmEnv): GmCode {
     return when (expr) {
         is Ap -> return compileC(expr.arg, env) + compileC(expr.func, argOffset(env, 1)) + listOf(MkAp)
-        is BinOp -> TODO()
+        is BinOp -> return compileC(expr.rhs, env) + compileC(expr.lhs, argOffset(env, 1)) + listOf(Pushglobal(primitiveFor(expr.op)), MkAp, MkAp)
         is Case -> TODO()
         is Constr -> TODO()
         is Lam -> TODO()
@@ -205,14 +281,35 @@ private fun compileC(expr: Expr, env: GmEnv): GmCode {
         is Num -> listOf(Pushint(expr.value))
         is Var -> {
             val name = expr.name
-            when (val argIndex = env[name]) {
-                // Not found in environment, must be a global
-                null -> listOf(Pushglobal(name))
-                // Local variable
-                else -> listOf(Push(argIndex))
+            // Is it a local variable?
+            val argIndex = env[name]
+            if (argIndex != null) {
+                return listOf(Push(argIndex))
             }
+            // Assume it is a global then
+            return listOf(Pushglobal(name))
         }
     }
+}
+
+private val COMPILED_PRIMITIVES = mapOf(
+    "negate" to NGlobal(1, listOf(Push(0), Eval, Neg, Update(1), Pop(1), Unwind)),
+    "+" to NGlobal(2, listOf(Push(1), Eval, Push(1), Eval, Add, Update(2), Pop(2), Unwind))
+)
+
+private fun primitiveFor(op: Operator) = when(op) {
+    Operator.ADD -> "+"
+    Operator.SUB -> TODO()
+    Operator.MUL -> TODO()
+    Operator.DIV -> TODO()
+    Operator.EQ -> TODO()
+    Operator.NEQ -> TODO()
+    Operator.GT -> TODO()
+    Operator.GTE -> TODO()
+    Operator.LT -> TODO()
+    Operator.LTE -> TODO()
+    Operator.AND -> TODO()
+    Operator.OR -> TODO()
 }
 
 private fun argOffset(env: GmEnv, offset: Int) = env.mapValues { it.value + offset }
@@ -220,6 +317,7 @@ private fun argOffset(env: GmEnv, offset: Int) = env.mapValues { it.value + offs
 data class GmState(
     val code: GmCode,
     val stack: GmStack,
+    val dump: GmDump,
     val heap: GmHeap,
     val globals: GmGlobals,
     val stats: GmStats,
@@ -233,6 +331,7 @@ data class GmState(
 
 typealias GmCode = List<Instruction>
 typealias GmStack = List<Addr>
+typealias GmDump = List<Pair<GmCode, GmStack>>
 typealias GmHeap = Map<Addr, Node>
 typealias GmGlobals = Map<Name, Addr>
 typealias GmStats = Int
@@ -250,6 +349,20 @@ data class Slide(val n: Int) : Instruction()
 data class Update(val n: Int) : Instruction()
 data class Pop(val n: Int) : Instruction()
 data class Alloc(val n: Int) : Instruction()
+object Eval : Instruction()
+object Neg : Instruction()
+data class Cond(val trueBranch: GmCode, val falseBranch: GmCode) : Instruction()
+sealed class PrimBinary : Instruction()
+object Add : PrimBinary()
+object Sub : PrimBinary()
+object Mul : PrimBinary()
+object Div : PrimBinary()
+object Eq : PrimBinary()
+object Ne : PrimBinary()
+object Lt : PrimBinary()
+object Le : PrimBinary()
+object Gt : PrimBinary()
+object Ge : PrimBinary()
 
 sealed class Node
 data class NNum(val n: Int) : Node()
