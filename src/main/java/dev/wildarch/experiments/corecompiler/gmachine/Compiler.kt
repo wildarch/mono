@@ -34,18 +34,9 @@ private fun dispatch(instruction: Instruction, nextState: GmState) = when (instr
     is Pop -> pop(instruction.n, nextState)
     is Alloc -> alloc(instruction.n, nextState)
     is Eval -> eval(nextState)
-    Add -> primBinOp(Add, nextState)
-    is Cond -> TODO()
-    Div -> TODO()
-    Eq -> TODO()
-    Ge -> TODO()
-    Gt -> TODO()
-    Le -> TODO()
-    Lt -> TODO()
-    Mul -> TODO()
-    Ne -> TODO()
+    is Cond -> cond(instruction.trueBranch, instruction.falseBranch, nextState)
     Neg -> primNeg(nextState)
-    Sub -> TODO()
+    is PrimBinary -> primBinOp(instruction, nextState)
 }
 
 private fun pushGlobal(name: Name, state: GmState): GmState {
@@ -174,15 +165,15 @@ private fun primBinOp(op: PrimBinary, state: GmState): GmState {
     val rhs = (state.heap[state.stack[state.stack.size - 2]] as NNum).n
     val res = when (op) {
         Add -> lhs + rhs
-        Div -> TODO()
-        Eq -> TODO()
-        Ge -> TODO()
-        Gt -> TODO()
-        Le -> TODO()
-        Lt -> TODO()
-        Mul -> TODO()
-        Ne -> TODO()
-        Sub -> TODO()
+        Div -> lhs / rhs
+        Eq -> if (lhs == rhs) 1 else 0
+        Ge -> if (lhs >= rhs) 1 else 0
+        Gt -> if (lhs > rhs) 1 else 0
+        Le -> if (lhs <= rhs) 1 else 0
+        Lt -> if (lhs < rhs) 1 else 0
+        Mul -> lhs * rhs
+        Ne -> if (lhs != rhs) 1 else 0
+        Sub -> lhs - rhs
     }
     val (newHeap, addr) = heapAlloc(state.heap, NNum(res))
     val newStack = state.stack.dropLast(2) + addr
@@ -190,6 +181,18 @@ private fun primBinOp(op: PrimBinary, state: GmState): GmState {
         stack = newStack,
         heap = newHeap,
     )
+}
+
+private fun cond(trueBranch: GmCode, falseBranch: GmCode, state: GmState): GmState {
+    val condNode = state.heap[state.stack.last()] as NNum
+    val takenBranch = when (condNode.n) {
+        0 -> falseBranch
+        1 -> trueBranch
+        else -> error("Invalid conditional value")
+    }
+    val newCode = takenBranch + state.code
+    val newStack = state.stack.dropLast(1)
+    return state.copy(code = newCode, stack = newStack)
 }
 
 private fun doAdmin(state: GmState): GmState {
@@ -254,7 +257,11 @@ private fun compileR(expr: Expr, env: GmEnv, arity: Int): GmCode {
 private fun compileC(expr: Expr, env: GmEnv): GmCode {
     return when (expr) {
         is Ap -> return compileC(expr.arg, env) + compileC(expr.func, argOffset(env, 1)) + listOf(MkAp)
-        is BinOp -> return compileC(expr.rhs, env) + compileC(expr.lhs, argOffset(env, 1)) + listOf(Pushglobal(primitiveFor(expr.op)), MkAp, MkAp)
+        is BinOp -> return compileC(expr.rhs, env) + compileC(expr.lhs, argOffset(env, 1)) + listOf(
+            Pushglobal(
+                primitiveFor(expr.op)
+            ), MkAp, MkAp
+        )
         is Case -> TODO()
         is Constr -> TODO()
         is Lam -> TODO()
@@ -294,22 +301,41 @@ private fun compileC(expr: Expr, env: GmEnv): GmCode {
 
 private val COMPILED_PRIMITIVES = mapOf(
     "negate" to NGlobal(1, listOf(Push(0), Eval, Neg, Update(1), Pop(1), Unwind)),
-    "+" to NGlobal(2, listOf(Push(1), Eval, Push(1), Eval, Add, Update(2), Pop(2), Unwind))
+    "if" to NGlobal(
+        3, listOf(
+            Push(0), Eval,
+            Cond(listOf(Push(1)), listOf(Push(2))),
+            Update(3), Pop(3), Unwind
+        )
+    ),
+    "+" to compiledPrimitiveBinaryOp(Add),
+    "-" to compiledPrimitiveBinaryOp(Sub),
+    "/" to compiledPrimitiveBinaryOp(Div),
+    "*" to compiledPrimitiveBinaryOp(Mul),
+    "==" to compiledPrimitiveBinaryOp(Eq),
+    "~=" to compiledPrimitiveBinaryOp(Ne),
+    ">" to compiledPrimitiveBinaryOp(Gt),
+    ">=" to compiledPrimitiveBinaryOp(Ge),
+    "<" to compiledPrimitiveBinaryOp(Lt),
+    "<=" to compiledPrimitiveBinaryOp(Le),
 )
 
-private fun primitiveFor(op: Operator) = when(op) {
+private fun compiledPrimitiveBinaryOp(op: PrimBinary): NGlobal =
+    NGlobal(2, listOf(Push(1), Eval, Push(1), Eval, op, Update(2), Pop(2), Unwind))
+
+private fun primitiveFor(op: Operator) = when (op) {
     Operator.ADD -> "+"
-    Operator.SUB -> TODO()
-    Operator.MUL -> TODO()
-    Operator.DIV -> TODO()
-    Operator.EQ -> TODO()
-    Operator.NEQ -> TODO()
-    Operator.GT -> TODO()
-    Operator.GTE -> TODO()
-    Operator.LT -> TODO()
-    Operator.LTE -> TODO()
-    Operator.AND -> TODO()
-    Operator.OR -> TODO()
+    Operator.SUB -> "-"
+    Operator.MUL -> "*"
+    Operator.DIV -> "/"
+    Operator.EQ -> "=="
+    Operator.NEQ -> "~="
+    Operator.GT -> ">"
+    Operator.GTE -> ">="
+    Operator.LT -> "<"
+    Operator.LTE -> "<="
+    Operator.AND -> "&"
+    Operator.OR -> "|"
 }
 
 private fun argOffset(env: GmEnv, offset: Int) = env.mapValues { it.value + offset }

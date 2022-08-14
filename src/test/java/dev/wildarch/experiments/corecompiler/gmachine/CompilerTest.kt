@@ -81,9 +81,80 @@ class CompilerTest {
 
     @Test
     fun compileAdd() {
-        assertEvaluatesTo("""
+        assertEvaluatesTo(
+            """
             main = 1 + 2
-        """.trimIndent(), 3)
+        """.trimIndent(), 3
+        )
+    }
+
+    @Test
+    fun compileArithmetic() {
+        assertEvaluatesTo(
+            """
+            main = 1 * 2 / 3 - 4
+        """.trimIndent(), -4
+        )
+    }
+
+    @Test
+    fun compileNegateIndirection() {
+        assertEvaluatesTo(
+            """
+            main = negate (I 3)
+        """.trimIndent(), -3
+        )
+    }
+
+    @Test
+    fun compileSubTwice() {
+        assertEvaluatesTo(
+            """
+             main = (3 - 2) - 1
+        """.trimIndent(), 0
+        )
+    }
+
+    @Test
+    fun compileMulIndirect() {
+        assertEvaluatesTo(
+            """
+            main = (I 6) * (I 8)
+        """.trimIndent(), 48
+        )
+    }
+
+    @Test
+    fun compileIf() {
+        assertEvaluatesTo(
+            """
+            main = if (1 == 2) 1000 42
+        """.trimIndent(), 42
+        )
+
+        assertEvaluatesTo(
+            """
+            main = if (1 < 2) 1000 42
+        """.trimIndent(), 1000
+        )
+    }
+
+    @Test
+    fun compileFactorial() {
+        assertEvaluatesTo(
+            """
+            fac n = if (n == 0) 1 (n * fac (n-1)) ;
+            main = fac 3
+        """.trimIndent(), 6
+        )
+    }
+
+    @Test
+    fun compileLazyDiv() {
+        // Evaluating 1/0 should throw an error, but with lazy evaluation it will never be computed.
+        assertEvaluatesTo("""
+            main = K 1 (1/0)
+        """.trimIndent(), 1)
     }
 
     @Test
@@ -159,7 +230,51 @@ class CompilerTest {
         )
     }
 
+    @Test
+    fun exampleArithmetic() {
+        assertEvaluatesTo(
+            """
+            main = 4*5+(2-5)
+        """.trimIndent(), 17
+        )
 
+        assertEvaluatesTo(
+            """
+            inc x = x+1;
+            main = twice twice inc 4
+        """.trimIndent(), 8
+        )
+
+        assertEvaluatesTo(
+            """
+            cons a b cc cn = cc a b ;
+            nil      cc cn = cn ;
+            length xs = xs length1 0 ;
+            length1 x xs = 1 + (length xs) ;
+            
+            main = length (cons 3 (cons 3 (cons 3 nil)))
+        """.trimIndent(), 3
+        )
+    }
+
+    @Test
+    fun exampleGcd() {
+        assertEvaluatesTo("""
+            gcd a b = if (a==b)
+                        a
+                      (if (a<b) (gcd b a) (gcd b (a-b))) ; 
+            main = gcd 6 10
+        """.trimIndent(), 2)
+    }
+
+    // Modified version of nfib, because nfib has a bug for nfib 2 (does not terminate).
+    @Test
+    fun fibonacci() {
+        assertEvaluatesTo("""
+            fib n = if (n <= 1) n (fib (n-1) + fib (n-2)) ;
+            main = fib 7
+        """.trimIndent(), 13)
+    }
 
     private fun assertEvaluatesTo(program: String, num: Int): List<GmState> {
         val parsed = parse(program)
