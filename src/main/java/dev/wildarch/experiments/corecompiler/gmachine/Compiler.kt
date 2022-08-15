@@ -98,10 +98,24 @@ private fun unwind(state: GmState): GmState {
         // Continue to unwind from next node in Ap chain
         is NAp -> state.copy(code = listOf(Unwind), stack = state.stack + topNode.func)
         is NGlobal -> {
-            assert(state.stack.size > topNode.argc) { "Not enough arguments to supercombinator" }
+            val argsOnStack = state.stack.size - 1
+            if (argsOnStack < topNode.argc) {
+                // TODO: Figure out how this works (rule 3.29)
+                val dumpItem =
+                    state.dump.lastOrNull() ?: error("Not enough args for supercombinator, and nothing on the dump")
+                val (dumpCode, dumpStack) = dumpItem
+
+                val newCode = dumpCode
+                val newStack = dumpStack + state.stack.first()
+                val newDump = state.dump.dropLast(1)
+                return state.copy(
+                    code = newCode,
+                    stack = newStack,
+                    dump = newDump,
+                )
+            }
             // Rearrange the stack
-            val argAddrs = state.stack
-                .dropLast(1)                        // Drop the function
+            val argAddrs = state.stack.dropLast(1)                        // Drop the function
                 .takeLast(topNode.argc)                // Take the addrs to the Ap nodes containing the arguments
                 .map { (state.heap[it] as NAp).arg }   // Convert the Ap addrs into argument addrs
             val newStack = state.stack.dropLast(topNode.argc) + argAddrs
@@ -144,9 +158,7 @@ private fun eval(state: GmState): GmState {
     val newStack = listOf(state.stack.last())
     val newDump = state.dump + Pair(state.code, state.stack.dropLast(1))
     return state.copy(
-        code = newCode,
-        stack = newStack,
-        dump = newDump
+        code = newCode, stack = newStack, dump = newDump
     )
 }
 
@@ -251,7 +263,7 @@ private fun compileSc(def: ScDefn): NGlobal {
 }
 
 private fun compileR(expr: Expr, env: GmEnv, arity: Int): GmCode {
-    return compileC(expr, env) + listOf(Update(arity), Pop(arity), Unwind)
+    return compileE(expr, env) + listOf(Update(arity), Pop(arity), Unwind)
 }
 
 private fun compileC(expr: Expr, env: GmEnv): GmCode {
@@ -299,13 +311,67 @@ private fun compileC(expr: Expr, env: GmEnv): GmCode {
     }
 }
 
+private fun compileE(expr: Expr, env: GmEnv): GmCode {
+    when (expr) {
+        is Num -> listOf(Pushint(expr.value))
+        is Let -> if (expr.isRec) {
+            val letBinds = buildMap {
+                expr.defs.forEachIndexed { index, def ->
+                    put(def.name, expr.defs.size - 1 - index)
+                }
+            }
+            val recEnv = argOffset(env, expr.defs.size) + letBinds
+            return listOf(Alloc(expr.defs.size)) + expr.defs.flatMapIndexed { index, def ->
+                compileC(def.expr, recEnv) + Update(expr.defs.size - 1 - index)
+            } + compileE(expr.body, recEnv) + listOf(Slide(expr.defs.size))
+        } else {
+            val letBinds = buildMap {
+                expr.defs.forEachIndexed { index, def ->
+                    put(def.name, expr.defs.size - 1 - index)
+                }
+            }
+            return expr.defs.flatMapIndexed { index, def ->
+                compileC(def.expr, argOffset(env, index))
+            } + compileE(expr.body, argOffset(env, expr.defs.size) + letBinds) + listOf(Slide(expr.defs.size))
+        }
+        is BinOp -> return compileE(expr.rhs, env) + compileE(
+            expr.lhs, argOffset(env, 1)
+        ) + listOf(instructionFor(expr.op))
+        is Ap -> when (val expr1 = expr.func) {
+            is Var -> if (expr1.name == "negate") {
+                return compileE(expr.arg, env) + listOf(Neg)
+            }
+            is Ap -> when (val expr2 = expr1.func) {
+                is Ap -> if (expr2.func == Var("if")) {
+                    val cond = expr2.arg
+                    val trueBranch = expr1.arg
+                    val falseBranch = expr.arg
+
+                    return compileE(cond, env) + listOf(
+                        Cond(
+                            compileE(trueBranch, env),
+                            compileE(falseBranch, env)
+                        )
+                    )
+                }
+                else -> { /* Fall to default */
+                }
+            }
+            else -> { /* Fall to default */
+            }
+        }
+        else -> { /* Fall to default */
+        }
+    }
+    // Default if none of the special case apply
+    return compileC(expr, env) + listOf(Eval)
+}
+
 private val COMPILED_PRIMITIVES = mapOf(
     "negate" to NGlobal(1, listOf(Push(0), Eval, Neg, Update(1), Pop(1), Unwind)),
     "if" to NGlobal(
         3, listOf(
-            Push(0), Eval,
-            Cond(listOf(Push(1)), listOf(Push(2))),
-            Update(3), Pop(3), Unwind
+            Push(0), Eval, Cond(listOf(Push(1)), listOf(Push(2))), Update(3), Pop(3), Unwind
         )
     ),
     "+" to compiledPrimitiveBinaryOp(Add),
@@ -336,6 +402,21 @@ private fun primitiveFor(op: Operator) = when (op) {
     Operator.LTE -> "<="
     Operator.AND -> "&"
     Operator.OR -> "|"
+}
+
+private fun instructionFor(op: Operator) = when (op) {
+    Operator.ADD -> Add
+    Operator.SUB -> Sub
+    Operator.MUL -> Mul
+    Operator.DIV -> Div
+    Operator.EQ -> Eq
+    Operator.NEQ -> Ne
+    Operator.GT -> Gt
+    Operator.GTE -> Ge
+    Operator.LT -> Lt
+    Operator.LTE -> Le
+    Operator.AND -> TODO()
+    Operator.OR -> TODO()
 }
 
 private fun argOffset(env: GmEnv, offset: Int) = env.mapValues { it.value + offset }
