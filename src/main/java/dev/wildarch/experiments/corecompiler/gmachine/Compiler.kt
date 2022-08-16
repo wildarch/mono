@@ -77,12 +77,16 @@ private fun slide(n: Int, state: GmState): GmState {
     )
 }
 
+// Applies the arguments on the stack to a supercombinator
+// (or continue to unwind the top element until we find a supercombinator to apply).
 private fun unwind(state: GmState): GmState {
     val top = state.stack.last()
     return when (val topNode = state.heap[top]!!) {
         is NNum -> when (val dumpEntry = state.dump.lastOrNull()) {
-            // Done
+            // There is nothing on the main stack to unwind further, so we are left with two options:
+            // 1. We are done
             null -> return state
+            // 2. There is another stack on the dump to unwind instead
             else -> {
                 assert(state.stack.size == 1)
                 val newCode = dumpEntry.first
@@ -100,7 +104,10 @@ private fun unwind(state: GmState): GmState {
         is NGlobal -> {
             val argsOnStack = state.stack.size - 1
             if (argsOnStack < topNode.argc) {
-                // TODO: Figure out how this works (rule 3.29)
+                // We have tried to evaluate a supercombinator, but there are not enough arguments to instantiate it.
+                // This means we have reached weak head normal form, so we roll back to the top of the Ap chain, and
+                // restore from the dump to unwind that instead, similar to what we do for NNum (which also signifies
+                // WHNF).
                 val dumpItem =
                     state.dump.lastOrNull() ?: error("Not enough args for supercombinator, and nothing on the dump")
                 val (dumpCode, dumpStack) = dumpItem
@@ -115,7 +122,7 @@ private fun unwind(state: GmState): GmState {
                 )
             }
             // Rearrange the stack
-            val argAddrs = state.stack.dropLast(1)                        // Drop the function
+            val argAddrs = state.stack.dropLast(1)  // Drop the function
                 .takeLast(topNode.argc)                // Take the addrs to the Ap nodes containing the arguments
                 .map { (state.heap[it] as NAp).arg }   // Convert the Ap addrs into argument addrs
             val newStack = state.stack.dropLast(topNode.argc) + argAddrs
@@ -153,6 +160,7 @@ private fun alloc(n: Int, state: GmState): GmState {
     )
 }
 
+// Evaluate the item at the top of the stack to weak head normal form
 private fun eval(state: GmState): GmState {
     val newCode = listOf(Unwind)
     val newStack = listOf(state.stack.last())
