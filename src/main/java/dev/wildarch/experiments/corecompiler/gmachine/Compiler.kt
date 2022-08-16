@@ -26,17 +26,21 @@ private fun step(state: GmState): GmState {
 private fun dispatch(instruction: Instruction, nextState: GmState) = when (instruction) {
     is Pushglobal -> pushGlobal(instruction.name, nextState)
     is Pushint -> pushInt(instruction.n, nextState)
-    is MkAp -> makeAp(nextState)
+    MkAp -> makeAp(nextState)
     is Push -> push(instruction.n, nextState)
     is Slide -> slide(instruction.n, nextState)
-    is Unwind -> unwind(nextState)
+    Unwind -> unwind(nextState)
     is Update -> update(instruction.n, nextState)
     is Pop -> pop(instruction.n, nextState)
     is Alloc -> alloc(instruction.n, nextState)
-    is Eval -> eval(nextState)
+    Eval -> eval(nextState)
     is Cond -> cond(instruction.trueBranch, instruction.falseBranch, nextState)
     Neg -> primNeg(nextState)
     is PrimBinary -> primBinOp(instruction, nextState)
+    is CaseJump -> caseJump(instruction.jumpTable, nextState)
+    is Pack -> pack(instruction.tag, instruction.arity, nextState)
+    Print -> print(nextState)
+    is Split -> split(instruction.n, nextState)
 }
 
 private fun pushGlobal(name: Name, state: GmState): GmState {
@@ -129,6 +133,17 @@ private fun unwind(state: GmState): GmState {
             return state.copy(code = topNode.code, stack = newStack)
         }
         is NInd -> state.copy(code = listOf(Unwind), stack = state.stack.dropLast(1) + topNode.addr)
+        is NConstr -> {
+            val dumpEntry = state.dump.last()
+            assert(state.stack.size == 1)
+            val newCode = dumpEntry.first
+            val newStack = dumpEntry.second + top
+            return state.copy(
+                code = newCode,
+                stack = newStack,
+                dump = state.dump.dropLast(1),
+            )
+        }
     }
 }
 
@@ -215,6 +230,50 @@ private fun cond(trueBranch: GmCode, falseBranch: GmCode, state: GmState): GmSta
     return state.copy(code = newCode, stack = newStack)
 }
 
+private fun caseJump(jumps: Map<Int, GmCode>, state: GmState): GmState {
+    val constr = state.heap[state.stack.last()] as NConstr
+    val newCode = jumps[constr.tag]!! + state.code
+
+    return state.copy(code = newCode)
+}
+
+private fun pack(tag: Int, arity: Int, state: GmState): GmState {
+    val args = state.stack.takeLast(arity)
+    assert(args.size == arity)
+    val (newHeap, addr) = heapAlloc(state.heap, NConstr(tag, args))
+    val newStack = state.stack.dropLast(arity) + addr
+    return state.copy(
+        stack = newStack,
+        heap = newHeap,
+    )
+}
+
+private fun print(state: GmState): GmState {
+    when (val topNode = state.heap[state.stack.last()]) {
+        is NNum -> {
+            val newOutput = state.output + "${topNode.n} "
+            return state.copy(output = newOutput)
+        }
+        is NConstr -> {
+            val printCode = topNode.args.flatMap { listOf(Eval, Print) }
+            val newCode = printCode + state.code
+            val newStack = state.stack.dropLast(1) + topNode.args
+            return state.copy(
+                code = newCode,
+                stack = newStack,
+            )
+        }
+        else -> error("Invalid top node for print: $topNode")
+    }
+}
+
+private fun split(n: Int, state: GmState): GmState {
+    val constr = state.heap[state.stack.last()] as NConstr
+    assert(constr.args.size == n)
+    val newStack = state.stack.dropLast(1) + constr.args
+    return state.copy(stack = newStack)
+}
+
 private fun doAdmin(state: GmState): GmState {
     return state.copy(
         stats = state.stats + 1,
@@ -237,6 +296,7 @@ fun compile(program: Program): GmState {
     val scDefs = program.defs + preludeDefs()
     val (heap, globals) = buildInitialHeap(scDefs)
     return GmState(
+        output = "",
         code = initialCode,
         stack = emptyList(),
         dump = emptyList(),
@@ -357,8 +417,7 @@ private fun compileE(expr: Expr, env: GmEnv): GmCode {
 
                     return compileE(cond, env) + listOf(
                         Cond(
-                            compileE(trueBranch, env),
-                            compileE(falseBranch, env)
+                            compileE(trueBranch, env), compileE(falseBranch, env)
                         )
                     )
                 }
@@ -430,6 +489,7 @@ private fun instructionFor(op: Operator) = when (op) {
 private fun argOffset(env: GmEnv, offset: Int) = env.mapValues { it.value + offset }
 
 data class GmState(
+    val output: GmOutput,
     val code: GmCode,
     val stack: GmStack,
     val dump: GmDump,
@@ -444,6 +504,7 @@ data class GmState(
     )
 }
 
+typealias GmOutput = String
 typealias GmCode = List<Instruction>
 typealias GmStack = List<Addr>
 typealias GmDump = List<Pair<GmCode, GmStack>>
@@ -478,9 +539,14 @@ object Lt : PrimBinary()
 object Le : PrimBinary()
 object Gt : PrimBinary()
 object Ge : PrimBinary()
+data class Pack(val tag: Int, val arity: Int) : Instruction()
+data class CaseJump(val jumpTable: Map<Int, GmCode>) : Instruction()
+data class Split(val n: Int) : Instruction()
+object Print : Instruction()
 
 sealed class Node
 data class NNum(val n: Int) : Node()
 data class NAp(val func: Addr, val arg: Addr) : Node()
 data class NGlobal(val argc: Int, val code: GmCode) : Node()
 data class NInd(val addr: Addr) : Node()
+data class NConstr(val tag: Int, val args: List<Addr>) : Node()
