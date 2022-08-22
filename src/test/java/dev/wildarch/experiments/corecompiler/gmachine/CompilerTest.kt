@@ -276,6 +276,22 @@ class CompilerTest {
         """.trimIndent(), 13)
     }
 
+    @Test
+    fun exampleDownfrom() {
+        assertEvaluatesTo("""
+            cons = Pack{2,2} ;
+            nil = Pack{1,0} ;
+            printList xs = case xs of
+                <1> -> 0 ;
+                <2> h t -> print h (printList t) ;
+            downfrom n = if (n == 0)
+                            nil
+                            (cons n (downfrom (n-1))) ;
+            
+            main = printList (downfrom 4)
+        """.trimIndent(), "4 3 2 1 ")
+    }
+
     private fun assertEvaluatesTo(program: String, num: Int): List<GmState> {
         val parsed = parse(program)
         val compiled = compile(parsed)
@@ -287,6 +303,16 @@ class CompilerTest {
         val finalNode = finalState.heap[finalAddr] ?: error("Invalid final addr")
         val finalNum = finalNode as NNum
         Truth.assertThat(finalNum.n).isEqualTo(num)
+        return trace
+    }
+
+    private fun assertEvaluatesTo(program: String, output: String): List<GmState> {
+        val parsed = parse(program)
+        val compiled = compile(parsed)
+        val trace = evaluate(compiled)
+
+        val finalState = trace.last()
+        Truth.assertThat(finalState.output).isEqualTo(output)
         return trace
     }
 }

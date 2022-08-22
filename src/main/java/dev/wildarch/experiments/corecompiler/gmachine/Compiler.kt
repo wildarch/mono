@@ -343,7 +343,7 @@ private fun compileC(expr: Expr, env: GmEnv): GmCode {
             ), MkAp, MkAp
         )
         is Case -> TODO()
-        is Constr -> TODO()
+        is Constr -> listOf(Pushglobal("Pack{${expr.tag},${expr.arity}}"))
         is Lam -> TODO()
         is Let -> if (expr.isRec) {
             val letBinds = buildMap {
@@ -427,11 +427,34 @@ private fun compileE(expr: Expr, env: GmEnv): GmCode {
             else -> { /* Fall to default */
             }
         }
+        is Constr -> if (expr.arity == 0) {
+            // Special case for arity 0, can be constructed immediately
+            return listOf(Pack(expr.tag, 0))
+        }
+        is Case -> return compileE(expr.expr, env) + CaseJump(compileD(expr.alters, env))
         else -> { /* Fall to default */
         }
     }
     // Default if none of the special case apply
     return compileC(expr, env) + listOf(Eval)
+}
+
+private fun compileD(alts: List<Alter>, env: GmEnv): Map<Int, GmCode> {
+    return buildMap {
+        for (alt in alts) {
+            put(alt.tag, compileA(alt.binds, alt.body, env))
+        }
+    }
+}
+
+private fun compileA(binds: List<String>, body: Expr, env: GmEnv): GmCode {
+    val altEnv = buildMap {
+        putAll(argOffset(env, binds.size))
+        binds.forEachIndexed { index, name ->
+            put(name, index)
+        }
+    }
+    return listOf(Split(binds.size)) + compileE(body, altEnv) + Slide(binds.size)
 }
 
 private val COMPILED_PRIMITIVES = mapOf(
@@ -441,6 +464,7 @@ private val COMPILED_PRIMITIVES = mapOf(
             Push(0), Eval, Cond(listOf(Push(1)), listOf(Push(2))), Update(3), Pop(3), Unwind
         )
     ),
+    "print" to NGlobal(2, listOf(Push(0), Eval, Print, Push(2), Slide(3), Eval)),
     "+" to compiledPrimitiveBinaryOp(Add),
     "-" to compiledPrimitiveBinaryOp(Sub),
     "/" to compiledPrimitiveBinaryOp(Div),
@@ -451,6 +475,8 @@ private val COMPILED_PRIMITIVES = mapOf(
     ">=" to compiledPrimitiveBinaryOp(Ge),
     "<" to compiledPrimitiveBinaryOp(Lt),
     "<=" to compiledPrimitiveBinaryOp(Le),
+    // Pack
+    "Pack{2,2}" to NGlobal(2, listOf(Pack(2, 2), Update(0), Unwind))
 )
 
 private fun compiledPrimitiveBinaryOp(op: PrimBinary): NGlobal =
