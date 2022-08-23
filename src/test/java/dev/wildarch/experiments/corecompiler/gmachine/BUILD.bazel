@@ -1,0 +1,13 @@
+load("@io_bazel_rules_kotlin//kotlin:jvm.bzl", "kt_jvm_test")
+
+kt_jvm_test(
+    name = "CompilerTest",
+    srcs = [
+        "CompilerTest.kt",
+    ],
+    deps = [
+        "//src/main/java/dev/wildarch/experiments/corecompiler/gmachine",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+    ],
+)
