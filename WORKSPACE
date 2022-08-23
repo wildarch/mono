@@ -93,3 +93,26 @@ maven_install(
         "https://repo1.maven.org/maven2",
     ],
 )
+
+# Oracle OCI
+http_archive(
+    name = "oci-java-sdk",
+    build_file_content = """
+java_import(
+    name = "oci-java-sdk",
+    jars = [
+        "lib/oci-java-sdk-full-2.40.0.jar",
+    ],
+    srcjar = "lib/oci-java-sdk-full-2.40.0-sources.jar",
+    deps = [":deps"],
+    visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "deps",
+    jars = glob(["third-party/lib/*.jar"]),
+)
+    """,
+    sha256 = "7a77d404817f5bc6ddc4faa1b00c6fa33ab3e4126d14a24c0da3056eac312530",
+    urls = ["https://github.com/oracle/oci-java-sdk/releases/download/v2.40.0/oci-java-sdk-2.40.0.zip"],
+)

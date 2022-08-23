@@ -1,0 +1,8 @@
+load("@io_bazel_rules_kotlin//kotlin:jvm.bzl", "kt_jvm_binary")
+
+kt_jvm_binary(
+    name = "backend",
+    srcs = ["Main.kt"],
+    main_class = "dev.wildarch.experiments.cast.backend.MainKt",
+    deps = ["@oci-java-sdk//:oci-java-sdk"],
+)
