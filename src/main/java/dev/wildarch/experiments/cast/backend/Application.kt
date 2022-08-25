@@ -23,11 +23,13 @@ fun main() {
     val namespaceName = getNamespaceName(osClient)
     val bucketName = "medialib"
 
-    embeddedServer(Netty, port = 8080, host = "0.0.0.0") {
+    val prefix = System.getenv("CAST_BACKEND_PREFIX") ?: ""
+    val port = System.getenv("CAST_BACKEND_PORT")?.let { Integer.parseInt(it) } ?: 8080
+
+    embeddedServer(Netty, port = port, host = "127.0.0.1") {
         routing {
             get("/") {
                 // List media
-
                 val objectsResponse = osClient.listObjects(
                     ListObjectsRequest.builder()
                         .namespaceName(namespaceName)
@@ -49,7 +51,7 @@ fun main() {
                         ul {
                             for (obj in objectsResponse.listObjects.objects) {
                                 li {
-                                    a(href = "/play/${obj.name}") {
+                                    a(href = "${prefix}/play/${obj.name}") {
                                         +obj.name
                                     }
                                 }

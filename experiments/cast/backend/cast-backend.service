@@ -1,0 +1,16 @@
+[Unit]
+Description=Cast Backend
+After=syslog.target network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+Type=simple
+Environment="CAST_BACKEND_PREFIX=/cast"
+Environment="CAST_BACKEND_PORT=8001"
+ExecStart=/usr/bin/java -jar /usr/share/java/cast_backend.jar
+ExecStop=/bin/kill -15 $MAINPID
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target

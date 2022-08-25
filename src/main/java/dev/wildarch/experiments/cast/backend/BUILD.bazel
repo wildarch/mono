@@ -19,5 +19,6 @@ kt_jvm_library(
 java_binary(
     name = "backend",
     main_class = "dev.wildarch.experiments.cast.backend.ApplicationKt",
+    visibility = ["//visibility:public"],
     runtime_deps = [":Application"],
 )

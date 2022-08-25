@@ -1,0 +1,10 @@
+{
+	admin localhost:2019
+}
+
+oracle.wildarch.dev {
+	route /cast* {
+		uri strip_prefix /cast
+		reverse_proxy 127.0.0.1:8001
+	}
+}
