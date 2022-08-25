@@ -87,32 +87,20 @@ maven_install(
         "junit:junit:4.12",
         "com.google.truth:truth:1.1.3",
         "org.commonmark:commonmark:0.18.1",
+        # Ktor
+        "io.ktor:ktor-server-core-jvm:2.1.0",
+        "io.ktor:ktor-server-netty-jvm:2.1.0",
+        "io.ktor:ktor-server-html-builder-jvm:2.1.0",
+        "io.ktor:ktor-utils-jvm:2.1.0",
+        "io.ktor:ktor-http:2.1.0",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.6.4",
+        "org.jetbrains.kotlinx:kotlinx-html-jvm:0.8.0",
+        # OCI SDK
+        "com.oracle.oci.sdk:oci-java-sdk-core:2.40.0",
+        "com.oracle.oci.sdk:oci-java-sdk-objectstorage:2.40.0",
     ],
     repositories = [
         "https://maven.google.com",
         "https://repo1.maven.org/maven2",
     ],
-)
-
-# Oracle OCI
-http_archive(
-    name = "oci-java-sdk",
-    build_file_content = """
-java_import(
-    name = "oci-java-sdk",
-    jars = [
-        "lib/oci-java-sdk-full-2.40.0.jar",
-    ],
-    srcjar = "lib/oci-java-sdk-full-2.40.0-sources.jar",
-    deps = [":deps"],
-    visibility = ["//visibility:public"],
-)
-
-java_import(
-    name = "deps",
-    jars = glob(["third-party/lib/*.jar"]),
-)
-    """,
-    sha256 = "7a77d404817f5bc6ddc4faa1b00c6fa33ab3e4126d14a24c0da3056eac312530",
-    urls = ["https://github.com/oracle/oci-java-sdk/releases/download/v2.40.0/oci-java-sdk-2.40.0.zip"],
 )
