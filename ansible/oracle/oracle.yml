@@ -1,0 +1,81 @@
+# This playbook requires an extra variable 'caddy_auth_password_hashed' for a basic auth password.
+# Generate it using `ssh oracle caddy hash-password`.
+# Then run the playbook with an extra flag `--extra-vars='caddy_auth_password_hashed=<hash>'`
+---
+- name: Set up oracle VM
+  hosts: oracle
+  become: true
+  handlers:
+  - name: Reload iptables configuration
+    ansible.builtin.shell: iptables-restore < /etc/iptables/rules.v4
+
+  - name: Reload caddy
+    ansible.builtin.systemd:
+      state: reloaded
+      name: caddy
+
+  tasks:
+  - name: Add Caddy APT key
+    become: true
+    apt_key:
+      url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+      file: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+      state: present
+
+  - name: Add Caddy APT repository
+    become: true
+    apt_repository:
+      repo: deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
+      state: present
+      filename: caddy-stable
+
+  - name: Install packages
+    apt:
+      update_cache: yes
+      cache_valid_time: 3600
+      pkg:
+        - caddy
+
+  - name: Allow connections on port 80 (HTTP)
+    ansible.builtin.lineinfile:
+      path: /etc/iptables/rules.v4
+      regexp: '^-A INPUT -p tcp -m state --state NEW -m tcp --dport 80 -j ACCEPT'
+      insertbefore: '^-A INPUT -j REJECT'
+      line: '-A INPUT -p tcp -m state --state NEW -m tcp --dport 80 -j ACCEPT'
+    notify:
+    - Reload iptables configuration
+
+  - name: Allow connections on port 443 (HTTPS)
+    ansible.builtin.lineinfile:
+      path: /etc/iptables/rules.v4
+      regexp: '^-A INPUT -p tcp -m state --state NEW -m tcp --dport 443 -j ACCEPT'
+      insertbefore: '^-A INPUT -j REJECT'
+      line: '-A INPUT -p tcp -m state --state NEW -m tcp --dport 443 -j ACCEPT'
+    notify:
+      - Reload iptables configuration
+
+  - name: Configure caddy
+    ansible.builtin.template:
+      src: Caddyfile
+      dest: /etc/caddy/Caddyfile
+      owner: root
+      group: root
+      mode: '0644'
+    notify:
+    - Reload caddy
+
+  - name: Build cast backend
+    become: false
+    delegate_to: 127.0.0.1
+    ansible.builtin.command:
+      cmd: "bazel build //experiments/cast/backend:backend_deb"
+      creates: "../../bazel-bin/experiments/cast/backend/cast-backend_0.0.1_all.deb"
+
+  - name: Transfer cast backend
+    ansible.posix.synchronize:
+      src: "../../bazel-bin/experiments/cast/backend/cast-backend_0.0.1_all.deb"
+      dest: "/tmp/cast-backend.deb"
+
+  - name: Install cast backend
+    ansible.builtin.apt:
+      deb: /tmp/cast-backend.deb
