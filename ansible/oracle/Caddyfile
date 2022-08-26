@@ -4,6 +4,9 @@
 
 oracle.wildarch.dev {
 	route /cast* {
+		basicauth {
+			daan {{caddy_auth_password_hashed}}
+		}
 		uri strip_prefix /cast
 		reverse_proxy 127.0.0.1:8001
 	}
