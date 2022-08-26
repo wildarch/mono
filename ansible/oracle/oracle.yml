@@ -63,3 +63,19 @@
       mode: '0644'
     notify:
     - Reload caddy
+
+  - name: Build cast backend
+    become: false
+    delegate_to: 127.0.0.1
+    ansible.builtin.command:
+      cmd: "bazel build //experiments/cast/backend:backend_deb"
+      creates: "../../bazel-bin/experiments/cast/backend/cast-backend_0.0.1_all.deb"
+
+  - name: Transfer cast backend
+    ansible.posix.synchronize:
+      src: "../../bazel-bin/experiments/cast/backend/cast-backend_0.0.1_all.deb"
+      dest: "/tmp/cast-backend.deb"
+
+  - name: Install cast backend
+    ansible.builtin.apt:
+      deb: /tmp/cast-backend.deb
