@@ -25,7 +25,9 @@ package_group(
         "//src/main/java/dev/wildarch/experiments/corecompiler/prelude",
         "//src/main/java/dev/wildarch/experiments/corecompiler/syntax",
         "//src/main/java/dev/wildarch/experiments/corecompiler/templateinstantiation",
+        "//src/main/java/dev/wildarch/experiments/corecompiler/tim",
         "//src/test/java/dev/wildarch/experiments/corecompiler/gmachine",
         "//src/test/java/dev/wildarch/experiments/corecompiler/templateinstantiation",
+        "//src/test/java/dev/wildarch/experiments/corecompiler/tim",
     ],
 )

@@ -1,0 +1,13 @@
+load("@io_bazel_rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+
+kt_jvm_library(
+    name = "tim",
+    srcs = [
+        "Compiler.kt",
+    ],
+    visibility = ["//src/main/java/dev/wildarch/experiments/corecompiler:package"],
+    deps = [
+        "//src/main/java/dev/wildarch/experiments/corecompiler/prelude",
+        "//src/main/java/dev/wildarch/experiments/corecompiler/syntax",
+    ],
+)
