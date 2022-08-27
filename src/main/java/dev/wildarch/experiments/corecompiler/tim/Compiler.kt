@@ -31,7 +31,7 @@ fun compile(program: Program): TimState {
 private fun compileSc(env: TimCompilerEnv, def: ScDefn): List<Instruction> {
     val newEnv = buildMap {
         def.params.forEachIndexed { index, param ->
-            put(param, Arg(index+1))
+            put(param, Arg(index))
         }
         putAll(env)
     }
@@ -42,7 +42,7 @@ private fun compileSc(env: TimCompilerEnv, def: ScDefn): List<Instruction> {
 }
 
 private fun compileR(expr: Expr, env: TimCompilerEnv): List<Instruction> {
-    return when(expr) {
+    return when (expr) {
         is Ap -> listOf(Push(compileA(expr.arg, env))) + compileR(expr.func, env)
         is Var -> listOf(Enter(compileA(expr, env)))
         is Num -> listOf(Enter(compileA(expr, env)))
@@ -51,7 +51,7 @@ private fun compileR(expr: Expr, env: TimCompilerEnv): List<Instruction> {
 }
 
 private fun compileA(expr: Expr, env: TimCompilerEnv): TimAMode {
-    return when(expr) {
+    return when (expr) {
         is Var -> env[expr.name] ?: error("Unknown variable ${expr.name}")
         is Num -> IntConst(expr.value)
         else -> Code(compileR(expr, env))
@@ -59,7 +59,67 @@ private fun compileA(expr: Expr, env: TimCompilerEnv): TimAMode {
 }
 
 fun evaluate(initialState: TimState, maxSteps: Int = 10000): List<TimState> {
-    TODO()
+    val trace = mutableListOf(initialState)
+    var steps = 0
+    while (!trace.last().isFinal()) {
+        if (steps > maxSteps) {
+            error("Did not terminate after $maxSteps")
+        }
+        trace.add(step(trace.last()))
+        steps++;
+    }
+    return trace
+}
+
+private fun step(state: TimState): TimState {
+    return when (val inst = state.instructions.first()) {
+        is Take -> {
+            assert(state.stack.size >= inst.n)
+            val newStack = state.stack.dropLast(inst.n)
+            val (newHeap, newFramePtr) = heapAlloc(state.heap, state.stack.takeLast(inst.n).reversed())
+            return state.copy(
+                instructions = state.instructions.drop(1),
+                framePointer = FrameAddr(newFramePtr),
+                stack = newStack,
+                heap = newHeap,
+            )
+        }
+        is Enter -> {
+            val closure = argToClosure(inst.arg, state.framePointer, state.heap, state.codeStore)
+            return state.copy(
+                instructions = closure.code,
+                framePointer = closure.framePtr,
+            )
+        }
+        is Push -> {
+            val closure = argToClosure(inst.arg, state.framePointer, state.heap, state.codeStore)
+            val newInstructions = state.instructions.drop(1)
+            val newStack = state.stack + closure
+            return state.copy(
+                instructions = newInstructions,
+                stack = newStack,
+            )
+        }
+    }
+}
+
+private fun argToClosure(arg: TimAMode, framePointer: FramePtr, heap: TimHeap, codeStore: CodeStore): Closure {
+    return when (arg) {
+        is Arg -> {
+            val frame = heap[(framePointer as FrameAddr).a]!!
+            frame[arg.n]
+        }
+        is Code -> Closure(arg.code, framePointer)
+        is IntConst -> Closure(emptyList(), FrameInt(arg.value))
+        is Label -> Closure(codeStore[arg.l] ?: error("Unknown label ${arg.l}"), framePointer)
+    }
+}
+
+private fun heapAlloc(heap: TimHeap, frame: Frame): Pair<TimHeap, Addr> {
+    val addr = 1 + heap.size
+    val newHeap = heap.toMutableMap()
+    newHeap[addr] = frame
+    return Pair(newHeap, addr)
 }
 
 sealed class Instruction
@@ -79,7 +139,9 @@ data class TimState(
     val stack: TimStack,
     val heap: TimHeap,
     val codeStore: CodeStore
-)
+) {
+    fun isFinal() = instructions.isEmpty()
+}
 
 sealed class FramePtr
 data class FrameAddr(val a: Addr) : FramePtr()
