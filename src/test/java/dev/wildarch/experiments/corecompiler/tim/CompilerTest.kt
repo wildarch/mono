@@ -16,6 +16,15 @@ class CompilerTest {
     }
 
     @Test
+    fun compileTrivial2() {
+        assertEvaluatesTo("""
+            id1 = S K K ;
+            id2 = id1 id1 ;
+            main = id1 4
+        """.trimIndent(), 4)
+    }
+
+    @Test
     fun exampleBasicUltra() {
         assertEvaluatesTo("main = I 3", 3)
         assertEvaluatesTo(
@@ -31,7 +40,6 @@ class CompilerTest {
         """.trimIndent(), 3
         )
     }
-
 
     private fun assertEvaluatesTo(program: String, num: Int): List<TimState> {
         val parsed = parse(program)

@@ -36,7 +36,10 @@ private fun compileSc(env: TimCompilerEnv, def: ScDefn): List<Instruction> {
         putAll(env)
     }
     return buildList {
-        add(Take(def.params.size))
+        if(def.params.isNotEmpty()) {
+            // Only create a new frame if there are actual parameters to store in the frame
+            add(Take(def.params.size))
+        }
         addAll(compileR(def.body, newEnv))
     }
 }
@@ -77,7 +80,7 @@ private fun step(state: TimState): TimState {
             assert(state.stack.size >= inst.n)
             val newStack = state.stack.dropLast(inst.n)
             val (newHeap, newFramePtr) = heapAlloc(state.heap, state.stack.takeLast(inst.n).reversed())
-            return state.copy(
+            state.copy(
                 instructions = state.instructions.drop(1),
                 framePointer = FrameAddr(newFramePtr),
                 stack = newStack,
@@ -86,7 +89,7 @@ private fun step(state: TimState): TimState {
         }
         is Enter -> {
             val closure = argToClosure(inst.arg, state.framePointer, state.heap, state.codeStore)
-            return state.copy(
+            state.copy(
                 instructions = closure.code,
                 framePointer = closure.framePtr,
             )
@@ -95,7 +98,7 @@ private fun step(state: TimState): TimState {
             val closure = argToClosure(inst.arg, state.framePointer, state.heap, state.codeStore)
             val newInstructions = state.instructions.drop(1)
             val newStack = state.stack + closure
-            return state.copy(
+            state.copy(
                 instructions = newInstructions,
                 stack = newStack,
             )
