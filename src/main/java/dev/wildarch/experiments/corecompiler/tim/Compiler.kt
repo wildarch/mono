@@ -23,6 +23,7 @@ fun compile(program: Program): TimState {
         instructions = initialInstructions,
         framePointer = FrameNull,
         stack = emptyList(),
+        valueStack = emptyList(),
         heap = emptyMap(),
         codeStore = compiledCode,
     )
@@ -140,6 +141,7 @@ data class TimState(
     val instructions: List<Instruction>,
     val framePointer: FramePtr,
     val stack: TimStack,
+    val valueStack: TimValueStack,
     val heap: TimHeap,
     val codeStore: CodeStore
 ) {
@@ -156,6 +158,7 @@ data class Closure(val code: List<Instruction>, val framePtr: FramePtr)
 typealias Addr = Int
 typealias Name = String
 typealias TimStack = List<Closure>
+typealias TimValueStack = List<Int>
 typealias Frame = List<Closure>
 typealias TimHeap = Map<Addr, Frame>
 typealias CodeStore = Map<Name, List<Instruction>>
