@@ -10,6 +10,9 @@ fun compile(program: Program): TimState {
         for (def in scDefs) {
             put(def.name, Label(def.name))
         }
+        for (key in COMPILED_PRIMITIVES.keys) {
+            put(key, Label(key))
+        }
     }
     val compiledScDefs = buildMap {
         for (def in scDefs) {
@@ -17,12 +20,12 @@ fun compile(program: Program): TimState {
         }
     }
     // TODO: Compiled primitives
-    val compiledCode = compiledScDefs
+    val compiledCode = COMPILED_PRIMITIVES + compiledScDefs
 
     return TimState(
         instructions = initialInstructions,
         framePointer = FrameNull,
-        stack = emptyList(),
+        stack = listOf(Closure(emptyList(), FrameNull)),
         valueStack = emptyList(),
         heap = emptyMap(),
         codeStore = compiledCode,
@@ -37,7 +40,7 @@ private fun compileSc(env: TimCompilerEnv, def: ScDefn): List<Instruction> {
         putAll(env)
     }
     return buildList {
-        if(def.params.isNotEmpty()) {
+        if (def.params.isNotEmpty()) {
             // Only create a new frame if there are actual parameters to store in the frame
             add(Take(def.params.size))
         }
@@ -50,7 +53,13 @@ private fun compileR(expr: Expr, env: TimCompilerEnv): List<Instruction> {
         is Ap -> listOf(Push(compileA(expr.arg, env))) + compileR(expr.func, env)
         is Var -> listOf(Enter(compileA(expr, env)))
         is Num -> listOf(Enter(compileA(expr, env)))
-        else -> TODO()
+        is BinOp -> listOf(
+            Push(compileA(expr.rhs, env)), Push(compileA(expr.lhs, env)), Enter(Label(labelFor(expr.op)))
+        )
+        is Case -> TODO()
+        is Constr -> TODO()
+        is Lam -> TODO()
+        is Let -> TODO()
     }
 }
 
@@ -60,6 +69,65 @@ private fun compileA(expr: Expr, env: TimCompilerEnv): TimAMode {
         is Num -> IntConst(expr.value)
         else -> Code(compileR(expr, env))
     }
+}
+
+private fun labelFor(op: Operator) = when (op) {
+    Operator.ADD -> "+"
+    Operator.SUB -> "-"
+    Operator.MUL -> "*"
+    Operator.DIV -> "/"
+    Operator.EQ -> "=="
+    Operator.NEQ -> "~="
+    Operator.GT -> ">"
+    Operator.GTE -> ">="
+    Operator.LT -> "<"
+    Operator.LTE -> "<="
+    Operator.AND -> "&"
+    Operator.OR -> "|"
+}
+
+private val COMPILED_PRIMITIVES = mapOf(
+    "+" to primitiveForBinOp(OpKind.ADD),
+    "-" to primitiveForBinOp(OpKind.SUB),
+    "*" to primitiveForBinOp(OpKind.MULT),
+    "/" to primitiveForBinOp(OpKind.DIV),
+    "==" to primitiveForBinOp(OpKind.EQ),
+    "~=" to primitiveForBinOp(OpKind.NOT_EQ),
+    ">" to primitiveForBinOp(OpKind.GR),
+    ">=" to primitiveForBinOp(OpKind.GR_EQ),
+    "<" to primitiveForBinOp(OpKind.LT),
+    "<=" to primitiveForBinOp(OpKind.LT_EQ),
+    "negate" to listOf(
+        Take(1), Push(
+            Code(
+                listOf(
+                    Op(OpKind.NEG), Return
+                )
+            )
+        ), Enter(Arg(0))
+    )
+)
+
+private fun primitiveForBinOp(opKind: OpKind): List<Instruction> {
+    return listOf(
+        Take(2),
+        Push(
+            Code(
+                listOf(
+                    Push(
+                        Code(
+                            listOf(
+                                Op(opKind),
+                                Return,
+                            )
+                        )
+                    ),
+                    Enter(Arg(0)),
+                )
+            )
+        ),
+        Enter(Arg(1)),
+    )
 }
 
 fun evaluate(initialState: TimState, maxSteps: Int = 10000): List<TimState> {
@@ -104,8 +172,73 @@ private fun step(state: TimState): TimState {
                 stack = newStack,
             )
         }
+        is Op -> {
+            // Handle unary op first
+            if (inst.opKind == OpKind.NEG) {
+                val result = -state.valueStack.last()
+                val newValueStack = state.valueStack.dropLast(1) + result
+                val newInstructions = state.instructions.drop(1)
+                return state.copy(
+                    instructions = newInstructions,
+                    valueStack = newValueStack,
+                )
+            }
+            val lhs = state.valueStack[state.valueStack.size - 1]
+            val rhs = state.valueStack[state.valueStack.size - 2]
+            val result = when (inst.opKind) {
+                OpKind.ADD -> lhs + rhs
+                OpKind.SUB -> lhs - rhs
+                OpKind.MULT -> lhs * rhs
+                OpKind.DIV -> lhs / rhs
+                OpKind.GR -> lhs > rhs
+                OpKind.GR_EQ -> lhs >= rhs
+                OpKind.LT -> lhs < rhs
+                OpKind.LT_EQ -> lhs <= rhs
+                OpKind.EQ -> lhs == rhs
+                OpKind.NOT_EQ -> lhs != rhs
+                OpKind.NEG -> error("Special case neg not handled")
+            }
+            val resultInt = when (result) {
+                is Int -> result
+                true -> 1
+                false -> 0
+                else -> error("Invalid result type ${result.javaClass}")
+            }
+            val newValueStack = state.valueStack.dropLast(2) + resultInt
+            val newInstructions = state.instructions.drop(1)
+            return state.copy(
+                instructions = newInstructions,
+                valueStack = newValueStack,
+            )
+        }
+        is PushV -> {
+            val value = when (val arg = inst.arg) {
+                ValueAMode.FramePtr -> (state.framePointer as FrameInt).value
+                is ValueAMode.IntConst -> arg.n
+            }
+            val newValueStack = state.valueStack + value
+            val newInstructions = state.instructions.drop(1)
+            return state.copy(
+                instructions = newInstructions,
+                valueStack = newValueStack,
+            )
+        }
+        Return -> {
+            val topClosure = state.stack.last()
+            val newStack = state.stack.dropLast(1)
+            return state.copy(
+                instructions = topClosure.code,
+                framePointer = topClosure.framePtr,
+                stack = newStack,
+            )
+        }
     }
 }
+
+val INT_CODE = listOf(
+    PushV(ValueAMode.FramePtr),
+    Return,
+)
 
 private fun argToClosure(arg: TimAMode, framePointer: FramePtr, heap: TimHeap, codeStore: CodeStore): Closure {
     return when (arg) {
@@ -114,7 +247,7 @@ private fun argToClosure(arg: TimAMode, framePointer: FramePtr, heap: TimHeap, c
             frame[arg.n]
         }
         is Code -> Closure(arg.code, framePointer)
-        is IntConst -> Closure(emptyList(), FrameInt(arg.value))
+        is IntConst -> Closure(INT_CODE, FrameInt(arg.value))
         is Label -> Closure(codeStore[arg.l] ?: error("Unknown label ${arg.l}"), framePointer)
     }
 }
@@ -130,12 +263,24 @@ sealed class Instruction
 data class Take(val n: Int) : Instruction()
 data class Enter(val arg: TimAMode) : Instruction()
 data class Push(val arg: TimAMode) : Instruction()
+data class PushV(val arg: ValueAMode) : Instruction()
+object Return : Instruction()
+data class Op(val opKind: OpKind) : Instruction()
+
+enum class OpKind {
+    ADD, SUB, MULT, DIV, NEG, GR, GR_EQ, LT, LT_EQ, EQ, NOT_EQ,
+}
 
 sealed class TimAMode
 data class Arg(val n: Int) : TimAMode()
 data class Label(val l: String) : TimAMode()
 data class Code(val code: List<Instruction>) : TimAMode()
 data class IntConst(val value: Int) : TimAMode()
+
+sealed class ValueAMode {
+    object FramePtr : ValueAMode()
+    data class IntConst(val n: Int) : ValueAMode()
+}
 
 data class TimState(
     val instructions: List<Instruction>,
