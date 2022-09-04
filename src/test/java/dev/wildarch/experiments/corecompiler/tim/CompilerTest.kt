@@ -100,6 +100,39 @@ class CompilerTest {
     }
 
     @Test
+    fun compileIf() {
+        assertEvaluatesTo(
+            """
+            main = if (1 == 2) 1000 42
+        """.trimIndent(), 42
+        )
+
+        assertEvaluatesTo(
+            """
+            main = if (1 < 2) 1000 42
+        """.trimIndent(), 1000
+        )
+    }
+
+    @Test
+    fun compileFactorial() {
+        assertEvaluatesTo(
+            """
+            fac n = if (n == 0) 1 (n * fac (n-1)) ;
+            main = fac 3
+        """.trimIndent(), 6
+        )
+    }
+
+    @Test
+    fun compileLazyDiv() {
+        // Evaluating 1/0 should throw an error, but with lazy evaluation it will never be computed.
+        assertEvaluatesTo("""
+            main = K 1 (1/0)
+        """.trimIndent(), 1)
+    }
+
+    @Test
     fun exampleBasicUltra() {
         assertEvaluatesTo("main = I 3", 3)
         assertEvaluatesTo(

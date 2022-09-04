@@ -105,6 +105,20 @@ private val COMPILED_PRIMITIVES = mapOf(
                 )
             )
         ), Enter(Arg(0))
+    ),
+    "if" to listOf(
+        Take(3),
+        Push(
+            Code(
+                listOf(
+                    Cond(
+                        trueBranch = listOf(Enter(Arg(1))),
+                        falseBranch = listOf(Enter(Arg(2))),
+                    )
+                )
+            )
+        ),
+        Enter(Arg(0))
     )
 )
 
@@ -232,6 +246,15 @@ private fun step(state: TimState): TimState {
                 stack = newStack,
             )
         }
+        is Cond -> {
+            val condValue = state.valueStack.last()
+            val newValueStack = state.valueStack.dropLast(1)
+            val newInstructions = if (condValue == 0) inst.falseBranch else inst.trueBranch
+            return state.copy(
+                instructions = newInstructions,
+                valueStack = newValueStack,
+            )
+        }
     }
 }
 
@@ -266,6 +289,7 @@ data class Push(val arg: TimAMode) : Instruction()
 data class PushV(val arg: ValueAMode) : Instruction()
 object Return : Instruction()
 data class Op(val opKind: OpKind) : Instruction()
+data class Cond(val trueBranch: List<Instruction>, val falseBranch: List<Instruction>) : Instruction()
 
 enum class OpKind {
     ADD, SUB, MULT, DIV, NEG, GR, GR_EQ, LT, LT_EQ, EQ, NOT_EQ,
