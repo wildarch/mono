@@ -118,7 +118,7 @@ func main() {
 func readPage(b []byte, f io.ReadSeeker, pageNum uint32) error {
 	log.Printf("read page %d", pageNum)
 	offset := int(pageNum-1) * len(b)
-	_, err := f.Seek(int64(offset), 0)
+	_, err := f.Seek(int64(offset), io.SeekStart)
 	if err != nil {
 		return err
 	}
@@ -151,27 +151,31 @@ func scanTable(dbHeader *DatabaseHeader, f io.ReadSeeker, rootPageNum uint32) er
 	if err != nil {
 		return err
 	}
-	if pageHeader.PageType != PageTypeInteriorTable {
-		panic("expected interior table page")
-	}
+	log.Printf("page header: %+v", pageHeader)
 
 	// Cell pointers
 	cellPointers := make([]uint16, pageHeader.Cells)
+	log.Printf("Initial cell pointers: %v", cellPointers)
 	err = binary.Read(pageReader, binary.BigEndian, cellPointers)
 	if err != nil {
 		return err
 	}
+	log.Printf("Cell pointers: %v", cellPointers)
 
-	for _, ptr := range cellPointers {
-		// Format for interior table cells:
-		// - 4-byte page number
-		// - varint integer key
-		leftPageNum := binary.BigEndian.Uint32(pageBuf[ptr : ptr+4])
-		log.Printf("Page num: %d", leftPageNum)
-		err = scanTableChild(dbHeader, f, leftPageNum)
-		if err != nil {
-			return err
+	if pageHeader.PageType == PageTypeInteriorTable {
+		for _, ptr := range cellPointers {
+			// Format for interior table cells:
+			// - 4-byte page number
+			// - varint integer key
+			leftPageNum := binary.BigEndian.Uint32(pageBuf[ptr : ptr+4])
+			log.Printf("Page num: %d", leftPageNum)
+			err = scanTableChild(dbHeader, f, leftPageNum)
+			if err != nil {
+				return err
+			}
 		}
+	} else if pageHeader.PageType == PageTypeLeafTable {
+		return scanTableChildLeaf(pageBuf, f, cellPointers)
 	}
 
 	return nil
@@ -227,18 +231,22 @@ func scanTableChildLeaf(pageBuf []byte, f io.ReadSeeker, cellPointers []uint16) 
 		// - uint32 page number for first page of overflow page list. Omitted if all payload fits on this page
 
 		// Payload size
-		payloadSize, bytesRead := binary.Uvarint(pageBuf[ptr : ptr+binary.MaxVarintLen64])
+		payloadSize, bytesRead := decodeVarint(pageBuf[ptr : ptr+binary.MaxVarintLen64])
 		log.Printf("payload size: %d", payloadSize)
 		ptr += uint16(bytesRead)
 
 		// Rowid
-		rowid, bytesRead := binary.Uvarint(pageBuf[ptr : ptr+binary.MaxVarintLen64])
+		rowid, bytesRead := decodeVarint(pageBuf[ptr : ptr+binary.MaxVarintLen64])
 		log.Printf("rowid: %d", rowid)
 		ptr += uint16(bytesRead)
 
 		// Payload
 		payload := make([]byte, payloadSize)
 		err := readPayload(pageBuf, ptr, f, payload)
+		if err != nil {
+			return err
+		}
+		err = scanRecord(payload)
 		if err != nil {
 			return err
 		}
@@ -295,4 +303,169 @@ func readPayload(startPage []byte, payloadStart uint16, f io.ReadSeeker, payload
 	}
 
 	return nil
+}
+
+const (
+	SerialTypeNull = iota
+	SerialTypeInt8
+	SerialTypeInt16
+	SerialTypeInt24
+	SerialTypeInt32
+	SerialTypeInt48
+	SerialTypeInt64
+	SerialTypeDouble
+	SerialTypeFalse
+	SerialTypeTrue
+	SerialTypeReserved10
+	SerialTypeReserved11
+)
+
+func scanRecord(payload []byte) error {
+	headerSize, bytesRead := decodeVarint(payload[:9])
+	headerReader := bytes.NewReader(payload[bytesRead:headerSize])
+	valuesReader := bytes.NewReader(payload[headerSize:])
+
+	for {
+		serialType, err := readVarint(headerReader)
+		if err == io.EOF {
+			// Header has been fully parsed
+			break
+		} else if err != nil {
+			return err
+		}
+		log.Printf("Serial type: %d", serialType)
+
+		switch serialType {
+		case SerialTypeNull:
+			log.Printf("NULL")
+		case SerialTypeInt8:
+			v := int8(0)
+			err := binary.Read(valuesReader, binary.BigEndian, &v)
+			if err != nil {
+				return err
+			}
+			log.Printf("int8: %d", v)
+		case SerialTypeInt16:
+			v := int16(0)
+			err := binary.Read(valuesReader, binary.BigEndian, &v)
+			if err != nil {
+				return err
+			}
+			log.Printf("int16: %d", v)
+		case SerialTypeInt24:
+			log.Printf("int24 not supported")
+		case SerialTypeInt32:
+			v := int32(0)
+			err := binary.Read(valuesReader, binary.BigEndian, &v)
+			if err != nil {
+				return err
+			}
+			log.Printf("int32: %d", v)
+		case SerialTypeInt48:
+			log.Printf("int48 not supported")
+		case SerialTypeInt64:
+			v := int64(0)
+			err := binary.Read(valuesReader, binary.BigEndian, &v)
+			if err != nil {
+				return err
+			}
+			log.Printf("int64: %d", v)
+		case SerialTypeDouble:
+			v := float64(0.0)
+			err := binary.Read(valuesReader, binary.BigEndian, &v)
+			if err != nil {
+				return err
+			}
+			log.Printf("double: %f", v)
+		case SerialTypeFalse:
+			log.Printf("int: 0")
+		case SerialTypeTrue:
+			log.Printf("int: 1")
+		case SerialTypeReserved10:
+			fallthrough
+		case SerialTypeReserved11:
+			return errors.New("found reserved serial type")
+		default:
+			// Even for blob, odd for string
+			isBlob := serialType%2 == 0
+			if isBlob {
+				size := (serialType - 12) / 2
+				blob := make([]byte, size)
+				err := binary.Read(valuesReader, binary.BigEndian, &blob)
+				if err != nil {
+					return err
+				}
+				log.Printf("blob: %v", blob)
+			} else {
+				// string
+				size := (serialType - 13) / 2
+				log.Printf("Size: %d", size)
+				data := make([]byte, size)
+				err := binary.Read(valuesReader, binary.BigEndian, &data)
+				if err != nil {
+					return err
+				}
+				str := string(data)
+				log.Printf("string: '%s'", str)
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func decodeVarint(b []byte) (uint64, int) {
+	A0 := uint64(b[0])
+	if A0 <= 240 {
+		return A0, 1
+	} else if A0 <= 248 {
+		A1 := uint64(b[1])
+		return 240 + 256*(A0-241) + A1, 2
+	} else if A0 == 249 {
+		A1 := uint64(b[1])
+		A2 := uint64(b[2])
+		return 2288 + 256*A1 + A2, 3
+	} else if A0 == 250 {
+		return uint64(b[3]) | uint64(b[2])<<8 | uint64(b[1])<<16, 4
+	} else if A0 == 251 {
+		return uint64(b[4]) | uint64(b[3])<<8 | uint64(b[2])<<16 | uint64(b[1])<<24, 5
+	} else if A0 == 252 {
+		return uint64(b[5]) | uint64(b[4])<<8 | uint64(b[3])<<16 | uint64(b[2])<<24 | uint64(b[1])<<32, 6
+	} else {
+		log.Fatalf("this size varint unsupported")
+		return 0, 0
+	}
+}
+
+func readVarint(r io.ByteReader) (uint64, error) {
+	A0b, err := r.ReadByte()
+	A0 := uint64(A0b)
+	if err != nil {
+		return 0, err
+	}
+	if A0 <= 240 {
+		return A0, nil
+	} else if A0 <= 248 {
+		A1b, err := r.ReadByte()
+		A1 := uint64(A1b)
+		if err != nil {
+			return 0, err
+		}
+		return 240 + 256*(A0-241) + A1, nil
+	} else if A0 == 249 {
+		A1b, err := r.ReadByte()
+		A1 := uint64(A1b)
+		if err != nil {
+			return 0, err
+		}
+		A2b, err := r.ReadByte()
+		A2 := uint64(A2b)
+		if err != nil {
+			return 0, err
+		}
+		return 2288 + 256*A1 + A2, nil
+	} else {
+		return 0, errors.New("varint too large, not supported")
+	}
 }
