@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "sqlite",
+    srcs = [
+        "conn.go",
+        "database_header.go",
+        "page_header.go",
+        "table_scanner.go",
+    ],
+    importpath = "github.com/wildarch/mono/experiments/query/sqlite",
+    visibility = ["//visibility:public"],
+)
