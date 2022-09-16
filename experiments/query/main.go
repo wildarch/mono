@@ -116,7 +116,6 @@ func main() {
 }
 
 func readPage(b []byte, f io.ReadSeeker, pageNum uint32) error {
-	log.Printf("read page %d", pageNum)
 	offset := int(pageNum-1) * len(b)
 	_, err := f.Seek(int64(offset), io.SeekStart)
 	if err != nil {
@@ -155,12 +154,10 @@ func scanTable(dbHeader *DatabaseHeader, f io.ReadSeeker, rootPageNum uint32) er
 
 	// Cell pointers
 	cellPointers := make([]uint16, pageHeader.Cells)
-	log.Printf("Initial cell pointers: %v", cellPointers)
 	err = binary.Read(pageReader, binary.BigEndian, cellPointers)
 	if err != nil {
 		return err
 	}
-	log.Printf("Cell pointers: %v", cellPointers)
 
 	if pageHeader.PageType == PageTypeInteriorTable {
 		for _, ptr := range cellPointers {
@@ -168,7 +165,6 @@ func scanTable(dbHeader *DatabaseHeader, f io.ReadSeeker, rootPageNum uint32) er
 			// - 4-byte page number
 			// - varint integer key
 			leftPageNum := binary.BigEndian.Uint32(pageBuf[ptr : ptr+4])
-			log.Printf("Page num: %d", leftPageNum)
 			err = scanTableChild(dbHeader, f, leftPageNum)
 			if err != nil {
 				return err
@@ -195,7 +191,6 @@ func scanTableChild(dbHeader *DatabaseHeader, f io.ReadSeeker, pageNum uint32) e
 	if err != nil {
 		return err
 	}
-	log.Printf("page header: %+v", pageHeader)
 
 	// Cell pointers
 	cellPointers := make([]uint16, pageHeader.Cells)
@@ -231,12 +226,11 @@ func scanTableChildLeaf(pageBuf []byte, f io.ReadSeeker, cellPointers []uint16) 
 		// - uint32 page number for first page of overflow page list. Omitted if all payload fits on this page
 
 		// Payload size
-		payloadSize, bytesRead := decodeVarint(pageBuf[ptr : ptr+binary.MaxVarintLen64])
-		log.Printf("payload size: %d", payloadSize)
+		payloadSize, bytesRead := decodeVarint(pageBuf[ptr:])
 		ptr += uint16(bytesRead)
 
 		// Rowid
-		rowid, bytesRead := decodeVarint(pageBuf[ptr : ptr+binary.MaxVarintLen64])
+		rowid, bytesRead := decodeVarint(pageBuf[ptr:])
 		log.Printf("rowid: %d", rowid)
 		ptr += uint16(bytesRead)
 
@@ -258,26 +252,20 @@ func readPayload(startPage []byte, payloadStart uint16, f io.ReadSeeker, payload
 	// Calculate how much of the payload spills onto overflow pages
 	usableSize := len(startPage) // TODO: account for reserved space
 	maxStorablePayload := usableSize - 35
-	log.Printf("X: %d", maxStorablePayload)
 	bytesOnStartPage := 0
 	if len(payloadBuffer) <= maxStorablePayload {
 		bytesOnStartPage = len(payloadBuffer)
 	} else {
 		minimumStoredPayload := ((usableSize - 12) * 32 / 255) - 23
-		log.Printf("M: %d", minimumStoredPayload)
 		// K = M + ( (P-M) % (U-4) )
 		// 675 = 103 + ( (8835 - 103) % (1024 - 4) ) = 103 + (8732 % 1020) = 103 + 572
 		k := minimumStoredPayload + ((len(payloadBuffer) - minimumStoredPayload) % (usableSize - 4))
 		if k <= maxStorablePayload {
-			log.Printf("K")
 			bytesOnStartPage = k
 		} else {
-			log.Printf("M")
 			bytesOnStartPage = minimumStoredPayload
 		}
 	}
-
-	log.Printf("payloadStart[%d] bytesOnStartPage[%d]", payloadStart, bytesOnStartPage)
 
 	// Copy the bytes from the start page
 	copy(payloadBuffer, startPage[payloadStart:payloadStart+uint16(bytesOnStartPage)])
@@ -333,7 +321,6 @@ func scanRecord(payload []byte) error {
 		} else if err != nil {
 			return err
 		}
-		log.Printf("Serial type: %d", serialType)
 
 		switch serialType {
 		case SerialTypeNull:
@@ -415,57 +402,67 @@ func scanRecord(payload []byte) error {
 	return nil
 }
 
-func decodeVarint(b []byte) (uint64, int) {
-	A0 := uint64(b[0])
-	if A0 <= 240 {
-		return A0, 1
-	} else if A0 <= 248 {
-		A1 := uint64(b[1])
-		return 240 + 256*(A0-241) + A1, 2
-	} else if A0 == 249 {
-		A1 := uint64(b[1])
-		A2 := uint64(b[2])
-		return 2288 + 256*A1 + A2, 3
-	} else if A0 == 250 {
-		return uint64(b[3]) | uint64(b[2])<<8 | uint64(b[1])<<16, 4
-	} else if A0 == 251 {
-		return uint64(b[4]) | uint64(b[3])<<8 | uint64(b[2])<<16 | uint64(b[1])<<24, 5
-	} else if A0 == 252 {
-		return uint64(b[5]) | uint64(b[4])<<8 | uint64(b[3])<<16 | uint64(b[2])<<24 | uint64(b[1])<<32, 6
-	} else {
-		log.Fatalf("this size varint unsupported")
-		return 0, 0
+/*
+** The variable-length integer encoding is as follows:
+**
+** KEY:
+**         A = 0xxxxxxx    7 bits of data and one flag bit
+**         B = 1xxxxxxx    7 bits of data and one flag bit
+**         C = xxxxxxxx    8 bits of data
+**
+**  7 bits - A
+** 14 bits - BA
+** 21 bits - BBA
+** 28 bits - BBBA
+** 35 bits - BBBBA
+** 42 bits - BBBBBA
+** 49 bits - BBBBBBA
+** 56 bits - BBBBBBBA
+** 64 bits - BBBBBBBBC
+ */
+func decodeVarint(buf []byte) (uint64, int) {
+	const highBit = byte(1 << 7)
+
+	v := uint64(0)
+	sz := 0
+	for _, b := range buf {
+		sz += 1
+		if sz == 9 {
+			// There are at most 9 bytes per varint.
+			// For this last byte, we are adding all the bits (including high bit).
+			v = (v << 8) | uint64(b)
+			break
+		}
+
+		// Take the 7 highest bits, the final bit is not part of the number
+		bv := b & ^highBit
+		// Shift previous bits up to make room for the added 7 bits
+		v = (v << 7) | uint64(bv)
+
+		// If the high bit was not set, this was the last byte to read
+		if (b & highBit) == 0 {
+			break
+		}
 	}
+
+	return v, sz
 }
 
 func readVarint(r io.ByteReader) (uint64, error) {
-	A0b, err := r.ReadByte()
-	A0 := uint64(A0b)
-	if err != nil {
-		return 0, err
+	buf := make([]byte, 9)
+	for i, _ := range buf {
+		b, err := r.ReadByte()
+		if err != nil {
+			return 0, err
+		}
+		buf[i] = b
+
+		if (b & (1 << 7)) == 0 {
+			// No high bit, this was the last bit
+			break
+		}
 	}
-	if A0 <= 240 {
-		return A0, nil
-	} else if A0 <= 248 {
-		A1b, err := r.ReadByte()
-		A1 := uint64(A1b)
-		if err != nil {
-			return 0, err
-		}
-		return 240 + 256*(A0-241) + A1, nil
-	} else if A0 == 249 {
-		A1b, err := r.ReadByte()
-		A1 := uint64(A1b)
-		if err != nil {
-			return 0, err
-		}
-		A2b, err := r.ReadByte()
-		A2 := uint64(A2b)
-		if err != nil {
-			return 0, err
-		}
-		return 2288 + 256*A1 + A2, nil
-	} else {
-		return 0, errors.New("varint too large, not supported")
-	}
+
+	v, _ := decodeVarint(buf)
+	return v, nil
 }
