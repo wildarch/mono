@@ -12,30 +12,33 @@ const (
 	PageTypeLeafTable     = 13
 )
 
-type pageHeader struct {
+// pageHeader but without the RightMostPointer, which exists only on interior pages
+type commonPageHeader struct {
 	PageType             uint8
 	FirstFreeblock       uint16
 	Cells                uint16
 	CellContentAreaStart uint16 // Note: 0 interpreted as 65536
 	FragmentedFreeBytes  uint8
-	// Interior b-tree pages have an extra uint32 with a page number for the right-most pointer
+}
+
+type pageHeader struct {
+	Common           commonPageHeader
+	RightMostPointer uint32
 }
 
 func (h *pageHeader) Read(f io.Reader) error {
-	// TODO: Validate fields
-	err := binary.Read(f, binary.BigEndian, h)
+	err := binary.Read(f, binary.BigEndian, &h.Common)
 	if err != nil {
 		return err
 	}
-	rightMostPointer := uint32(0)
 	if h.IsInterior() {
-		err = binary.Read(f, binary.BigEndian, &rightMostPointer)
+		err = binary.Read(f, binary.BigEndian, &h.RightMostPointer)
 	}
 	return err
 }
 
 func (h *pageHeader) IsInterior() bool {
-	return h.PageType == PageTypeInteriorIndex || h.PageType == PageTypeInteriorTable
+	return h.Common.PageType == PageTypeInteriorIndex || h.Common.PageType == PageTypeInteriorTable
 }
 
 func (h *pageHeader) Size() int {

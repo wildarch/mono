@@ -135,7 +135,7 @@ func (s *TableScanner) readPage(page uint32) error {
 	}
 
 	// cell pointers
-	s.cellPointers = make([]uint16, s.pageHeader.Cells)
+	s.cellPointers = make([]uint16, s.pageHeader.Common.Cells)
 	err = binary.Read(pageReader, binary.BigEndian, s.cellPointers)
 	if err != nil {
 		return err
@@ -155,7 +155,6 @@ func (s *TableScanner) nextPage() (bool, error) {
 
 		nextPage := topInteriorPage.childPages[0]
 		topInteriorPage.childPages = topInteriorPage.childPages[1:]
-		// TODO: do we need this?
 		s.pageStack[len(s.pageStack)-1] = topInteriorPage
 
 		return true, s.readPage(nextPage)
@@ -179,13 +178,15 @@ func (s *TableScanner) traverseToLeaf() (bool, error) {
 			}
 		}
 		// get the page numbers
-		childPages := make([]uint32, len(s.cellPointers))
+		childPages := make([]uint32, len(s.cellPointers)+1)
 		for i, ptr := range s.cellPointers {
 			pageNum := binary.BigEndian.Uint32(s.pageBuf[ptr : ptr+4])
 			// Followed by a varint integer key, but we don't need it
 
 			childPages[i] = pageNum
 		}
+		// Add the right-most pointer
+		childPages[len(childPages)-1] = s.pageHeader.RightMostPointer
 		// Add this page to the stack, omitting the first child page
 		s.pageStack = append(s.pageStack, cachedInteriorPage{
 			pageNum:    s.pageNum,
