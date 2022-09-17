@@ -5,17 +5,51 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 )
 
 func (c *Conn) ScanTable(name string) (*TableScanner, error) {
-	if name == "sqlite_schema" {
-		return &TableScanner{
-			conn:     c,
-			rootpage: 1,
-		}, nil
+	rootpage, err := c.findRootPage(name)
+	if err != nil {
+		return nil, fmt.Errorf("could not find root page: %w", err)
 	}
-	panic("not implemented")
+	return &TableScanner{
+		conn:     c,
+		rootpage: rootpage,
+	}, nil
+}
+
+func (c *Conn) findRootPage(name string) (uint32, error) {
+	if name == "sqlite_schema" {
+		// schema table always lives at the first page
+		return 1, nil
+	}
+
+	// Scan the schema table to find the table we want
+	schemaScan, err := c.ScanTable("sqlite_schema")
+	if err != nil {
+		return 0, fmt.Errorf("failed to open scanner for schema: %w", err)
+	}
+
+	for {
+		row, err := schemaScan.ReadRow()
+		if err != nil {
+			return 0, fmt.Errorf("failed to read row from schema: %w", err)
+		}
+		if row == nil {
+			return 0, fmt.Errorf("no such table '%s'", name)
+		}
+		ty := row.Values[0].(string)
+		if ty != "table" {
+			continue
+		}
+		tableName := row.Values[1].(string)
+		if tableName != name {
+			continue
+		}
+
+		rootPage := uint32(row.Values[3].(int64))
+		return rootPage, nil
+	}
 }
 
 type TableScanner struct {
@@ -73,45 +107,9 @@ func (s *TableScanner) ReadRow() (*Row, error) {
 
 		return s.readLeafCell(ptr)
 	}
-	/*
-		for s.pageHeader.IsInterior() {
-			if len(s.cellPointers) == 0 {
-				newPage, err := s.nextPage()
-				if err != nil {
-					return nil, err
-				}
-				if newPage {
-					continue
-				} else {
-					// Nothing left to scan
-					return nil, nil
-				}
-			}
-			// get the page numbers
-			childPages := make([]uint32, len(s.cellPointers))
-			for i, ptr := range s.cellPointers {
-				pageNum := binary.BigEndian.Uint32(s.pageBuf[ptr : ptr+4])
-				// Followed by a varint integer key, but we don't need it
-
-				childPages[i] = pageNum
-			}
-			// Add this page to the stack, omitting the first child page
-			s.pageStack = append(s.pageStack, cachedInteriorPage{
-				pageNum:    s.pageNum,
-				childPages: childPages[1:],
-			})
-			// Decend into the first child page
-			err := s.readPage(childPages[0])
-			if err != nil {
-				return nil, err
-			}
-		}
-	*/
-	// TODO: read leaf
 }
 
 func (s *TableScanner) readPage(page uint32) error {
-	log.Printf("read page %d", page)
 	if s.pageBuf == nil {
 		s.pageBuf = make([]byte, s.conn.header.PageSize)
 	}
@@ -232,7 +230,7 @@ func (s *TableScanner) readLeafCell(ptr uint16) (*Row, error) {
 
 func (s *TableScanner) readPayload(payloadStart uint16, payloadBuffer []byte) error {
 	// Calculate how much of the payload spills onto overflow pages
-	usableSize := int(s.conn.header.PageSize) - int(s.conn.header.ReservedBytes) // TODO: account for reserved space
+	usableSize := int(s.conn.header.PageSize) - int(s.conn.header.ReservedBytes)
 	maxStorablePayload := usableSize - 35
 	bytesOnStartPage := 0
 	if len(payloadBuffer) <= maxStorablePayload {
@@ -314,14 +312,14 @@ func readRecord(rowid int64, payload []byte) (*Row, error) {
 			if err != nil {
 				return nil, err
 			}
-			values = append(values, v)
+			values = append(values, int64(v))
 		case SerialTypeInt16:
 			v := int16(0)
 			err := binary.Read(valuesReader, binary.BigEndian, &v)
 			if err != nil {
 				return nil, err
 			}
-			values = append(values, v)
+			values = append(values, int64(v))
 		case SerialTypeInt24:
 			vs := make([]byte, 3)
 			err := binary.Read(valuesReader, binary.BigEndian, &vs)
@@ -336,7 +334,7 @@ func readRecord(rowid int64, payload []byte) (*Row, error) {
 			if err != nil {
 				return nil, err
 			}
-			values = append(values, v)
+			values = append(values, int64(v))
 		case SerialTypeInt48:
 			vs := make([]byte, 5)
 			err := binary.Read(valuesReader, binary.BigEndian, &vs)
@@ -344,14 +342,14 @@ func readRecord(rowid int64, payload []byte) (*Row, error) {
 				return nil, err
 			}
 			v := int64(vs[0])<<32 | int64(vs[1])<<24 | int64(vs[2])<<16 | int64(vs[3])<<8 | int64(vs[4])
-			values = append(values, v)
+			values = append(values, int64(v))
 		case SerialTypeInt64:
 			v := int64(0)
 			err := binary.Read(valuesReader, binary.BigEndian, &v)
 			if err != nil {
 				return nil, err
 			}
-			log.Printf("int64: %d", v)
+			values = append(values, v)
 		case SerialTypeDouble:
 			v := float64(0.0)
 			err := binary.Read(valuesReader, binary.BigEndian, &v)
@@ -359,11 +357,10 @@ func readRecord(rowid int64, payload []byte) (*Row, error) {
 				return nil, err
 			}
 			values = append(values, v)
-		// TODO: check if right behaviour, SQLite might also decide to encode ordinary zeroes using this type
 		case SerialTypeFalse:
-			values = append(values, false)
+			values = append(values, int64(0))
 		case SerialTypeTrue:
-			values = append(values, true)
+			values = append(values, int64(1))
 		case SerialTypeReserved10:
 			fallthrough
 		case SerialTypeReserved11:
@@ -382,7 +379,6 @@ func readRecord(rowid int64, payload []byte) (*Row, error) {
 			} else {
 				// string
 				size := (serialType - 13) / 2
-				log.Printf("Size: %d", size)
 				data := make([]byte, size)
 				err := binary.Read(valuesReader, binary.BigEndian, &data)
 				if err != nil {

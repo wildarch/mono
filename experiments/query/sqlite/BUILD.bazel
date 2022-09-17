@@ -7,6 +7,7 @@ go_library(
         "database_header.go",
         "page_header.go",
         "table_scanner.go",
+        "varint.go",
     ],
     importpath = "github.com/wildarch/mono/experiments/query/sqlite",
     visibility = ["//visibility:public"],

@@ -22,7 +22,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	scan, err := conn.ScanTable("sqlite_schema")
+	scan, err := conn.ScanTable("businesses")
 	if err != nil {
 		log.Fatalf("failed to open schema table for scanning: %s", err.Error())
 	}
