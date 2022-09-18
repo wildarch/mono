@@ -290,7 +290,7 @@ const (
 
 func readRecord(rowid int64, payload []byte) (*Row, error) {
 	values := make([]interface{}, 0)
-	headerSize, bytesRead := decodeVarint(payload[:9])
+	headerSize, bytesRead := decodeVarint(payload)
 	headerReader := bytes.NewReader(payload[bytesRead:headerSize])
 	valuesReader := bytes.NewReader(payload[headerSize:])
 
