@@ -11,7 +11,7 @@
           - xaver.clang-format
           - golang.Go
           - james-yu.latex-workshop
-          - rust-lang.rust
+          - rust-lang.rust-analyzer
         visual_studio_code_settings: {
           "workbench.startupEditor": "none",
           "extensions.ignoreRecommendations": true,
@@ -21,7 +21,7 @@
           }
         }
   - role: gantsign.golang
-    golang_version: '1.18.2'
+    golang_version: '1.19.1'
   - role: hurricanehrndz.rustup
     rustup_user: daan
     rustup_cargo_crates: 

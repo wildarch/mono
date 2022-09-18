@@ -1,6 +1,6 @@
 module github.com/wildarch/mono
 
-go 1.18
+go 1.19
 
 require modernc.org/sqlite v1.19.1
 
