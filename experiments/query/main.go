@@ -9,6 +9,7 @@ import (
 
 func main() {
 	dbFilePath := flag.String("db", "", "path to sqlite database file")
+	tableName := flag.String("table", "sqlite_schema", "name of the table to scan")
 
 	flag.Parse()
 
@@ -22,7 +23,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	scan, err := conn.ScanTable("businesses")
+	scan, err := conn.ScanTable(*tableName)
 	if err != nil {
 		log.Fatalf("failed to open schema table for scanning: %s", err.Error())
 	}
