@@ -52,14 +52,20 @@ private fun compileR(expr: Expr, env: TimCompilerEnv): List<Instruction> {
     return when (expr) {
         is Ap -> listOf(Push(compileA(expr.arg, env))) + compileR(expr.func, env)
         is Var -> listOf(Enter(compileA(expr, env)))
-        is Num -> listOf(Enter(compileA(expr, env)))
-        is BinOp -> listOf(
-            Push(compileA(expr.rhs, env)), Push(compileA(expr.lhs, env)), Enter(Label(labelFor(expr.op)))
-        )
+        is Num -> compileB(expr, env, listOf(Return))
+        is BinOp -> compileB(expr, env, listOf(Return))
         is Case -> TODO()
         is Constr -> TODO()
         is Lam -> TODO()
         is Let -> TODO()
+    }
+}
+
+fun compileB(expr: Expr, env: TimCompilerEnv, cont: List<Instruction>): List<Instruction> {
+    return when (expr) {
+        is Num -> listOf(PushV(ValueAMode.IntConst(expr.value))) + cont
+        is BinOp -> compileB(expr.rhs, env, compileB(expr.lhs, env, listOf(Op(opKind(expr.op))) + cont))
+        else -> listOf(Push(Code(cont))) + compileR(expr, env)
     }
 }
 
@@ -293,6 +299,23 @@ data class Cond(val trueBranch: List<Instruction>, val falseBranch: List<Instruc
 
 enum class OpKind {
     ADD, SUB, MULT, DIV, NEG, GR, GR_EQ, LT, LT_EQ, EQ, NOT_EQ,
+}
+
+private fun opKind(operator: Operator): OpKind {
+    return when (operator) {
+        Operator.ADD -> OpKind.ADD
+        Operator.SUB -> OpKind.SUB
+        Operator.MUL -> OpKind.MULT
+        Operator.DIV -> OpKind.DIV
+        Operator.EQ -> OpKind.EQ
+        Operator.NEQ -> OpKind.NOT_EQ
+        Operator.GT -> OpKind.GR
+        Operator.GTE -> OpKind.GR_EQ
+        Operator.LT -> OpKind.LT
+        Operator.LTE -> OpKind.LT_EQ
+        Operator.AND -> TODO()
+        Operator.OR -> TODO()
+    }
 }
 
 sealed class TimAMode
