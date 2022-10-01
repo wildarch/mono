@@ -23,5 +23,31 @@ Standard library requirements:
 - HTTP client
 - SQLite query and execute
 
+## Language implementation
+It probably makes sense to use ANTLR4 for parsing the language. 
+I've used it for the 'Core' compiler and it worked very welll there.
+
+The scariest bit is likely to be the type checker.
+I think for the most part a classic a Hindley-Milner type system should do, 
+but it seems like [extensions are needed](https://www.lesswrong.com/posts/vTS8K4NBSi9iyCrPo/a-reckless-introduction-to-hindley-milner-type-inference) to add support for Haskell-style type classes. 
+This would allow you to write code that looks like:
+
+```haskell
+[0, 1, 2]
+|> map (+ 1)
+```
+
+Instead of having to write the elm-style:
+
+```elm
+[0, 1, 2]
+|> List.map (+ 1)
+```
+
+For the initial version though, elm-style is good enough.
+
+For the backend we can start with a simple G-machine.
+The most interesting thing there will be the implementation of an IO Monad (or similar).
+
 ## Notes
 Sqlite has various [security settings](https://www.sqlite.org/security.html) to prevent sandbox escapes through SQL queries.
