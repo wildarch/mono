@@ -50,7 +50,27 @@ private fun compileSc(env: TimCompilerEnv, def: ScDefn): List<Instruction> {
 
 private fun compileR(expr: Expr, env: TimCompilerEnv): List<Instruction> {
     return when (expr) {
-        is Ap -> listOf(Push(compileA(expr.arg, env))) + compileR(expr.func, env)
+        is Ap -> {
+            // Special case for faster if
+            val a0 = expr
+            val a1 = a0.func
+            if (a1 is Ap) {
+                val a2 = a1.func
+                if (a2 is Ap && a2.func == Var("if")) {
+                    return compileB(
+                        a2.arg, env, listOf(
+                            Cond(
+                                compileR(a1.arg, env),
+                                compileR(a0.arg, env)
+                            )
+                        )
+                    )
+                }
+            }
+            // The general case
+            listOf(Push(compileA(expr.arg, env))) + compileR(expr.func, env)
+        }
+
         is Var -> listOf(Enter(compileA(expr, env)))
         is Num -> compileB(expr, env, listOf(Return))
         is BinOp -> compileB(expr, env, listOf(Return))
@@ -176,6 +196,7 @@ private fun step(state: TimState): TimState {
                 heap = newHeap,
             )
         }
+
         is Enter -> {
             val closure = argToClosure(inst.arg, state.framePointer, state.heap, state.codeStore)
             state.copy(
@@ -183,6 +204,7 @@ private fun step(state: TimState): TimState {
                 framePointer = closure.framePtr,
             )
         }
+
         is Push -> {
             val closure = argToClosure(inst.arg, state.framePointer, state.heap, state.codeStore)
             val newInstructions = state.instructions.drop(1)
@@ -192,6 +214,7 @@ private fun step(state: TimState): TimState {
                 stack = newStack,
             )
         }
+
         is Op -> {
             // Handle unary op first
             if (inst.opKind == OpKind.NEG) {
@@ -231,6 +254,7 @@ private fun step(state: TimState): TimState {
                 valueStack = newValueStack,
             )
         }
+
         is PushV -> {
             val value = when (val arg = inst.arg) {
                 ValueAMode.FramePtr -> (state.framePointer as FrameInt).value
@@ -243,6 +267,7 @@ private fun step(state: TimState): TimState {
                 valueStack = newValueStack,
             )
         }
+
         Return -> {
             val topClosure = state.stack.last()
             val newStack = state.stack.dropLast(1)
@@ -252,6 +277,7 @@ private fun step(state: TimState): TimState {
                 stack = newStack,
             )
         }
+
         is Cond -> {
             val condValue = state.valueStack.last()
             val newValueStack = state.valueStack.dropLast(1)
@@ -275,6 +301,7 @@ private fun argToClosure(arg: TimAMode, framePointer: FramePtr, heap: TimHeap, c
             val frame = heap[(framePointer as FrameAddr).a]!!
             frame[arg.n]
         }
+
         is Code -> Closure(arg.code, framePointer)
         is IntConst -> Closure(INT_CODE, FrameInt(arg.value))
         is Label -> Closure(codeStore[arg.l] ?: error("Unknown label ${arg.l}"), framePointer)
