@@ -1,0 +1,16 @@
+load("@rules_antlr//antlr:antlr4.bzl", "antlr")
+
+antlr(
+    name = "parser",
+    srcs = ["Brim.g4"],
+    package = "dev.wildarch.experiments.funcfaas.parser",
+    visibility = ["//visibility:public"],
+    visitor = True,
+)
+
+java_library(
+    name = "Brim",
+    srcs = [":parser"],
+    visibility = ["//visibility:public"],
+    deps = ["@antlr4_runtime//jar"],
+)

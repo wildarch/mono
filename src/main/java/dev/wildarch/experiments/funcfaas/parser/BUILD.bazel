@@ -1,0 +1,13 @@
+load("@io_bazel_rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+
+kt_jvm_library(
+    name = "parser",
+    srcs = [
+        "Parser.kt",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//experiments/funcfaas/parser:Brim",
+        "//src/main/java/dev/wildarch/experiments/funcfaas/syntax",
+    ],
+)
