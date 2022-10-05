@@ -1,0 +1,14 @@
+cc_library(
+    name = "compress",
+    srcs = [
+        "compress.cpp",
+    ],
+)
+
+cc_library(
+    name = "sqlite_proto",
+    srcs = [
+        "sqlite_proto.cpp",
+    ],
+    linkopts = ["-lprotobuf"],
+)

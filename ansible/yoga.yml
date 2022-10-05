@@ -12,6 +12,7 @@
           - golang.Go
           - james-yu.latex-workshop
           - rust-lang.rust-analyzer
+          - ms-vscode.cpptools
         visual_studio_code_settings: {
           "workbench.startupEditor": "none",
           "extensions.ignoreRecommendations": true,
