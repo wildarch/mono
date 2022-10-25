@@ -3,13 +3,6 @@ package dev.wildarch.experiments.corecompiler.ski
 import dev.wildarch.experiments.corecompiler.syntax.*
 
 fun compile(program: Program): SkState {
-    /* TODO
-     * - Compile each function to lambda
-     * - Compile the body of main, with all function references inlined.
-     * - Return only the final compiled body, which is now self-contained
-     * - Should match the output of https://crypto.stanford.edu/~blynn/lambda/sk.html
-     */
-
     return SkState(compileC(inlineAll(program)), emptyList())
 }
 
@@ -26,20 +19,53 @@ private fun inlineAll(program: Program): Expr {
         }
     }
 
-    return inline(defs, defs["main"] ?: error("no main function"))
+    return inline(defs, defs["main"] ?: error("no main function"), emptyList())
 }
 
-private fun inline(defs: Map<String, Expr>, main: Expr): Expr {
-    return when (main) {
-        is dev.wildarch.experiments.corecompiler.syntax.Ap -> Ap(inline(defs, main.func), inline(defs, main.arg))
-        is BinOp -> BinOp(inline(defs, main.lhs), main.op, inline(defs, main.rhs))
-        //is Case -> Case(inline(defs, main.expr), main.alters.map { inline(defs, it) })
-        is Case -> TODO()
-        is Constr -> main
-        is Lam -> Lam(main.params, inline(defs, main.body))
-        is Let -> TODO()
-        is Num -> main
-        is Var -> defs[main.name]?.let { inline(defs, it) } ?: main
+private fun inline(defs: Map<String, Expr>, expr: Expr, stack: List<String>): Expr {
+    // Check for cycles in inlining
+    if (stack.isNotEmpty() && stack.indexOf(stack.last()) != stack.size-1) {
+        // Last item found at an earlier position == cycle
+        error("Cyclic inlining detected: $stack")
+    }
+
+    return when (expr) {
+        is dev.wildarch.experiments.corecompiler.syntax.Ap -> Ap(inline(defs, expr.func, stack), inline(defs, expr.arg, stack))
+        is BinOp -> BinOp(inline(defs, expr.lhs, stack), expr.op, inline(defs, expr.rhs, stack))
+        is Case -> Case(inline(defs, expr.expr, stack), expr.alters.map {it.copy(body = inline(defs, it.body, stack))})
+        is Constr -> expr
+        is Lam -> Lam(expr.params, inline(defs, expr.body, stack))
+        is Let -> {
+            /*
+             * Transforms
+             * ```
+             * let
+             *      b0 = e0
+             *      b1 = e1
+             * in
+             *      E
+             * ```
+             *
+             * into
+             *
+             * ```
+             * (\b0 b1 . E) e0 e1
+             * ```
+             *
+             */
+            //assert(!expr.isRec)
+            var lamb: Expr = Lam(expr.defs.map {it.name}, inline(defs, expr.body, stack))
+            for (bind in expr.defs) {
+                if (expr.isRec) {
+                    TODO()
+                } else {
+                    lamb = Ap(lamb, inline(defs, bind.expr, stack))
+                }
+            }
+            lamb
+        }
+        is Num -> expr
+        is Var -> defs[expr.name]?.let { inline(defs, it, stack + expr.name) } ?: expr
     }
 }
 

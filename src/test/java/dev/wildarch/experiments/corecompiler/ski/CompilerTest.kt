@@ -25,6 +25,86 @@ class CompilerTest {
     }
 
     @Test
+    fun compileLet() {
+        assertEvaluatesTo(
+            """
+             main = 
+               let 
+                 i = I 
+               in 
+                 i 42
+        """.trimIndent(), 42
+        )
+    }
+
+    // TODO: letrec
+
+    /*
+    @Test
+    fun compileNegate() {
+        assertEvaluatesTo(
+            """
+            main = negate 3
+        """.trimIndent(), -3
+        )
+    }
+
+    @Test
+    fun compileNegateTwice() {
+        assertEvaluatesTo(
+            """
+            main = twice negate 3
+        """.trimIndent(), 3
+        )
+    }
+
+    @Test
+    fun compileAdd() {
+        assertEvaluatesTo(
+            """
+            main = 1 + 2
+        """.trimIndent(), 3
+        )
+    }
+
+    @Test
+    fun compileArithmetic() {
+        assertEvaluatesTo(
+            """
+            main = 1 * 2 / 3 - 4
+        """.trimIndent(), -4
+        )
+    }
+
+    @Test
+    fun compileNegateIndirection() {
+        assertEvaluatesTo(
+            """
+            main = negate (I 3)
+        """.trimIndent(), -3
+        )
+    }
+
+    @Test
+    fun compileSubTwice() {
+        assertEvaluatesTo(
+            """
+             main = (3 - 2) - 1
+        """.trimIndent(), 0
+        )
+    }
+
+    @Test
+    fun compileMulIndirect() {
+        assertEvaluatesTo(
+            """
+            main = (I 6) * (I 8)
+        """.trimIndent(), 48
+        )
+    }
+     */
+
+    @Test
     fun exampleBasicInteresting() {
         assertEvaluatesTo(
             """
