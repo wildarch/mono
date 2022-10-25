@@ -39,7 +39,7 @@ private fun inline(defs: Map<String, Expr>, main: Expr): Expr {
         is Lam -> Lam(main.params, inline(defs, main.body))
         is Let -> TODO()
         is Num -> main
-        is Var -> defs[main.name] ?: main
+        is Var -> defs[main.name]?.let { inline(defs, it) } ?: main
     }
 }
 
@@ -97,39 +97,24 @@ fun evaluate(initialState: SkState, maxSteps: Int = 10000): List<SkState> {
 }
 
 private fun step(state: SkState): SkState {
-    /*
-    return SkState(when(val code = state.code) {
-        is Ap -> when (val func = code.func) {
-            is Ap -> when (val func2 = func.func) {
-                is Ap -> when (func2.func) {
-                    S -> TODO()
-                    else -> error("Weird Ap")
-                }
-                K -> func.arg
-                else -> error("Weird Ap")
-            }
-            is ConstInt -> error("Apply to int")
-            is ConstVar -> error("Var remaining")
-            I -> code.arg
-            S -> error("Need a second and third argument")
-            K -> error("Need a second argument")
-        }
-        is ConstInt -> code
-        is ConstVar -> code
-        I -> TODO()
-        K -> TODO()
-        S -> TODO()
-    })
-     */
-
     return when (val code = state.code) {
         is Ap ->
             SkState(
                 code = code.func,
                 stack = state.stack + code.arg
             )
-        is ConstInt -> error("Cannot reduce int")
-        is ConstVar -> error("stray var")
+        is ConstInt -> {
+            // Continue executing S
+            val x = code
+            val f = state.stack[state.stack.size-1]
+            val g = state.stack[state.stack.size-2]
+
+            return SkState(
+                code = Ap(Ap(f, x), Ap(g, x)),
+                stack = state.stack.dropLast(2)
+            )
+        }
+        is ConstVar -> error("stray var ${code.name}")
         // I x = x
         I -> SkState(
             code = state.stack.last(),
@@ -140,7 +125,28 @@ private fun step(state: SkState): SkState {
             code = state.stack.last(),
             stack = state.stack.dropLast(2)
         )
-        S -> TODO("Evaluate argument first")
+        // S f g x = f x (g x)
+        S -> {
+            val f = state.stack[state.stack.size-1]
+            val g = state.stack[state.stack.size-2]
+            val x = state.stack[state.stack.size-3]
+
+            // Already evaluated
+            if (x is ConstInt) {
+                return SkState(
+                    code = Ap(Ap(f, x), Ap(g, x)),
+                    stack = state.stack.dropLast(3)
+                )
+            }
+
+            // Start to evaluate x. When it resolves to a value, we will continue executing the S.
+            // See also the case for ConstInt
+            return SkState(
+                code = x,
+                // Keep f and g on the stack for later resumption
+                stack = state.stack.dropLast(3) + f + g
+            )
+        }
     }
 }
 
