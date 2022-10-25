@@ -23,9 +23,11 @@ package_group(
         "//src/main/java/dev/wildarch/experiments/corecompiler/gmachine",
         "//src/main/java/dev/wildarch/experiments/corecompiler/parser",
         "//src/main/java/dev/wildarch/experiments/corecompiler/prelude",
+        "//src/main/java/dev/wildarch/experiments/corecompiler/ski",
         "//src/main/java/dev/wildarch/experiments/corecompiler/syntax",
         "//src/main/java/dev/wildarch/experiments/corecompiler/templateinstantiation",
         "//src/test/java/dev/wildarch/experiments/corecompiler/gmachine",
+        "//src/test/java/dev/wildarch/experiments/corecompiler/ski",
         "//src/test/java/dev/wildarch/experiments/corecompiler/templateinstantiation",
     ],
 )
