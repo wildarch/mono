@@ -24,6 +24,7 @@ class CompilerTest {
         """.trimIndent(), 2)
     }
 
+    /*
     @Test
     fun compileLet() {
         assertEvaluatesTo(
@@ -36,6 +37,7 @@ class CompilerTest {
         """.trimIndent(), 42
         )
     }
+     */
 
     // TODO: letrec
 
@@ -108,6 +110,7 @@ class CompilerTest {
     fun exampleBasicInteresting() {
         assertEvaluatesTo(
             """
+            K1 x y = y ;
             cons a b cc cn = cc a b ;
             nil      cc cn = cn ;
             hd list = list K abort ;
@@ -130,7 +133,7 @@ private fun assertEvaluatesTo(program: String, num: Int): List<SkState> {
     val trace = evaluate(compiled)
 
     val finalState = trace.last()
-    val finalValue = finalState.code
+    val finalValue = finalState.comb
     assertThat(finalValue).isEqualTo(ConstInt(num))
     return trace
 }
