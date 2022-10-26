@@ -42,57 +42,99 @@ but that is annoying to debug, so we will not bother.
 Compilation follows algorithm 16.2 from 'The Implementation of Functional Programming Languages' (page 264, or 276 in
 the PDF).
 
+We summarize the algorithm below.
+
+### SK Compilation algorithm
+#### Placeholders
+- `e`, `e1`, `e2` are expressions
+- `f`, `f1`, `f2` are expressions with no inner lambdas
+- `x` is a variable
+- `cv` is a constant value (including function constants), or a variable
+
+#### `C [[ e ]]` Compiles `e` to SK Combinators
+
+```
+C[[ e1, e2 ]] = C[[ e1 ]] C[[ e2 ]]
+C[[ \x. e ]]  = A x [[ C[[ e ]] ]]
+C[[ cv ]]     = cv
+```
+
+#### `A x [[ e ]]` Abstracts `x` from `f`
+
+```
+A x [[ f1 f2 ]] = S (A x [[ f1 ]]) (A x [[ f2 ]])
+A x [[ x ]]     = I
+A x [[ cv ]]    = K cv
+```
+
+#### Implementation
+
 ```kotlin
 private fun compileC(expr: Expr): Comb {
-  return when (expr) {
-    is Ap -> CAp(compileC(expr.func), compileC(expr.arg))
-    is Lam -> {
-      var exprC = compileC(expr.body)
-      for (param in expr.params.reversed()) {
-        exprC = compileA(param, exprC)
-      }
-      exprC
-    }
-    is Num -> ConstInt(expr.value)
-    is Var -> when (expr.name) {
-      "I" -> I
-      "K" -> K
-      "S" -> S
-      else -> FuncRef(expr.name)
-    }
+    return when (expr) {
+        is Ap -> CAp(compileC(expr.func), compileC(expr.arg))
+        is Lam -> {
+            var exprC = compileC(expr.body)
+            for (param in expr.params.reversed()) {
+                exprC = compileA(param, exprC)
+            }
+            exprC
+        }
+        is Num -> ConstInt(expr.value)
+        is Var -> when (expr.name) {
+            "I" -> I
+            "K" -> K
+            "S" -> S
+            else -> FuncRef(expr.name)
+        }
 
-    is BinOp -> TODO()
-    is Case -> TODO()
-    is Constr -> TODO()
-    is Let -> TODO()
-  }
+        is BinOp -> TODO()
+        is Case -> TODO()
+        is Constr -> TODO()
+        is Let -> TODO()
+    }
 }
 
 private fun compileA(param: String, expr: Comb): Comb {
-  return when (expr) {
-    is CAp -> CAp(CAp(S, compileA(param, expr.func)), compileA(param, expr.arg))
-    is FuncRef ->
-      if (expr.name == param) {
-        I
-      } else {
-        CAp(K, expr)
-      }
+    return when (expr) {
+        is CAp -> CAp(CAp(S, compileA(param, expr.func)), compileA(param, expr.arg))
+        is FuncRef ->
+            if (expr.name == param) {
+                I
+            } else {
+                CAp(K, expr)
+            }
 
-    else -> CAp(K, expr)
-  }
+        else -> CAp(K, expr)
+    }
 }
 
 fun compile(program: Program): CombProgram {
-  return buildMap {
-    for (def in program.defs) {
-      put(def.name, compileC(Lam(def.params, def.body)))
+    return buildMap {
+        for (def in program.defs) {
+            put(def.name, compileC(Lam(def.params, def.body)))
+        }
     }
-  }
 }
 
 ```
 
-**TODO**: Explain Lam abstraction of multiple parameters
+The one place where we deviate slightly from the standard algorithm is in how we handle lambda functions.
+Our lambda functions can have multiple arguments, as opposed to one in the standard SK compilation algorithm.
+A lambda with multiple arguments is easily decomposed into nested lambdas, for example `\a b c. E` is the same
+as `\a. \b. \c. E`.
+`\a b c. E` therefore compiles to the following SK combinators:
+
+```
+C[[ \a b c. E ]]
+=> C[[ \a. \b. \c. E ]]
+=> A a [[ C[[ \b. \c. E ]] ]]
+=> A a [[ A b [[ C[[ \c. E ]] ]] ]]
+=> A a [[ A b [[ A c [[ C[[ E ]] ]] ]] ]]
+```
+
+Our Kotlin implementation produces the same result: it first compile the body using `C [[ e ]]`, and then abstracts over
+the arguments, starting with the last argument.
 
 ## A basic virtual machine
 
@@ -112,16 +154,16 @@ terminates.
 
 ```kotlin
 fun evaluate(program: CombProgram, maxSteps: Int = 10000): List<SkState> {
-  val trace = mutableListOf(SkState(program, program["main"] ?: error("missing main"), emptyList()))
-  var steps = 0
-  while (!isFinalState(trace.last())) {
-    if (steps > maxSteps) {
-      error("Did not terminate after $maxSteps")
+    val trace = mutableListOf(SkState(program, program["main"] ?: error("missing main"), emptyList()))
+    var steps = 0
+    while (!isFinalState(trace.last())) {
+        if (steps > maxSteps) {
+            error("Did not terminate after $maxSteps")
+        }
+        trace.add(step(trace.last()))
+        steps++;
     }
-    trace.add(step(trace.last()))
-    steps++;
-  }
-  return trace
+    return trace
 }
 ```
 
@@ -154,33 +196,33 @@ And finally, our `step` function:
 
 ```kotlin
 private fun step(state: SkState): SkState {
-  return when (val comb = state.comb) {
-    is CAp -> state.copy(
-      comb = comb.func,
-      stack = state.stack + comb.arg
-    )
-    is FuncRef -> state.copy(
-      comb = state.program[comb.name] ?: error("missing function ${comb.name}")
-    )
-    I -> state.copy(
-      comb = state.stack.last(),
-      stack = state.stack.dropLast(1)
-    )
-    K -> state.copy(
-      comb = state.stack.last(),
-      stack = state.stack.dropLast(2)
-    )
-    S -> {
-      val f = state.stack[state.stack.size - 1]
-      val g = state.stack[state.stack.size - 2]
-      val x = state.stack[state.stack.size - 3]
-      state.copy(
-        comb = CAp(CAp(f, x), CAp(g, x)),
-        stack = state.stack.dropLast(3)
-      )
+    return when (val comb = state.comb) {
+        is CAp -> state.copy(
+            comb = comb.func,
+            stack = state.stack + comb.arg
+        )
+        is FuncRef -> state.copy(
+            comb = state.program[comb.name] ?: error("missing function ${comb.name}")
+        )
+        I -> state.copy(
+            comb = state.stack.last(),
+            stack = state.stack.dropLast(1)
+        )
+        K -> state.copy(
+            comb = state.stack.last(),
+            stack = state.stack.dropLast(2)
+        )
+        S -> {
+            val f = state.stack[state.stack.size - 1]
+            val g = state.stack[state.stack.size - 2]
+            val x = state.stack[state.stack.size - 3]
+            state.copy(
+                comb = CAp(CAp(f, x), CAp(g, x)),
+                stack = state.stack.dropLast(3)
+            )
+        }
+        is ConstInt -> error("Cannot reduce int further")
     }
-    is ConstInt -> error("Cannot reduce int further")
-  }
 }
 ```
 
