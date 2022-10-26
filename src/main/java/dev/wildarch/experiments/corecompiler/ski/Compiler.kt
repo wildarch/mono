@@ -99,8 +99,8 @@ private fun step(state: SkState): SkState {
             val g = state.stack[state.stack.size - 2]
             val x = state.stack[state.stack.size - 3]
             state.copy(
-                comb = CAp(CAp(f, x), CAp(g, x)),
-                stack = state.stack.dropLast(3)
+                comb = f,
+                stack = state.stack.dropLast(3) + CAp(g, x) + x
             )
         }
         is ConstInt -> error("Cannot reduce int further")

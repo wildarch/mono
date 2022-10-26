@@ -226,4 +226,39 @@ private fun step(state: SkState): SkState {
 }
 ```
 
+## Small improvements
+Firstly we will improve our virtual machine a bit and make evaluating the `S` combinator take fewer steps.
+Notice that right now, evaluating `S f g x` results in the following steps:
+```
+Comb                              Stack
+CAp(CAp(CAp(S, f), g), x)         []
+CAp(CAp(S, f), g)                 [x]
+CAp(S, f)                         [x, g]
+S                                 [x, g, f]
+CAp(CAp(f, x), CAp(g, x))         []
+CAp(f, x)                         [CAp(g, x)]
+f                                 [CAp(g, x), x]
+```
+
+The step for `S` involves constructing a new combinator that is immediately taken apart in the three steps afterwards.
+This is wasted work that we can skip, so let us do that:
+
+```kotlin
+private fun step(state: SkState): SkState {
+  return when (val comb = state.comb) {
+    // ...
+    S -> {
+      val f = state.stack[state.stack.size - 1]
+      val g = state.stack[state.stack.size - 2]
+      val x = state.stack[state.stack.size - 3]
+      state.copy(
+        comb = f,
+        stack = state.stack.dropLast(3) + CAp(g, x) + x
+      )
+    }
+    // ...
+  }
+}
+```
+
 TODO: S-combinator duplicates arguments.
