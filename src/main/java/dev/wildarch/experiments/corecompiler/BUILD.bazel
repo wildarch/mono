@@ -31,3 +31,19 @@ package_group(
         "//src/test/java/dev/wildarch/experiments/corecompiler/templateinstantiation",
     ],
 )
+
+kt_jvm_library(
+    name = "RandomProgramGenerator",
+    srcs = [
+        "RandomProgramGenerator.kt",
+    ],
+    deps = [
+        "//src/main/java/dev/wildarch/experiments/corecompiler/syntax",
+    ],
+)
+
+java_binary(
+    name = "RandomProgramGenerator_run",
+    main_class = "dev.wildarch.experiments.corecompiler.RandomProgramGeneratorKt",
+    runtime_deps = [":RandomProgramGenerator"],
+)
