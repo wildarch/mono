@@ -115,9 +115,10 @@ with sqlite3.connect(':memory:') as conn:
                         rows.clear()
 
                     count += 1
-                    # Limit
-                    # if count >= 100_000:
-                    #     break 
+                    if count % 100_000 == 0:
+                        print(f"Processed {count} elements")
+                        # Limit
+                        #break 
 
                     # Only clear the element and its children once we have parsed a full entry
                     elem.clear()

@@ -1,0 +1,12 @@
+cc_binary(
+    name = "parse",
+    srcs = ["parse.cc"],
+    copts = ["-I/usr/include/libxml2"],
+    linkopts = ["-lxml2"],
+)
+
+cc_binary(
+    name = "parse_expat",
+    srcs = ["parse_expat.cc"],
+    linkopts = ["-lexpat"],
+)

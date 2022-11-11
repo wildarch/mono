@@ -1,0 +1,5 @@
+java_binary(
+    name = "DblpParser",
+    srcs = ["DblpParser.java"],
+    deps = ["@maven//:com_fasterxml_woodstox_woodstox_core"],
+)

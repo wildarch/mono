@@ -98,6 +98,8 @@ maven_install(
         # OCI SDK
         "com.oracle.oci.sdk:oci-java-sdk-core:2.40.0",
         "com.oracle.oci.sdk:oci-java-sdk-objectstorage:2.40.0",
+        # Woodstox
+        "com.fasterxml.woodstox:woodstox-core:6.4.0",
     ],
     repositories = [
         "https://maven.google.com",
