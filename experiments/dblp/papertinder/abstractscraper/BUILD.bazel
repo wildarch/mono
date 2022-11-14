@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "@com_github_andybalholm_cascadia//:cascadia",
-        "@com_github_chromedp_chromedp//:chromedp",
         "@org_golang_x_net//html",
         "@org_modernc_sqlite//:sqlite",
     ],

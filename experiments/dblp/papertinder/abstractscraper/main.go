@@ -1,16 +1,15 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 
 	"github.com/andybalholm/cascadia"
-	"github.com/chromedp/chromedp"
 	"golang.org/x/net/html"
 
 	_ "modernc.org/sqlite"
@@ -47,7 +46,12 @@ func fetchAbstract(urlS string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("url to fetch is not valid: %w", err)
 	}
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return "", fmt.Errorf("error making cookie jar: %w", err)
+	}
 	client := http.Client{
+		Jar: jar,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) == 10 {
 				return fmt.Errorf("too many redirects (%d)", len(via))
@@ -66,7 +70,7 @@ func fetchAbstract(urlS string) (string, error) {
 	case "ieeexplore.ieee.org":
 		return fetchIEEEXploreAbstract(resp)
 	case "dl.acm.org":
-		return fetchACMAbstract(urlS)
+		return fetchACMAbstract(resp)
 	default:
 		return "", fmt.Errorf("unsupported host %s", host)
 	}
@@ -100,32 +104,13 @@ func fetchIEEEXploreAbstract(resp *http.Response) (string, error) {
 	return "", fmt.Errorf("content key not found")
 }
 
-func fetchACMAbstract(u string) (string, error) {
-	/*
-		doc, err := parseResponse(resp)
-		if err != nil {
-			return "", err
-		}
-
-		html.Render(os.Stdout, doc)
-
-		return getSelectorInnerText(doc, "div.abstractInFull p")
-	*/
-	log.Println("Starting chrome")
-	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), append(chromedp.DefaultExecAllocatorOptions[:], chromedp.Flag("headless", false))...)
-	defer cancel()
-	ctx, cancel := chromedp.NewContext(allocCtx)
-	defer cancel()
-
-	var abstract string
-	if err := chromedp.Run(ctx,
-		chromedp.Navigate(u),
-		chromedp.InnerHTML("div.abstractInFull p", &abstract, chromedp.ByQuery),
-	); err != nil {
-		return "", fmt.Errorf("failed to run headless chrome: %w", err)
+func fetchACMAbstract(resp *http.Response) (string, error) {
+	doc, err := parseResponse(resp)
+	if err != nil {
+		return "", err
 	}
 
-	return abstract, nil
+	return getSelectorInnerText(doc, "div.abstractInFull p")
 }
 
 func parseResponse(resp *http.Response) (*html.Node, error) {
