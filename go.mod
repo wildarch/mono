@@ -2,7 +2,11 @@ module github.com/wildarch/mono
 
 go 1.19
 
-require modernc.org/sqlite v1.19.1
+require (
+	github.com/andybalholm/cascadia v1.3.1
+	golang.org/x/net v0.0.0-20210916014120-12bc252f5db8
+	modernc.org/sqlite v1.19.1
+)
 
 require (
 	github.com/google/uuid v1.3.0 // indirect

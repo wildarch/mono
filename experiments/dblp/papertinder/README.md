@@ -39,7 +39,7 @@ In my test the HTTP request takes about 2 seconds, so we probably want to prefet
 
 ## Design
 The design consists of three parts:
-1. A DBLP downloader and parser, storing relevant data in a SQLite database.
+1. A DBLP downloader and parser, storing relevant data in an SQLite database.
 2. An abstract prefetcher that maintains a buffer of abstracts for unread papers. 
 3. A web interface that displays random unread papers, and allows the user to either mark them as read or put them on a reading list.
 
@@ -89,3 +89,45 @@ CREATE TABLE PaperReview(
 
 ### DBLP parser
 For the initial version, we can download a recent export manually, and write a python script to parse it.
+See the adjacent `parse.py` script. 
+This script takes a few minutes to run, attempts to make it faster are under `../fastparse`.
+
+### Abstract scraping
+As we saw earlier, CSS Selectors are a flexible and compact way to extract text from web pages.
+We could use python for the tool, but python is harder to deploy to servers, so I'll opt for go instead.
+The [cascadia](https://pkg.go.dev/github.com/andybalholm/cascadia) package appears to be widely used, let's go with that.
+
+Our scraper runs the following in a loop:
+1. Find a publication from `dblp` with an `ee` but no entry in `PaperReview`. The protocol for `ee` must be `http` or `https`.
+2. Figure out where the `ee` link redirects to, and store it in `resolved_ee`.
+3. Retrieve the HTML page. 
+   We bake in a few rules to parse the abstracts of common websites.
+   For example, if we see that the domain is `https://dl.acm.org`, we can use the selector `div.abstractInFull p` to get the abstract.
+4. If we find an abstract on the page, store it in `abstract`. 
+5. Wait for a few seconds, to avoid getting banned.
+
+We need to store URLs we are redirected to, which we do with a custom [`CheckRedirect`](https://pkg.go.dev/net/http#Client) function.
+
+Selectors:
+```
+https://dl.acm.org                  div.abstractInFull p                text
+https://link.springer.com           div#Abs1-content p                  text
+https://ieeexplore.ieee.org         meta[property="og:description"]     content
+```
+
+For IEEE content, things are more involved.
+`ee` should redirect to a link similar to
+`https://www.computer.org/csdl/proceedings-article/coopis/1997/00613823/1dUnbgpYLKM`.
+The last component `1dUnbgpYLKM` is the internal article ID.
+
+To get the abstract we need to send a POST request to a graphql endpoint.
+The request must look exactly like the one below, just with a different article ID (with some of the fields removed, the query fails with `Must provide query string`).
+
+```js
+fetch("https://www.computer.org/csdl/api/v1/graphql", {
+  "body": "{\"variables\":{\"articleId\":\"1dUnbgpYLKM\"},\"query\":\"query ($articleId: String!) {\\n  proceeding: proceedingByArticleId(articleId: $articleId) {\\n    id\\n    title\\n    acronym\\n    groupId\\n    volume\\n    displayVolume\\n    year\\n    __typename\\n  }\\n  article: articleById(articleId: $articleId) {\\n    id\\n    doi\\n    title\\n    abstract\\n    abstracts {\\n      abstractType\\n      content\\n      __typename\\n    }\\n    fno\\n    authors {\\n      affiliation\\n      fullName\\n      givenName\\n      surname\\n      __typename\\n    }\\n    idPrefix\\n    isOpenAccess\\n    showRecommendedArticles\\n    showBuyMe\\n    hasPdf\\n    pubDate\\n    pubType\\n    pages\\n    year\\n    issn\\n    isbn\\n    notes\\n    notesType\\n    __typename\\n  }\\n  webExtras: webExtrasByArticleId(articleId: $articleId) {\\n    id\\n    name\\n    size\\n    location\\n    __typename\\n  }\\n  adjacentArticles: adjacentArticles(articleId: $articleId) {\\n    previous {\\n      fno\\n      articleId\\n      __typename\\n    }\\n    next {\\n      fno\\n      articleId\\n      __typename\\n    }\\n    __typename\\n  }\\n  recommendedArticles: recommendedArticlesById(articleId: $articleId) {\\n    id\\n    title\\n    doi\\n    abstractUrl\\n    parentPublication {\\n      id\\n      title\\n      __typename\\n    }\\n    __typename\\n  }\\n  articleVideos: videosByArticleId(articleId: $articleId) {\\n    id\\n    videoExt\\n    videoType {\\n      featured\\n      recommended\\n      sponsored\\n      __typename\\n    }\\n    article {\\n      id\\n      fno\\n      issueNum\\n      pubType\\n      volume\\n      year\\n      idPrefix\\n      doi\\n      title\\n      __typename\\n    }\\n    channel {\\n      id\\n      title\\n      status\\n      featured\\n      defaultVideoId\\n      category {\\n        id\\n        title\\n        type\\n        __typename\\n      }\\n      __typename\\n    }\\n    year\\n    title\\n    description\\n    keywords {\\n      id\\n      title\\n      status\\n      __typename\\n    }\\n    speakers {\\n      firstName\\n      lastName\\n      affiliation\\n      __typename\\n    }\\n    created\\n    updated\\n    imageThumbnailUrl\\n    runningTime\\n    aspectRatio\\n    metrics {\\n      views\\n      likes\\n      __typename\\n    }\\n    notShowInVideoLib\\n    __typename\\n  }\\n}\"}",
+  "method": "POST",
+});
+```
+
+Alternatively, we can render the page with JS enabled, and then extract the text for CSS selector `div.article-content`.

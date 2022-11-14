@@ -18,6 +18,6 @@ go_test(
     srcs = ["table_scanner_test.go"],
     deps = [
         ":sqlite",
-        "@org_modernc_sqlite//:go_default_library",
+        "@org_modernc_sqlite//:sqlite",
     ],
 )
