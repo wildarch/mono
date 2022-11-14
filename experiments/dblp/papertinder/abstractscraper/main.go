@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"net/url"
 
 	"github.com/andybalholm/cascadia"
+	"github.com/chromedp/chromedp"
 	"golang.org/x/net/html"
 
 	_ "modernc.org/sqlite"
@@ -63,6 +65,8 @@ func fetchAbstract(urlS string) (string, error) {
 		return fetchSpringerAbstract(resp)
 	case "ieeexplore.ieee.org":
 		return fetchIEEEXploreAbstract(resp)
+	case "dl.acm.org":
+		return fetchACMAbstract(urlS)
 	default:
 		return "", fmt.Errorf("unsupported host %s", host)
 	}
@@ -94,6 +98,34 @@ func fetchIEEEXploreAbstract(resp *http.Response) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("content key not found")
+}
+
+func fetchACMAbstract(u string) (string, error) {
+	/*
+		doc, err := parseResponse(resp)
+		if err != nil {
+			return "", err
+		}
+
+		html.Render(os.Stdout, doc)
+
+		return getSelectorInnerText(doc, "div.abstractInFull p")
+	*/
+	log.Println("Starting chrome")
+	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), append(chromedp.DefaultExecAllocatorOptions[:], chromedp.Flag("headless", false))...)
+	defer cancel()
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+
+	var abstract string
+	if err := chromedp.Run(ctx,
+		chromedp.Navigate(u),
+		chromedp.InnerHTML("div.abstractInFull p", &abstract, chromedp.ByQuery),
+	); err != nil {
+		return "", fmt.Errorf("failed to run headless chrome: %w", err)
+	}
+
+	return abstract, nil
 }
 
 func parseResponse(resp *http.Response) (*html.Node, error) {
