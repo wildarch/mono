@@ -1,4 +1,4 @@
-package dev.wildarch.experiments.dblp;
+package dev.wildarch.experiments.dblp.fastparse;
 
 import com.ctc.wstx.api.WstxInputProperties;
 import org.xml.sax.InputSource;
