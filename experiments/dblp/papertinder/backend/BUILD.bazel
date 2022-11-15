@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "backend_lib",
+    srcs = ["main.go"],
+    embedsrcs = ["templates.html"],
+    importpath = "github.com/wildarch/mono/experiments/dblp/papertinder/backend",
+    visibility = ["//visibility:private"],
+    deps = ["@org_modernc_sqlite//:sqlite"],
+)
+
+go_binary(
+    name = "backend",
+    embed = [":backend_lib"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,34 @@
+{{define "ShowPaper"}}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <title>Paper to review</title>
+    <style>
+        .rate {
+            /* No link underline */
+            text-decoration: none;
+            /* Large emojis */
+            font-size: 5em;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h1>{{.Title}}</h1>
+        <details>
+            <summary>Abstract</summary>
+            <p>{{.Abstract}}</p>
+        </details>
+
+        <a class="rate" href="/approve?key={{.Key}}">👍</a>
+        <a class="rate" style="float: right;" href="/reject?key={{.Key}}">👎</a>
+    </main>
+</body>
+
+</html>
+{{end}}
