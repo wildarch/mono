@@ -42,6 +42,13 @@ func main() {
 	db = reviewDb
 	defer db.Close()
 
+	// Set a busy timeout.
+	// This lets sqlite wait for some time if another process (for example the abstract fetcher) has locked the database.
+	_, err = db.Exec("PRAGMA busy_timeout = 5000;")
+	if err != nil {
+		log.Fatalf("error setting busy timeout: %s", err.Error())
+	}
+
 	// Attach the DBPL database
 	if *dblpDbPath == "" {
 		log.Fatalf("Missing required argument: --dblp-db-path")
@@ -114,13 +121,13 @@ func handleApproveOrReject(w http.ResponseWriter, r *http.Request, interested bo
 	`, interested, key)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Printf("error writing paper evaluation to the database")
+		log.Printf("error writing paper evaluation to the database: %s", err.Error())
 		return
 	}
 	modified, err := res.RowsAffected()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Printf("error retrieving number of rows affected")
+		log.Printf("error retrieving number of rows affected: %s", err.Error())
 		return
 	}
 	if modified == 0 {
