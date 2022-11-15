@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/andybalholm/cascadia"
@@ -19,7 +20,7 @@ import (
 var dblpDbPath = flag.String("dblp-db-path", "", "path to the sqlite database file storing the dblp table")
 var reviewDbPath = flag.String("review-db-path", "", "path to the sqlite database file storing the PaperReview table")
 var testUrl = flag.String("test-url", "", "test abstract fetching on the given url")
-var prefetchLimit = flag.Int("prefetch-limit", 100, "number of abstracts to prefetch")
+var prefetchLimit = flag.Int("prefetch-limit", 200, "number of abstracts to prefetch")
 
 func main() {
 	flag.Parse()
@@ -61,8 +62,8 @@ func runFetcher(db *sql.DB) {
 		r := db.QueryRow(`
 			SELECT COUNT(*) 
 			FROM PaperReview 
-				  -- We have attempted to fetch the abstract 
-			WHERE resolved_ee IS NOT NULL 
+				  -- We have prefetched the abstract
+			WHERE abstract IS NOT NULL 
 				  -- But the user has not seen it yet
 			  AND interesting IS NULL`)
 		var cnt int
@@ -156,6 +157,8 @@ func fetchAbstract(urlS string) (string, string, error) {
 		abs, err = fetchIEEEXploreAbstract(resp)
 	case "dl.acm.org":
 		abs, err = fetchACMAbstract(resp)
+	case "arxiv.org":
+		abs, err = fetchArxivAbstract(resp)
 	default:
 		abs, err = "", fmt.Errorf("unsupported host %s", host)
 	}
@@ -199,6 +202,15 @@ func fetchACMAbstract(resp *http.Response) (string, error) {
 	return getSelectorInnerText(doc, "div.abstractInFull p")
 }
 
+func fetchArxivAbstract(resp *http.Response) (string, error) {
+	doc, err := parseResponse(resp)
+	if err != nil {
+		return "", err
+	}
+
+	return getSelectorInnerText(doc, "blockquote.abstract")
+}
+
 func parseResponse(resp *http.Response) (*html.Node, error) {
 	// Parse the HTML
 	doc, err := html.Parse(resp.Body)
@@ -231,5 +243,5 @@ func getSelectorInnerText(doc *html.Node, s string) (string, error) {
 		}
 		c = c.NextSibling
 	}
-	return text, nil
+	return strings.TrimSpace(text), nil
 }

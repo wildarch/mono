@@ -131,3 +131,21 @@ fetch("https://www.computer.org/csdl/api/v1/graphql", {
 ```
 
 Alternatively, we can render the page with JS enabled, and then extract the text for CSS selector `div.article-content`.
+
+Here is a helpful query that will tell you what sites cause the most failures:
+```sql
+SELECT 
+    -- Cut the part between // and next /, which should be the host part of the URL
+    SUBSTR(SUBSTR(resolved_ee, INSTR(resolved_ee, '//') + 2), 0, INSTR(SUBSTR(resolved_ee, INSTR(resolved_ee, '//') + 2), '/')) AS site, 
+    COUNT(*) 
+FROM PaperReview 
+      -- we followed the redirects
+WHERE resolved_ee IS NOT NULL
+      -- but were unable to parse the abstract
+  AND abstract IS NULL 
+GROUP BY 1
+ORDER BY 2 DESC;
+```
+
+Scraping Elsevier does not seem to work very well.
+It seems Cloudflare is interfering, or maybe their bot detection is good.
