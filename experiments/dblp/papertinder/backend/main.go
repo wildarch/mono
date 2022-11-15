@@ -13,8 +13,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+var bindAddr = flag.String("bind", ":8080", "address to bind the server to")
 var dblpDbPath = flag.String("dblp-db-path", "", "path to the sqlite database file storing the dblp table")
 var reviewDbPath = flag.String("review-db-path", "", "path to the sqlite database file storing the PaperReview table")
+var prefix = flag.String("prefix", "", "url prefix under which the server is hosted, e.g. /papertinder")
 var db *sql.DB = nil
 
 //go:embed templates.html
@@ -52,10 +54,11 @@ func main() {
 	http.HandleFunc("/", handleShowPaper)
 	http.HandleFunc("/approve", handleApprove)
 	http.HandleFunc("/reject", handleReject)
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(*bindAddr, nil)
 }
 
 type ShowPaper struct {
+	Prefix   string
 	Title    string
 	Abstract string
 	Key      string
@@ -73,7 +76,7 @@ func handleShowPaper(w http.ResponseWriter, r *http.Request) {
 		  AND interesting IS NULL
 		LIMIT 1;
 	`)
-	var showPaper ShowPaper
+	showPaper := ShowPaper{Prefix: *prefix}
 	err := row.Scan(&showPaper.Key, &showPaper.Title, &showPaper.Abstract)
 	if err != nil {
 		log.Printf("error fetching a paper to show: %s", err.Error())
@@ -136,5 +139,5 @@ func handleApproveOrReject(w http.ResponseWriter, r *http.Request, interested bo
 	}
 
 	// Redirect back to main screen
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, *prefix+"/", http.StatusTemporaryRedirect)
 }

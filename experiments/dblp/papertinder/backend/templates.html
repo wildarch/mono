@@ -25,8 +25,8 @@
             <p>{{.Abstract}}</p>
         </details>
 
-        <a class="rate" href="/approve?key={{.Key}}">👍</a>
-        <a class="rate" style="float: right;" href="/reject?key={{.Key}}">👎</a>
+        <a class="rate" href="{{.Prefix}}/approve?key={{.Key}}">👍</a>
+        <a class="rate" style="float: right;" href="{{.Prefix}}/reject?key={{.Key}}">👎</a>
     </main>
 </body>
 

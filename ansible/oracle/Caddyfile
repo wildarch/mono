@@ -10,4 +10,12 @@ oracle.wildarch.dev {
 		uri strip_prefix /cast
 		reverse_proxy 127.0.0.1:8001
 	}
+
+	route /papertinder* {
+		basicauth {
+			daan {{caddy_auth_password_hashed}}
+		}
+		uri strip_prefix /papertinder
+		reverse_proxy 127.0.0.1:8002
+	}
 }
