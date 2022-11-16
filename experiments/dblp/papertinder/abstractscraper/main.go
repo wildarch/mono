@@ -57,6 +57,11 @@ func main() {
 }
 
 func runFetcher(db *sql.DB) {
+	type candidatePaper struct {
+		key string
+		ee  string
+	}
+	candidates := make([]candidatePaper, 0)
 	for {
 		// Check if we have reached our limit for prefetched abstracts
 		r := db.QueryRow(`
@@ -65,7 +70,8 @@ func runFetcher(db *sql.DB) {
 				  -- We have prefetched the abstract
 			WHERE abstract IS NOT NULL 
 				  -- But the user has not seen it yet
-			  AND interesting IS NULL`)
+			  AND interesting IS NULL;
+		`)
 		var cnt int
 		err := r.Scan(&cnt)
 		if err != nil {
@@ -78,29 +84,43 @@ func runFetcher(db *sql.DB) {
 			continue
 		}
 
-		// Find our new candidate
-		r = db.QueryRow(`
-			SELECT key, ee
-			FROM dblp 
-			LEFT JOIN PaperReview ON (key = dblp_key) 
-				  -- We have not yet attempted to prefetch the abstract
-			WHERE resolved_ee IS NULL 
-				  -- An electronic edition is available
-			  AND ee IS NOT NULL 
-			-- Randomly take one
-			ORDER BY RANDOM()
-			LIMIT 1;
-		`)
-		var key string
-		var ee string
-		err = r.Scan(&key, &ee)
-		if err != nil {
-			log.Fatalf("error looking for a paper abstract to prefetch: %s", err.Error())
+		candidate := candidatePaper{}
+		if len(candidates) == 0 {
+			// Find our new candidates
+			rows, err := db.Query(`
+				SELECT key, ee
+				FROM dblp 
+				LEFT JOIN PaperReview ON (key = dblp_key) 
+					-- We have not yet attempted to prefetch the abstract
+				WHERE resolved_ee IS NULL 
+					-- An electronic edition is available
+				AND ee IS NOT NULL 
+				-- Randomly select a few
+				ORDER BY RANDOM()
+				LIMIT 100;
+			`)
+			if err != nil {
+				log.Fatalf("error looking for a paper abstract to prefetch: %s", err.Error())
+			}
+			for rows.Next() {
+				if err := rows.Err(); err != nil {
+					log.Fatalf("error looking for a paper abstract to prefetch: %s", err.Error())
+				}
+				err = rows.Scan(&candidate.key, &candidate.ee)
+				if err != nil {
+					log.Fatalf("error looking for a paper abstract to prefetch: %s", err.Error())
+				}
+				candidates = append(candidates, candidate)
+			}
+			rows.Close()
 		}
+		// Grab the next candidate
+		candidate = candidates[0]
+		candidates = candidates[1:]
 
 		// Try to fetch the abstract
-		log.Printf("Looking for abstract for key %s, url %s", key, ee)
-		lastUrl, abstract, err := fetchAbstract(ee)
+		log.Printf("Looking for abstract for key %s, url %s", candidate.key, candidate.ee)
+		lastUrl, abstract, err := fetchAbstract(candidate.ee)
 		// Save result in the database
 		if err != nil {
 			log.Printf("Error retrieving abstract: %s", err.Error())
@@ -108,7 +128,7 @@ func runFetcher(db *sql.DB) {
 			// Set resolved_ee but not abstract
 			_, err := db.Exec(`
 				INSERT INTO PaperReview (dblp_key, resolved_ee) VALUES (?, ?);
-			`, key, lastUrl)
+			`, candidate.key, lastUrl)
 			if err != nil {
 				log.Fatalf("error inserting failed abstract fetch record: %s", err.Error())
 			}
@@ -116,7 +136,7 @@ func runFetcher(db *sql.DB) {
 			// Set resolved_ee and abstract
 			_, err := db.Exec(`
 				INSERT INTO PaperReview (dblp_key, resolved_ee, abstract) VALUES (?, ?, ?);
-			`, key, lastUrl, abstract)
+			`, candidate.key, lastUrl, abstract)
 			if err != nil {
 				log.Fatalf("error inserting abstract fetch record: %s", err.Error())
 			}
