@@ -16,3 +16,12 @@ Algorithms I would like to implement:
 
 Wikipedia has a bunch more listed [here](https://en.wikipedia.org/wiki/Category:Graph_algorithms).
 [Graph Algorithms book by O'Reilly/Neo4J](https://go.neo4j.com/rs/710-RRC-335/images/Neo4j_Graph_Algorithms.pdf) lists some algorithms that are commonly used with graph databases, but only gives code for use with Neo4J.
+
+
+Rules for implementations:
+- No in-place mutation of the input graph
+- All graphs are directed.
+- We can iterate over nodes in the graph. Nodes have a unique integer ID.
+- We can iterate over all edges in the graph, which are pairs of node IDs. The list is not ordered.
+- We can efficiently iterate over the out and in neighbors of a graph.
+- Nodes and edges can both have arbitrary associated properties.
