@@ -1,0 +1,33 @@
+-- The original program.
+-- Taken from 'Performance measurement of a G-machine implementation'.
+
+letrec map f l =
+   if null l then
+      nil
+   else
+      f (hd l) . map f (tl l)
+in
+letrec insert x l =
+   if null l then
+      [x]
+   else
+      if x < hd l then
+         x . l
+      else
+         hd l . insert x (tl l)
+in
+letrec sort l =
+   if null l then
+      nil
+   else
+      insert (hd l) (sort (tl l))
+in
+let rand r = (r * 56789) % 12345
+in
+letrec count a b =
+   if a > b then
+      nil
+   else
+      a . count (a+1) b
+in
+   sort (map rand (count 1 100))

@@ -1,0 +1,23 @@
+-- The original program.
+-- Taken from 'Performance measurement of a G-machine implementation'.
+
+letrec
+   from x = x . from (x+1)
+and
+   counthd lis n =
+      if n = 0 then []
+      else hd 1. counthd (t1 1) (n-1)
+and
+   filter p seq =
+      case seq in
+         (a.rest) :
+             if a%p ~= 0 then a.filter p rest
+             else filter p rest
+      end
+in 
+   sieve seq =
+      case seq in
+         (p.rest) :
+             p.sieve (filter p rest)
+      end
+in counthd (sieve (from 2)) 250

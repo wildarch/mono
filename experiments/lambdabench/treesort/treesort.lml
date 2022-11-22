@@ -1,0 +1,35 @@
+import type Ordertree =
+   empty + tip(int) + node(Ordertree # int # Ordertree)
+letrec
+   map f lis =
+      if null lis then []
+      else f (hd lis) . map f (tl lis)
+and
+   reduce f lis z =
+      case lis in
+         [] : z
+      || (a.l) : f a (reduce f l z)
+      end
+and
+   insert n t =
+      case t in
+         empty : tip n
+      || tip m : if n<m then node(tip n, m, empty)
+                 else node(empty, m, tip n)
+      || node(t1, m, t2) :
+                 if n<m then node(insert n t1, m, t2)
+                 else node(t1, m, insert n t2)
+      end in
+letrec
+   flatten t = 
+      case t in
+         empty : []
+      || tip n : [n]
+      || node(t1, n, t2) : flatten t1 @ n.flatten t2
+      end
+and count x y =
+       if x > y then []
+       else x.count (x+1) y in
+let sort lis = flatten(reduce insert lis empty)
+and rand r = 56789 * r % 12345 in
+sort (map rand (count 1 100))

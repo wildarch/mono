@@ -1,0 +1,15 @@
+-- The original program.
+-- Taken from 'Performance measurement of a G-machine implementation'.
+
+letrec append x y =
+         if null x then y
+         else (hd x) . append (t1 x) y
+and
+   move x y = 10 * x + y
+in
+letrec hanoi f s t n =
+         if n = 1 then [move f s]
+         else
+            append (hanoi f t s (n - 1))
+                   (move f s . hanoi t s f (n - 1))
+in hanoi 1 2 3 10

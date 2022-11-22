@@ -1,0 +1,39 @@
+-- The original program.
+-- Taken from 'Performance measurement of a G-machine implementation'.
+
+letrec
+   carry c lis =
+      case lis in
+         (h1.t1): case t1 in
+                     (h2.t2): (h1+h2/c).(h2 % c).t2
+                  end
+      end
+in
+letrec
+   mult lis = 
+      case lis in
+         (h.t) : 10 * h.mult t
+      end
+and
+   norm c lis =
+      case lis in
+         (h1.t1):
+            case t1 in
+               (h2.t2):
+                  if (h2+9) < c then h1.norm (c+1)
+                  else carry c (h1.norm (c+1) t1)
+            end
+      end
+in
+letrec
+   convert lis = 
+      case lis in
+         (h.t) : h . convert (norm 2 (0.mult t))
+      end
+and
+   counthd lis n =
+      if n = 0 then []
+      else hd lis. counthd (t1 lis) (n-1)
+and
+   seq = x.seq in
+counthd (convert (2.seq 1)) 15
