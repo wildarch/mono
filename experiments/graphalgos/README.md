@@ -13,6 +13,7 @@ Algorithms I would like to implement:
 - Shortest path
 - Pagerank
 - [Centrality](https://en.wikipedia.org/wiki/Centrality). There are different definitions of centrality, we can start with degree centrality. Betweenness centrality would be nice as well.
+    edit: pagerank is also a centrality measure. Degree centrality is just the degree of each node, trivial.
 
 Wikipedia has a bunch more listed [here](https://en.wikipedia.org/wiki/Category:Graph_algorithms).
 [Graph Algorithms book by O'Reilly/Neo4J](https://go.neo4j.com/rs/710-RRC-335/images/Neo4j_Graph_Algorithms.pdf) lists some algorithms that are commonly used with graph databases, but only gives code for use with Neo4J.
