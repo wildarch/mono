@@ -1,3 +1,5 @@
+-- Taken from 'Performance measurement of a G-machine implementation'.
+
 import type Ordertree =
    empty + tip(int) + node(Ordertree # int # Ordertree)
 letrec

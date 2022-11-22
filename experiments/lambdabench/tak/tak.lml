@@ -1,4 +1,4 @@
--- The original program.
+-- Takeushi LISP benchmark.
 -- Taken from 'Performance measurement of a G-machine implementation'.
 
 letrec

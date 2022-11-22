@@ -1,4 +1,3 @@
--- The original program.
 -- Taken from 'Performance measurement of a G-machine implementation'.
 
 letrec append x y =
