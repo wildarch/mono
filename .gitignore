@@ -24,3 +24,6 @@
 .bazelversion
 # User-specific .bazelrc
 user.bazelrc
+
+# Rustc
+/target
