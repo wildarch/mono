@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::io::Write;
+use std::{collections::HashMap, fs::File, io::BufWriter, path::PathBuf};
 
 use crate::ast;
 
@@ -150,6 +151,9 @@ pub struct TurnerEngine {
     // Points to the cell containing the compiled definition
     def_lookup: HashMap<String, CellPtr>,
     stack: Vec<CellPtr>,
+    // The directory to dump debug information to
+    dump_path: Option<PathBuf>,
+    step_counter: usize,
 }
 
 impl TurnerEngine {
@@ -162,6 +166,8 @@ impl TurnerEngine {
             next_cell: CellPtr(ALL_COMBS.len() as i32),
             def_lookup: HashMap::new(),
             stack: Vec::new(),
+            dump_path: None,
+            step_counter: 0,
         };
 
         // Reserve a spot for each definition
@@ -184,7 +190,8 @@ impl TurnerEngine {
         self.stack
             .push(*self.def_lookup.get("main").expect("no main function found"));
         loop {
-            self.dump_dot();
+            self.step_counter += 1;
+            self.dump_dot().expect("Dump failed");
             let top = self.stack.last().unwrap();
             if let Some(comb) = top.comb() {
                 match comb {
@@ -197,7 +204,29 @@ impl TurnerEngine {
                         */
                         todo!()
                     }
-                    Comb::K => todo!(),
+                    Comb::K => {
+                        // K x y = x
+                        let l0 = self.stack[self.stack.len() - 2];
+                        let l1 = self.stack[self.stack.len() - 3];
+                        let x = self.tl[l0.0 as usize];
+                        // If x is an int, we should transfer that to the new location
+                        let x_tag = self.tag[l0.0 as usize] & TAG_RHS_INT;
+
+                        // Make the indirection node
+                        self.tag[l0.0 as usize] = x_tag;
+                        self.hd[l0.0 as usize] = CellPtr(Comb::I as i32);
+                        self.tl[l0.0 as usize] = x;
+
+                        // Check if the value is an int, then we are done
+                        if x_tag & TAG_RHS_INT != 0 {
+                            return l0;
+                        }
+
+                        // Put x on the stack
+                        let new_len = self.stack.len() - 2;
+                        self.stack[new_len - 1] = x;
+                        self.stack.truncate(new_len);
+                    }
                     Comb::I => {
                         // Check if we are done
                         let l0 = self.stack[self.stack.len() - 2];
@@ -295,13 +324,17 @@ impl TurnerEngine {
         self.tl[ptr.0 as usize] = v.into();
     }
 
-    pub fn dump_dot(&self) {
-        println!("===== BEGIN DOT ======");
-        println!("digraph {{");
+    pub fn dump_dot(&self) -> std::io::Result<()> {
+        let mut w = if let Some(dump_path) = &self.dump_path {
+            let f = File::create(dump_path.join(format!("step{}.dot", self.step_counter)))?;
+            BufWriter::new(f)
+        } else {
+            return Ok(());
+        };
+        writeln!(w, "digraph {{")?;
         // Nodes
-        println!("node [shape=record];");
+        writeln!(w, "node [shape=record];")?;
         for c in 0..CELLS {
-            let tag = self.tag[c];
             let tag = self.tag[c];
             if tag & TAG_WANTED == 0 {
                 // unwanted
@@ -321,22 +354,22 @@ impl TurnerEngine {
             } else {
                 String::new()
             };
-            println!("cell{} [label=\"<hd> {}|<tl> {}\"];", c, hd, tl);
+            writeln!(w, "cell{} [label=\"<hd> {}|<tl> {}\"];", c, hd, tl)?;
         }
         // Stack
         if !self.stack.is_empty() {
-            print!("stack [label=\"{{");
+            write!(w, "stack [pos=\"0,0!\", label=\"{{")?;
             for (i, c) in self.stack.iter().enumerate() {
                 if let Some(comb) = c.comb() {
-                    print!("<s{}> {:?}", i, comb);
+                    write!(w, "<s{}> {:?}", i, comb)?;
                 } else {
-                    print!("<s{}> ", i);
+                    write!(w, "<s{}> ", i)?;
                 }
                 if i != self.stack.len() - 1 {
-                    print!("|");
+                    write!(w, "|")?;
                 }
             }
-            println!("}}\"];");
+            writeln!(w, "}}\"];")?;
         }
 
         // Edges
@@ -348,29 +381,46 @@ impl TurnerEngine {
             }
             let hd = self.hd[c];
             if hd.comb().is_none() {
-                println!("cell{}:hd -> cell{};", c, hd.0);
+                writeln!(w, "cell{}:hd -> cell{};", c, hd.0)?;
             }
             let tl = self.tl[c];
             if tl.comb().is_none() && tag & TAG_RHS_INT == 0 {
-                println!("cell{}:tl -> cell{};", c, tl.0);
+                writeln!(w, "cell{}:tl -> cell{};", c, tl.0)?;
             }
         }
         // Defs
         for (n, p) in self.def_lookup.iter() {
-            println!("{} -> cell{}", n, p.0);
+            writeln!(w, "{} -> cell{}", n, p.0)?;
         }
 
         // Stack edges
         if !self.stack.is_empty() {
             for (i, c) in self.stack.iter().enumerate() {
                 if c.comb().is_none() {
-                    println!("stack:s{} -> cell{}", i, c.0);
+                    writeln!(w, "stack:s{} -> cell{}", i, c.0)?;
                 }
             }
         }
 
-        println!("}}");
-        println!("=====  END DOT  ======");
+        writeln!(w, "}}")?;
+        Ok(())
+    }
+
+    pub fn set_dump_path(&mut self, dump_path: String) {
+        let dump_path = PathBuf::from(dump_path);
+        std::fs::create_dir_all(&dump_path).expect("failed to create dump directory");
+        // Clean up old dump files
+        for entry in std::fs::read_dir(&dump_path).unwrap() {
+            let entry = entry.unwrap();
+            if let Some(name) = entry.file_name().to_str() {
+                if name.ends_with(".dot") {
+                    let path = dump_path.join(entry.file_name());
+                    println!("Deleting file {:?}", path);
+                    std::fs::remove_file(path).expect("failed to delete file");
+                }
+            }
+        }
+        self.dump_path = Some(dump_path);
     }
 }
 
@@ -401,6 +451,7 @@ mod tests {
     #[test]
     fn test_id() {
         assert_runs_to_int(
+            "test_id",
             r#"
 (defun id (x) x)
 (defun main () (id 42))
@@ -409,13 +460,25 @@ mod tests {
         );
     }
 
-    fn assert_runs_to_int(program: &str, v: i32) {
+    #[test]
+    fn test_k() {
+        assert_runs_to_int(
+            "test_k",
+            r#"
+(defun k (x y) x)
+(defun main () (k 42 84))
+        "#,
+            42,
+        );
+    }
+
+    fn assert_runs_to_int(test_name: &str, program: &str, v: i32) {
         let parsed = parse(lex(program));
         let mut engine = TurnerEngine::compile(&parsed);
+        engine.set_dump_path(format!("/tmp/{}", test_name));
 
         let ptr = engine.run();
         assert!(engine.tag[ptr.0 as usize] | TAG_RHS_INT != 0);
-        assert_eq!(engine.hd[ptr.0 as usize], CellPtr(Comb::I as i32));
         assert_eq!(engine.tl[ptr.0 as usize], CellPtr(v));
     }
 }
