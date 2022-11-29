@@ -14,7 +14,7 @@ impl CellPtr {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(i32)]
 pub enum Comb {
     S,
@@ -191,7 +191,7 @@ impl TurnerEngine {
             .push(*self.def_lookup.get("main").expect("no main function found"));
         loop {
             self.step_counter += 1;
-            if self.step_counter > 1_000_000 {
+            if self.step_counter > 1000 {
                 panic!("Max cycle reached");
             }
             self.dump_dot().expect("Dump failed");
@@ -229,7 +229,7 @@ impl TurnerEngine {
                         let x_tag = self.tag[l0.0 as usize] & TAG_RHS_INT;
 
                         // Make the indirection node
-                        self.tag[l0.0 as usize] = x_tag;
+                        self.tag[l0.0 as usize] = x_tag | TAG_WANTED;
                         self.hd[l0.0 as usize] = CellPtr(Comb::I as i32);
                         self.tl[l0.0 as usize] = x;
 
@@ -244,25 +244,64 @@ impl TurnerEngine {
                         self.stack.truncate(new_len);
                     }
                     Comb::I => {
+                        // TODO: Compress multiple indirections
                         // Check if we are done
                         let l0 = self.stack[self.stack.len() - 2];
                         let tag0 = self.tag[l0.0 as usize];
                         if tag0 & TAG_RHS_INT != 0 {
                             // Indirection node!
-                            return l0;
+                            if self.stack.len() == 2 {
+                                // No larger expression to evaluate next
+                                return l0;
+                            } else {
+                                // Continue with the larger expression on the stack
+                                self.stack.truncate(self.stack.len() - 2);
+                            }
                         } else {
                             // Take the argument, and evaluate that instead
                             let arg = self.tl[l0.0 as usize];
-                            // Replace two items with one arg
-                            let new_len = self.stack.len() - 1;
-                            self.stack[new_len - 1] = arg;
-                            self.stack.truncate(new_len);
+                            // Special case: for I (I x) = I x
+                            if arg.comb() == Some(Comb::I) {
+                                let l1 = self.stack[self.stack.len() - 3];
+                                // Fixup the new indirection node
+                                self.hd[l1.0 as usize] = CellPtr(Comb::I as i32);
+
+                                self.stack.truncate(self.stack.len() - 2);
+                            } else {
+                                // Replace two items with one arg
+                                let new_len = self.stack.len() - 1;
+                                self.stack[new_len - 1] = arg;
+                                self.stack.truncate(new_len);
+                            }
                         }
                     }
                     Comb::Y => todo!(),
                     Comb::U => todo!(),
                     Comb::P => todo!(),
-                    Comb::Plus => todo!(),
+                    Comb::Plus => {
+                        let l0 = self.stack[self.stack.len() - 2];
+                        let l1 = self.stack[self.stack.len() - 3];
+
+                        let a = self.int_rhs(l0);
+                        let b = self.int_rhs(l1);
+
+                        if let (Some(a), Some(b)) = (a, b) {
+                            // Already reduced
+                            self.tag[l1.0 as usize] = TAG_WANTED | TAG_RHS_INT;
+                            self.hd[l1.0 as usize] = CellPtr(Comb::I as i32);
+                            self.tl[l1.0 as usize] = CellPtr(a + b);
+                            self.stack.truncate(self.stack.len() - 2);
+                            return l1;
+                        }
+
+                        // Push a and/or b onto the stack to evaluate
+                        if b.is_none() {
+                            self.stack.push(self.tl[l1.0 as usize]);
+                        }
+                        if a.is_none() {
+                            self.stack.push(self.tl[l0.0 as usize]);
+                        }
+                    }
                     Comb::Minus => todo!(),
                     Comb::Times => todo!(),
                     Comb::Divide => todo!(),
@@ -283,6 +322,19 @@ impl TurnerEngine {
                 self.stack.push(self.hd[top.0 as usize]);
             }
         }
+    }
+
+    fn int_rhs(&self, cell_ptr: CellPtr) -> Option<i32> {
+        let tag = self.tag[cell_ptr.0 as usize];
+        let rhs_ptr = self.tl[cell_ptr.0 as usize];
+        if tag & TAG_RHS_INT != 0 {
+            return Some(rhs_ptr.0);
+        }
+        // Check to see if RHS happens to point to an indirection node
+        if self.hd[rhs_ptr.0 as usize].comb() == Some(Comb::I) {
+            return self.int_rhs(rhs_ptr);
+        }
+        None
     }
 
     fn compile_def(&mut self, def: &ast::Def) {
@@ -447,14 +499,14 @@ mod tests {
     use crate::parser::parse;
 
     #[test]
-    fn parse_factorial() {
+    fn test_factorial() {
         let program = r#"
-(defun fac (n) 
-  (if (= n 1)
-      1
-      (* n (fac (- n 1)))))
-(defun main () (fac 5))
-        "#;
+    (defun fac (n)
+      (if (= n 1)
+          1
+          (* n (fac (- n 1)))))
+    (defun main () (fac 1))
+            "#;
 
         let parsed = parse(lex(program));
         let mut engine = TurnerEngine::compile(&parsed);
@@ -496,6 +548,29 @@ mod tests {
 (defun s (f g x) (f x (g x)))
 (defun k (x y) x)
 (defun main () (s k k 42))
+        "#,
+            42,
+        );
+    }
+
+    #[test]
+    fn test_add() {
+        assert_runs_to_int(
+            "test_add",
+            r#"
+(defun main () (+ 2 40))
+        "#,
+            42,
+        );
+    }
+
+    #[test]
+    fn test_add_indirect() {
+        assert_runs_to_int(
+            "test_add_indirect",
+            r#"
+(defun id (x) x)
+(defun main () (+ (id 2) (id 40)))
         "#,
             42,
         );
