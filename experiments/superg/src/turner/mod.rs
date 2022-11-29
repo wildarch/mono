@@ -126,7 +126,7 @@ impl CompiledExpr {
     pub fn abstract_var(self, n: &str) -> CompiledExpr {
         match self {
             CompiledExpr::Comb(c) => cap(Comb::K, c),
-            CompiledExpr::Ap(l, r) => cap(l.abstract_var(n), r.abstract_var(n)),
+            CompiledExpr::Ap(l, r) => cap(cap(Comb::S, l.abstract_var(n)), r.abstract_var(n)),
             CompiledExpr::Var(s) => {
                 if s == n {
                     CompiledExpr::Comb(Comb::I)
@@ -191,23 +191,39 @@ impl TurnerEngine {
             .push(*self.def_lookup.get("main").expect("no main function found"));
         loop {
             self.step_counter += 1;
+            if self.step_counter > 1_000_000 {
+                panic!("Max cycle reached");
+            }
             self.dump_dot().expect("Dump failed");
             let top = self.stack.last().unwrap();
             if let Some(comb) = top.comb() {
                 match comb {
                     Comb::S => {
-                        /*
                         // S f g x => f x (g x)
                         let l0 = self.stack[self.stack.len() - 2];
                         let l1 = self.stack[self.stack.len() - 3];
                         let l2 = self.stack[self.stack.len() - 4];
-                        */
-                        todo!()
+
+                        // If x is an int, we should transfer that to the new location
+                        let x_tag = self.tag[l2.0 as usize] & TAG_RHS_INT;
+                        let x = self.tl[l2.0 as usize];
+                        let g = self.tl[l1.0 as usize];
+                        let f = self.tl[l0.0 as usize];
+
+                        // Make lower cells
+                        // TODO: check if we guarantee nobody else holds a reference to cells l0 and l1, so we can overwrite them
+                        let left_cell = self.make_cell(x_tag | TAG_WANTED, f, x);
+                        let right_cell = self.make_cell(x_tag | TAG_WANTED, g, x);
+                        // Overwrite upper cell
+                        self.tag[l2.0 as usize] = TAG_WANTED;
+                        self.hd[l2.0 as usize] = left_cell;
+                        self.tl[l2.0 as usize] = right_cell;
+                        // Truncate to upper cell
+                        self.stack.truncate(self.stack.len() - 3);
                     }
                     Comb::K => {
                         // K x y = x
                         let l0 = self.stack[self.stack.len() - 2];
-                        let l1 = self.stack[self.stack.len() - 3];
                         let x = self.tl[l0.0 as usize];
                         // If x is an int, we should transfer that to the new location
                         let x_tag = self.tag[l0.0 as usize] & TAG_RHS_INT;
@@ -467,6 +483,19 @@ mod tests {
             r#"
 (defun k (x y) x)
 (defun main () (k 42 84))
+        "#,
+            42,
+        );
+    }
+
+    #[test]
+    fn test_s() {
+        assert_runs_to_int(
+            "test_s",
+            r#"
+(defun s (f g x) (f x (g x)))
+(defun k (x y) x)
+(defun main () (s k k 42))
         "#,
             42,
         );
