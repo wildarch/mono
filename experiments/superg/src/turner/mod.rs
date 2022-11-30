@@ -154,6 +154,7 @@ pub struct TurnerEngine {
     // The directory to dump debug information to
     dump_path: Option<PathBuf>,
     step_counter: usize,
+    step_limit: Option<usize>,
 }
 
 impl TurnerEngine {
@@ -168,6 +169,7 @@ impl TurnerEngine {
             stack: Vec::new(),
             dump_path: None,
             step_counter: 0,
+            step_limit: None,
         };
 
         // Reserve a spot for each definition
@@ -191,8 +193,10 @@ impl TurnerEngine {
             .push(*self.def_lookup.get("main").expect("no main function found"));
         loop {
             self.step_counter += 1;
-            if self.step_counter > 1000 {
-                panic!("Max cycle reached");
+            if let Some(limit) = self.step_limit {
+                if self.step_counter > limit {
+                    panic!("Max cycle reached");
+                }
             }
             self.dump_dot().expect("Dump failed");
             let top = self.stack.last().unwrap();
@@ -224,24 +228,30 @@ impl TurnerEngine {
                     Comb::K => {
                         // K x y = x
                         let l0 = self.stack[self.stack.len() - 2];
+                        let l1 = self.stack[self.stack.len() - 3];
                         let x = self.tl[l0.0 as usize];
                         // If x is an int, we should transfer that to the new location
                         let x_tag = self.tag[l0.0 as usize] & TAG_RHS_INT;
 
                         // Make the indirection node
-                        self.tag[l0.0 as usize] = x_tag | TAG_WANTED;
-                        self.hd[l0.0 as usize] = CellPtr(Comb::I as i32);
-                        self.tl[l0.0 as usize] = x;
+                        self.tag[l1.0 as usize] = x_tag | TAG_WANTED;
+                        self.hd[l1.0 as usize] = CellPtr(Comb::I as i32);
+                        self.tl[l1.0 as usize] = x;
 
                         // Check if the value is an int, then we are done
                         if x_tag & TAG_RHS_INT != 0 {
-                            return l0;
+                            if self.stack.len() == 3 {
+                                // No larger expression to evaluate next
+                                return l1;
+                            }
+                            // Continue with the larger expression on the stack
+                            self.stack.truncate(self.stack.len() - 3);
+                        } else {
+                            // Put x on the stack
+                            let new_len = self.stack.len() - 2;
+                            self.stack[new_len - 1] = x;
+                            self.stack.truncate(new_len);
                         }
-
-                        // Put x on the stack
-                        let new_len = self.stack.len() - 2;
-                        self.stack[new_len - 1] = x;
-                        self.stack.truncate(new_len);
                     }
                     Comb::I => {
                         // TODO: Compress multiple indirections
@@ -279,34 +289,70 @@ impl TurnerEngine {
                     Comb::U => todo!(),
                     Comb::P => todo!(),
                     Comb::Plus => {
+                        if let Some(ptr) = self.run_strict_binop(|a, b| a + b) {
+                            return ptr;
+                        }
+                    }
+                    Comb::Minus => {
+                        if let Some(ptr) = self.run_strict_binop(|a, b| a - b) {
+                            return ptr;
+                        }
+                    }
+                    Comb::Times => {
+                        if let Some(ptr) = self.run_strict_binop(|a, b| a * b) {
+                            return ptr;
+                        }
+                    }
+                    Comb::Divide => {
+                        if let Some(ptr) = self.run_strict_binop(|a, b| a / b) {
+                            return ptr;
+                        }
+                    }
+                    Comb::Cond => {
+                        // TODO: dedup with other strict combinators
                         let l0 = self.stack[self.stack.len() - 2];
-                        let l1 = self.stack[self.stack.len() - 3];
+                        let c = self.int_rhs(l0);
+                        if let Some(c) = c {
+                            // Condition already evaluated
+                            let l1 = self.stack[self.stack.len() - 3];
+                            let l2 = self.stack[self.stack.len() - 4];
 
-                        let a = self.int_rhs(l0);
-                        let b = self.int_rhs(l1);
+                            let branch_ptr = match c {
+                                0 => l2,
+                                1 => l1,
+                                v => panic!("Illegal condition value {}", v),
+                            };
+                            let tag = self.tag[branch_ptr.0 as usize] & TAG_RHS_INT;
+                            let branch_tl = self.tl[branch_ptr.0 as usize];
+                            // Make an indirection node to branch_ptr's RHS
+                            self.tag[l2.0 as usize] = tag | TAG_WANTED;
+                            self.hd[l2.0 as usize] = CellPtr(Comb::I as i32);
+                            self.tl[l2.0 as usize] = branch_tl;
 
-                        if let (Some(a), Some(b)) = (a, b) {
-                            // Already reduced
-                            self.tag[l1.0 as usize] = TAG_WANTED | TAG_RHS_INT;
-                            self.hd[l1.0 as usize] = CellPtr(Comb::I as i32);
-                            self.tl[l1.0 as usize] = CellPtr(a + b);
-                            self.stack.truncate(self.stack.len() - 2);
-                            return l1;
-                        }
-
-                        // Push a and/or b onto the stack to evaluate
-                        if b.is_none() {
-                            self.stack.push(self.tl[l1.0 as usize]);
-                        }
-                        if a.is_none() {
+                            // Check if the value is an int, then we are done
+                            if tag & TAG_RHS_INT != 0 {
+                                if self.stack.len() == 4 {
+                                    // No larger expression to evaluate next
+                                    return branch_ptr;
+                                }
+                                // Continue with the larger expression on the stack
+                                self.stack.truncate(self.stack.len() - 4);
+                            } else {
+                                // Update stack to the chosen branch
+                                let new_len = self.stack.len() - 3;
+                                self.stack[new_len - 1] = branch_tl;
+                                self.stack.truncate(new_len);
+                            }
+                        } else {
                             self.stack.push(self.tl[l0.0 as usize]);
                         }
                     }
-                    Comb::Minus => todo!(),
-                    Comb::Times => todo!(),
-                    Comb::Divide => todo!(),
-                    Comb::Cond => todo!(),
-                    Comb::Eq => todo!(),
+                    Comb::Eq => {
+                        if let Some(ptr) = self.run_strict_binop(|a, b| if a == b { 1 } else { 0 })
+                        {
+                            return ptr;
+                        }
+                    }
                     Comb::Neq => todo!(),
                     Comb::Gt => todo!(),
                     Comb::Gte => todo!(),
@@ -322,6 +368,38 @@ impl TurnerEngine {
                 self.stack.push(self.hd[top.0 as usize]);
             }
         }
+    }
+
+    fn run_strict_binop(&mut self, op: fn(i32, i32) -> i32) -> Option<CellPtr> {
+        let l0 = self.stack[self.stack.len() - 2];
+        let l1 = self.stack[self.stack.len() - 3];
+
+        let a = self.int_rhs(l0);
+        let b = self.int_rhs(l1);
+
+        if let (Some(a), Some(b)) = (a, b) {
+            // Already reduced
+            self.tag[l1.0 as usize] = TAG_WANTED | TAG_RHS_INT;
+            self.hd[l1.0 as usize] = CellPtr(Comb::I as i32);
+            self.tl[l1.0 as usize] = CellPtr(op(a, b));
+
+            if self.stack.len() == 3 {
+                // No larger expression to evaluate next
+                return Some(l1);
+            } else {
+                // Continue with the larger expression on the stack
+                self.stack.truncate(self.stack.len() - 3);
+            }
+        }
+
+        // Push a and/or b onto the stack to evaluate
+        if b.is_none() {
+            self.stack.push(self.tl[l1.0 as usize]);
+        }
+        if a.is_none() {
+            self.stack.push(self.tl[l0.0 as usize]);
+        }
+        None
     }
 
     fn int_rhs(&self, cell_ptr: CellPtr) -> Option<i32> {
@@ -490,6 +568,10 @@ impl TurnerEngine {
         }
         self.dump_path = Some(dump_path);
     }
+
+    pub fn set_step_limit(&mut self, l: usize) {
+        self.step_limit = Some(l);
+    }
 }
 
 #[cfg(test)]
@@ -500,20 +582,18 @@ mod tests {
 
     #[test]
     fn test_factorial() {
-        let program = r#"
+        assert_runs_to_int(
+            "test_factorial",
+            r#"
     (defun fac (n)
       (if (= n 1)
           1
           (* n (fac (- n 1)))))
-    (defun main () (fac 1))
-            "#;
-
-        let parsed = parse(lex(program));
-        let mut engine = TurnerEngine::compile(&parsed);
-
-        let ptr = engine.run();
-
-        assert_eq!(ptr, CellPtr(120));
+    (defun main () (fac 5))
+            "#,
+            120,
+            StepLimit(1000),
+        );
     }
 
     #[test]
@@ -525,6 +605,7 @@ mod tests {
 (defun main () (id 42))
         "#,
             42,
+            StepLimit(10),
         );
     }
 
@@ -537,6 +618,7 @@ mod tests {
 (defun main () (k 42 84))
         "#,
             42,
+            StepLimit(20),
         );
     }
 
@@ -550,6 +632,7 @@ mod tests {
 (defun main () (s k k 42))
         "#,
             42,
+            StepLimit(200),
         );
     }
 
@@ -561,6 +644,7 @@ mod tests {
 (defun main () (+ 2 40))
         "#,
             42,
+            StepLimit(10),
         );
     }
 
@@ -573,13 +657,76 @@ mod tests {
 (defun main () (+ (id 2) (id 40)))
         "#,
             42,
+            StepLimit(20),
         );
     }
 
-    fn assert_runs_to_int(test_name: &str, program: &str, v: i32) {
+    #[test]
+    fn test_cond() {
+        assert_runs_to_int(
+            "test_cond",
+            r#"
+(defun main () (if 0 1000 (if 1 42 2000)))
+        "#,
+            42,
+            StepLimit(10),
+        )
+    }
+
+    #[test]
+    fn test_cond_add() {
+        assert_runs_to_int(
+            "test_cond_add1",
+            r#"
+(defun main () (+ 2 (if 0 30 40)))
+        "#,
+            42,
+            StepLimit(10),
+        );
+
+        assert_runs_to_int(
+            "test_cond_add2",
+            r#"
+(defun main () (if 0 30 (+ 40 2)))
+        "#,
+            42,
+            StepLimit(10),
+        );
+    }
+
+    #[test]
+    fn test_eq() {
+        assert_runs_to_int(
+            "test_eq",
+            r#"
+    (defun id (x) x)
+    (defun k (x y) x)
+    (defun main () (= (k 1 1000) 0))
+            "#,
+            0,
+            StepLimit(20),
+        );
+    }
+
+    #[test]
+    fn test_cond_eq() {
+        assert_runs_to_int(
+            "test_cond_eq",
+            r#"
+    (defun main () (if (= 2 2) 42 43))
+            "#,
+            42,
+            StepLimit(10),
+        );
+    }
+
+    struct StepLimit(usize);
+
+    fn assert_runs_to_int(test_name: &str, program: &str, v: i32, l: StepLimit) {
         let parsed = parse(lex(program));
         let mut engine = TurnerEngine::compile(&parsed);
         engine.set_dump_path(format!("/tmp/{}", test_name));
+        engine.set_step_limit(l.0);
 
         let ptr = engine.run();
         assert!(engine.tag[ptr.0 as usize] | TAG_RHS_INT != 0);
