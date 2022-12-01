@@ -356,7 +356,11 @@ impl TurnerEngine {
                     Comb::Neq => todo!(),
                     Comb::Gt => todo!(),
                     Comb::Gte => todo!(),
-                    Comb::Lt => todo!(),
+                    Comb::Lt => {
+                        if let Some(ptr) = self.run_strict_binop(|a, b| if a < b { 1 } else { 0 }) {
+                            return ptr;
+                        }
+                    }
                     Comb::Lte => todo!(),
                     Comb::And => todo!(),
                     Comb::Or => todo!(),
@@ -581,22 +585,6 @@ mod tests {
     use crate::parser::parse;
 
     #[test]
-    fn test_factorial() {
-        assert_runs_to_int(
-            "test_factorial",
-            r#"
-    (defun fac (n)
-      (if (= n 1)
-          1
-          (* n (fac (- n 1)))))
-    (defun main () (fac 5))
-            "#,
-            120,
-            StepLimit(1000),
-        );
-    }
-
-    #[test]
     fn test_id() {
         assert_runs_to_int(
             "test_id",
@@ -720,12 +708,45 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_factorial() {
+        assert_runs_to_int(
+            "test_factorial",
+            r#"
+    (defun fac (n)
+      (if (= n 1)
+          1
+          (* n (fac (- n 1)))))
+    (defun main () (fac 5))
+            "#,
+            120,
+            StepLimit(1000),
+        );
+    }
+
+    #[test]
+    fn test_fibonacci() {
+        assert_runs_to_int(
+            "test_fibonacci",
+            r#"
+    (defun fib (n)
+      (if (< n 2) 
+          n
+          (+ (fib (- n 1)) (fib (- n 2)))))
+    (defun main () (fib 5))
+            "#,
+            5,
+            StepLimit(2000),
+        );
+    }
+
     struct StepLimit(usize);
 
     fn assert_runs_to_int(test_name: &str, program: &str, v: i32, l: StepLimit) {
         let parsed = parse(lex(program));
         let mut engine = TurnerEngine::compile(&parsed);
-        engine.set_dump_path(format!("/tmp/{}", test_name));
+        // disabled by default because it slows things down a lot, enable for debugging
+        //engine.set_dump_path(format!("/tmp/{}", test_name));
         engine.set_step_limit(l.0);
 
         let ptr = engine.run();
