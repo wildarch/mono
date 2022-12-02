@@ -115,19 +115,25 @@ def plain_int(orig_frame):
 class BarrelDistortStream:
     def __init__(self, frame_shape):
         self.frame_shape = frame_shape
-        self.buffer = np.zeros(frame_shape, np.uint8)
+        self.write_buffer = np.zeros(frame_shape, np.uint8)
+        self.read_buffer = np.zeros(frame_shape, np.uint8)
         self.x = 0
         self.y = 0
     def process(self, pixel_data, last, user):
         if user:
             self.x = 0
             self.y = 0
+
+            # Swap buffers
+            (wb, rb) = (self.write_buffer, self.read_buffer)
+            self.write_buffer = rb
+            self.read_buffer = wb
         # Get the data for this pixel
-        out_pixel_data = self.buffer[self.y, self.x]
+        out_pixel_data = self.read_buffer[self.y, self.x]
 
         # Set the pixel data for the next frame
         (mapped_x, mapped_y) = barrel_map(self.x, self.y, self.frame_shape)
-        self.buffer[mapped_y, mapped_x] = pixel_data
+        self.write_buffer[mapped_y, mapped_x] = pixel_data
 
         if last:
             self.x = 0
@@ -184,13 +190,17 @@ def run_filter():
     cap.release()
     cv.destroyAllWindows()
 
-def find_empty_cells():
+def find_mapped_cells():
+    SHAPE=(720, 1280)
     mapped_cells = set()
-    for x in range(1280):
-        for y in range(720):
-            mapped_cells.add(barrel_map(x, y, (720, 1280)))
+    for x in range(SHAPE[1]):
+        for y in range(SHAPE[0]):
+            mapped = barrel_map(x, y, SHAPE)
+            if mapped != (x, y):
+                mapped_cells.add(barrel_map(x, y, SHAPE))
     print(1280*720)
     print(len(mapped_cells))
 
 if __name__ == "__main__":
+    #find_mapped_cells()
     run_stream(BarrelDistortStream((720, 1280, 3)))
