@@ -43,13 +43,20 @@ def plain(orig_frame):
 
     for y in range(orig_frame.shape[0]):
         for x in range(orig_frame.shape[1]):
+            # Get X and Y coordinates in a range of 0.0 to 1.0
             (u, v) = (x/orig_frame.shape[1], y/orig_frame.shape[0])
+            # Distance to the center
+            # (positive if left/up from the center, negative if down/right)
             (dist_x, dist_y) = (0.5 - u, 0.5 - v)
 
-            strength = -.5
-            new_x = u - dist_y * dist_y * dist_x * strength/(orig_frame.shape[1]/orig_frame.shape[0]) 
-            new_y = v - dist_x * dist_x * dist_y * strength
+            # How much distortion to apply
+            strength_y = .5
+            # The x dimension is larger than y, corect for that by reducing the strength
+            strength_x = strength_y / (orig_frame.shape[1] / orig_frame.shape[0])
+            new_x = u + dist_y * dist_y * dist_x * strength_x            
+            new_y = v + dist_x * dist_x * dist_y * strength_y
 
+            # Scale back up to pixel coordinates
             new_x *= orig_frame.shape[1]
             new_y *= orig_frame.shape[0]
 
