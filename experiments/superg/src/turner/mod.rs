@@ -285,7 +285,7 @@ impl TurnerEngine {
                             }
                         }
                     }
-                    Comb::Y => todo!(),
+                    Comb::Y => todo!("Y not implemented. Stack: {:?}", self.stack),
                     Comb::U => todo!(),
                     Comb::P => todo!(),
                     Comb::Plus => {
@@ -424,7 +424,6 @@ impl TurnerEngine {
         for param in def.params.iter().rev() {
             compiled_expr = compiled_expr.abstract_var(param);
         }
-        println!("Compiled {}: {:#?}", def.name, compiled_expr);
         let cell_ptr = self.alloc_compiled_expr(compiled_expr);
         let def_ptr = self.def_lookup.get(&def.name).unwrap();
         // Set up the indirection from the definition to the compiled expression
@@ -439,14 +438,79 @@ impl TurnerEngine {
     ) -> CellPtr {
         // Search for an unwanted cell
         let mut cell_idx = self.next_cell.0 as usize;
-        while self.tag[cell_idx] & TAG_WANTED != 0 {
+        let hd = hd.into();
+        let tl = tl.into();
+        while cell_idx >= self.tag.len() || self.tag[cell_idx] & TAG_WANTED != 0 {
             cell_idx += 1;
+
+            // We have exhausted the memory
+            if cell_idx >= self.tag.len() {
+                // Time for gc!
+                let initial_queue = if tag & TAG_RHS_INT != 0 {
+                    vec![hd]
+                } else {
+                    vec![hd, tl]
+                };
+                self.garbage_collect(initial_queue);
+                self.next_cell.0 = 0;
+                cell_idx = 0;
+                continue;
+            }
         }
         self.tag[cell_idx] = tag;
-        self.hd[cell_idx] = hd.into();
-        self.tl[cell_idx] = tl.into();
+        self.hd[cell_idx] = hd;
+        self.tl[cell_idx] = tl;
         self.next_cell = CellPtr(cell_idx as i32 + 1);
         CellPtr(cell_idx as i32)
+    }
+
+    // Simple mark and sweep garbage collect
+    fn garbage_collect(&mut self, mut queue: Vec<CellPtr>) {
+        // Phase 1: Mark everything unwanted
+        for t in self.tag.iter_mut() {
+            *t &= !TAG_WANTED;
+        }
+
+        // Phase 2: Start at the stack and mark everything reachable from it
+        queue.extend(&self.stack);
+        let mut cells_wanted = 0;
+        while let Some(cell_ptr) = queue.pop() {
+            // Skip combinators
+            if cell_ptr.comb().is_some() {
+                continue;
+            }
+            // Skip if already marked
+            let tag = self.tag[cell_ptr.0 as usize];
+            let visited = tag & TAG_WANTED != 0;
+            if visited {
+                continue;
+            }
+
+            // Mark this cell as wanted
+            self.tag[cell_ptr.0 as usize] |= TAG_WANTED;
+            cells_wanted += 1;
+
+            // Check children
+            let hd = self.hd[cell_ptr.0 as usize];
+            let hd_visited = self.tag[hd.0 as usize] & TAG_WANTED != 0;
+            if !hd_visited {
+                queue.push(hd);
+            }
+
+            if tag & TAG_RHS_INT == 0 {
+                // tl is a ptr, not int
+                let tl = self.tl[cell_ptr.0 as usize];
+                let tl_visited = self.tag[tl.0 as usize] & TAG_WANTED != 0;
+                if !tl_visited {
+                    queue.push(tl);
+                }
+            }
+        }
+
+        if cells_wanted >= CELLS {
+            panic!("Out of memory!")
+        }
+        //panic!("I am untested!");
     }
 
     fn alloc_compiled_expr(&mut self, expr: CompiledExpr) -> CellPtr {
@@ -575,6 +639,14 @@ impl TurnerEngine {
 
     pub fn set_step_limit(&mut self, l: usize) {
         self.step_limit = Some(l);
+    }
+
+    pub fn get_int(&self, ptr: CellPtr) -> Option<i32> {
+        if self.tag[ptr.0 as usize] | TAG_RHS_INT != 0 {
+            Some(self.tl[ptr.0 as usize].0)
+        } else {
+            None
+        }
     }
 }
 
@@ -740,9 +812,22 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_ackermann() {
+        let program = r#"
+(defun ack (x z) (if (= x 0)
+                     (+ z 1)
+                     (if (= z 0)
+                         (ack (- x 1) 1)
+                         (ack (- x 1) (ack x (- z 1))))))
+(defun main () (ack 3 4))
+    "#;
+        assert_runs_to_int("test_ackermann", program, 61, StepLimit(10_000_000));
+    }
+
     struct StepLimit(usize);
 
-    fn assert_runs_to_int(test_name: &str, program: &str, v: i32, l: StepLimit) {
+    fn assert_runs_to_int(_test_name: &str, program: &str, v: i32, l: StepLimit) {
         let parsed = parse(lex(program));
         let mut engine = TurnerEngine::compile(&parsed);
         // disabled by default because it slows things down a lot, enable for debugging
@@ -750,7 +835,6 @@ mod tests {
         engine.set_step_limit(l.0);
 
         let ptr = engine.run();
-        assert!(engine.tag[ptr.0 as usize] | TAG_RHS_INT != 0);
-        assert_eq!(engine.tl[ptr.0 as usize], CellPtr(v));
+        assert_eq!(engine.get_int(ptr), Some(v));
     }
 }
