@@ -70,6 +70,34 @@ def plain(orig_frame):
 
     return frame
 
+def barrel_map(x, y, frame_shape):
+    size_y = frame_shape[0]
+    size_x = frame_shape[1]
+    # Distance to the center
+    # (positive if left/up from center, negative if right/down from center)
+    dist_x = size_x//2 - x
+    dist_y = size_y//2 - y
+
+    # Relative pixel movement
+    off_x = (dist_y * dist_y) * dist_x
+    off_y = (dist_x * dist_x) * dist_y
+    # distances are not normalize, so correct the values by dividing by
+    # (image width * image_height), cancelling out scaling of dist_x*dist_y,
+    # a common factor of both computations above.
+    size_xy = size_x * size_y 
+    off_x = off_x // size_xy
+    off_y = off_y // size_xy
+
+    # Reduce the strength of the effect.
+    # the frame is wider than it is high, yet we want the same strength.
+    off_y = off_y // 2         # strength = 1/2
+    off_x = off_x * 9 // 32    # strength = 1/2 / (1280/720) = 9/32
+
+    new_x = x + off_x
+    new_y = y + off_y
+
+    return (new_x, new_y)
+
 def plain_int(orig_frame):
     # Downsample to make processing faster
     orig_frame = cv.pyrDown(orig_frame)
@@ -78,45 +106,35 @@ def plain_int(orig_frame):
 
     for y in range(orig_frame.shape[0]):
         for x in range(orig_frame.shape[1]):
-            # Distance to the center
-            # (positive if left/up from center, negative if right/down from center)
-            dist_x = orig_frame.shape[1]//2 - x
-            dist_y = orig_frame.shape[0]//2 - y
-
-            # Relative pixel movement
-            off_x = (dist_y * dist_y) * dist_x
-            off_y = (dist_x * dist_x) * dist_y
-            # distances are not normalize, so correct the values by dividing by
-            # (image width * image_height), cancelling out scaling of dist_x*dist_y,
-            # a common factor of both computations above.
-            size_xy = orig_frame.shape[0] * orig_frame.shape[1]
-            off_x = off_x // size_xy
-            off_y = off_y // size_xy
-
-            # Reduce the strength of the effect.
-            # the frame is wider than it is high, yet we want the same strength.
-            off_y = off_y // 2         # strength = 1/2
-            off_x = off_x * 9 // 32    # strength = 1/2 / (1280/720) = 9/32
-
-            new_x = x + off_x
-            new_y = y + off_y
+            (new_x, new_y) = barrel_map(x, y, orig_frame.shape)
 
             frame[new_y, new_x] = orig_frame[y, x]
     return frame
 
-cap = cv.VideoCapture(sys.argv[1])
-while cap.isOpened():
-    ret, frame = cap.read()
-    # if frame is read correctly ret is True
-    if not ret:
-        print("Can't receive frame (stream end?). Exiting ...")
-        break
+def run_filter():
+    cap = cv.VideoCapture(sys.argv[1])
+    while cap.isOpened():
+        ret, frame = cap.read()
+        # if frame is read correctly ret is True
+        if not ret:
+            print("Can't receive frame (stream end?). Exiting ...")
+            break
 
-    #frame = libraries(frame)
-    frame = plain_int(frame)
+        frame = plain_int(frame)
 
-    cv.imshow('frame', frame)
-    if cv.waitKey(1) == ord('q'):
-        break
-cap.release()
-cv.destroyAllWindows()
+        cv.imshow('frame', frame)
+        if cv.waitKey(1) == ord('q'):
+            break
+    cap.release()
+    cv.destroyAllWindows()
+
+def find_empty_cells():
+    mapped_cells = set()
+    for x in range(1280):
+        for y in range(720):
+            mapped_cells.add(barrel_map(x, y, (720, 1280)))
+    print(1280*720)
+    print(len(mapped_cells))
+
+if __name__ == "__main__":
+    find_empty_cells()
