@@ -44,9 +44,9 @@ def plain(orig_frame):
     for y in range(orig_frame.shape[0]):
         for x in range(orig_frame.shape[1]):
             (u, v) = (x/orig_frame.shape[1], y/orig_frame.shape[0])
-            (dist_x, dist_y) = (u*0.5, v*0.5)
+            (dist_x, dist_y) = (0.5 - u, 0.5 - v)
 
-            strength = 1.0
+            strength = -.5
             new_x = u - dist_y * dist_y * dist_x * strength/(orig_frame.shape[1]/orig_frame.shape[0]) 
             new_y = v - dist_x * dist_x * dist_y * strength
 
