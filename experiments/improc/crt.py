@@ -4,14 +4,7 @@ import cv2 as cv
 import sys
 from wand.image import Image
 
-cap = cv.VideoCapture(sys.argv[1])
-while cap.isOpened():
-    ret, frame = cap.read()
-    # if frame is read correctly ret is True
-    if not ret:
-        print("Can't receive frame (stream end?). Exiting ...")
-        break
-
+def libraries(frame):
     # Vertical scanlines
     INTERVAL = 32
     HEIGHT = 8
@@ -39,6 +32,47 @@ while cap.isOpened():
         x = x * 4
         frame[:, x] = frame[:, x] * 0.5
     """
+
+    return frame
+
+def plain(orig_frame):
+    # Downsample to make processing faster
+    orig_frame = cv.pyrDown(orig_frame)
+
+    frame = np.zeros(orig_frame.shape, np.uint8) 
+
+    for y in range(orig_frame.shape[0]):
+        for x in range(orig_frame.shape[1]):
+            (u, v) = (x/orig_frame.shape[1], y/orig_frame.shape[0])
+            (dist_x, dist_y) = (u*0.5, v*0.5)
+
+            strength = 1.0
+            new_x = u - dist_y * dist_y * dist_x * strength/(orig_frame.shape[1]/orig_frame.shape[0]) 
+            new_y = v - dist_x * dist_x * dist_y * strength
+
+            new_x *= orig_frame.shape[1]
+            new_y *= orig_frame.shape[0]
+
+            #print(f"({x}, {y}) -> ({new_x}, {new_y})")
+
+            new_x = int(new_x)
+            new_y = int(new_y)
+
+            if new_x >= 0 and new_x < orig_frame.shape[1] and new_y >= 0 and new_y < orig_frame.shape[0]:
+                frame[new_y, new_x] = orig_frame[y, x]
+
+    return frame
+
+cap = cv.VideoCapture(sys.argv[1])
+while cap.isOpened():
+    ret, frame = cap.read()
+    # if frame is read correctly ret is True
+    if not ret:
+        print("Can't receive frame (stream end?). Exiting ...")
+        break
+
+    #frame = libraries(frame)
+    frame = plain(frame)
 
     cv.imshow('frame', frame)
     if cv.waitKey(1) == ord('q'):
