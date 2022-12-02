@@ -46,7 +46,7 @@ def plain(orig_frame):
             # Get X and Y coordinates in a range of 0.0 to 1.0
             (u, v) = (x/orig_frame.shape[1], y/orig_frame.shape[0])
             # Distance to the center
-            # (positive if left/up from the center, negative if down/right)
+            # (positive if left/up from center, negative if right/down from center)
             (dist_x, dist_y) = (0.5 - u, 0.5 - v)
 
             # How much distortion to apply
@@ -60,14 +60,48 @@ def plain(orig_frame):
             new_x *= orig_frame.shape[1]
             new_y *= orig_frame.shape[0]
 
-            #print(f"({x}, {y}) -> ({new_x}, {new_y})")
-
+            # float to int so we can use them as indices
             new_x = int(new_x)
             new_y = int(new_y)
 
-            if new_x >= 0 and new_x < orig_frame.shape[1] and new_y >= 0 and new_y < orig_frame.shape[0]:
-                frame[new_y, new_x] = orig_frame[y, x]
+            # Because new_x and new_y are warped towards the center, 
+            # they are always within bounds
+            frame[new_y, new_x] = orig_frame[y, x]
 
+    return frame
+
+def plain_int(orig_frame):
+    # Downsample to make processing faster
+    orig_frame = cv.pyrDown(orig_frame)
+
+    frame = np.zeros(orig_frame.shape, np.uint8) 
+
+    for y in range(orig_frame.shape[0]):
+        for x in range(orig_frame.shape[1]):
+            # Distance to the center
+            # (positive if left/up from center, negative if right/down from center)
+            dist_x = orig_frame.shape[1]//2 - x
+            dist_y = orig_frame.shape[0]//2 - y
+
+            # Relative pixel movement
+            off_x = (dist_y * dist_y) * dist_x
+            off_y = (dist_x * dist_x) * dist_y
+            # distances are not normalize, so correct the values by dividing by
+            # (image width * image_height), cancelling out scaling of dist_x*dist_y,
+            # a common factor of both computations above.
+            size_xy = orig_frame.shape[0] * orig_frame.shape[1]
+            off_x = off_x // size_xy
+            off_y = off_y // size_xy
+
+            # Reduce the strength of the effect.
+            # the frame is wider than it is high, yet we want the same strength.
+            off_y = off_y // 2         # strength = 1/2
+            off_x = off_x * 9 // 32    # strength = 1/2 / (1280/720) = 9/32
+
+            new_x = x + off_x
+            new_y = y + off_y
+
+            frame[new_y, new_x] = orig_frame[y, x]
     return frame
 
 cap = cv.VideoCapture(sys.argv[1])
@@ -79,7 +113,7 @@ while cap.isOpened():
         break
 
     #frame = libraries(frame)
-    frame = plain(frame)
+    frame = plain_int(frame)
 
     cv.imshow('frame', frame)
     if cv.waitKey(1) == ord('q'):
