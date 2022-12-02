@@ -2,6 +2,7 @@
 import numpy as np
 import cv2 as cv
 import sys
+from wand.image import Image
 
 cap = cv.VideoCapture(sys.argv[1])
 while cap.isOpened():
@@ -12,14 +13,32 @@ while cap.isOpened():
         break
 
     # Vertical scanlines
-    for y in range(frame.shape[0] // 4):
-        y = y * 4
-        frame[y] = frame[y] * 0.5
+    INTERVAL = 32
+    HEIGHT = 8
+    for y in range(frame.shape[0] // INTERVAL):
+        y = y * INTERVAL
+        for i in range(HEIGHT):
+            frame[y + i] = frame[y + i] * 0.9
+
+    # Downsample
+    frame = cv.pyrDown(cv.pyrDown(frame))
+    # Upsample to keep the same size output feed
+    # (while lowering quality)
+    frame = cv.pyrUp(cv.pyrUp(frame))
+
+    # Distort
+    wand_frame = Image.from_array(frame)
+    wand_frame.virtual_pixel = 'transparent'
+    wand_frame.distort('barrel', (0,0,0.1,0.9))
+    frame = np.array(wand_frame)
+
+    """
     
     # Horizontal scanlines
     for x in range(frame.shape[1] // 4):
         x = x * 4
         frame[:, x] = frame[:, x] * 0.5
+    """
 
     cv.imshow('frame', frame)
     if cv.waitKey(1) == ord('q'):
