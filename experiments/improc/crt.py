@@ -111,6 +111,62 @@ def plain_int(orig_frame):
             frame[new_y, new_x] = orig_frame[y, x]
     return frame
 
+
+class BarrelDistortStream:
+    def __init__(self, frame_shape):
+        self.frame_shape = frame_shape
+        self.buffer = np.zeros(frame_shape, np.uint8)
+        self.x = 0
+        self.y = 0
+    def process(self, pixel_data, last, user):
+        if user:
+            self.x = 0
+            self.y = 0
+        # Get the data for this pixel
+        out_pixel_data = self.buffer[self.y, self.x]
+
+        # Set the pixel data for the next frame
+        (mapped_x, mapped_y) = barrel_map(self.x, self.y, self.frame_shape)
+        self.buffer[mapped_y, mapped_x] = pixel_data
+
+        if last:
+            self.x = 0
+            self.y += 1
+        else:
+            self.x += 1
+        return (out_pixel_data, last, user)
+
+def run_stream(stream):
+    cap = cv.VideoCapture(sys.argv[1])
+    while cap.isOpened():
+        ret, frame = cap.read()
+        # if frame is read correctly ret is True
+        if not ret:
+            print("Can't receive frame (stream end?). Exiting ...")
+            break
+
+        # Asserted at first frame
+        user = True
+        # Asserted at last pixel for a line
+        last = False
+        out_frame = np.zeros(frame.shape, np.uint8)
+        for y in range(frame.shape[0]):
+            for x in range(frame.shape[1]):
+                last = x == frame.shape[1]-1
+                (out_pixel, out_last, out_user) = stream.process(frame[y, x], last, user)
+                assert last == out_last
+                assert user == out_user
+                out_frame[y, x] = out_pixel
+                # We've have the first frame by now
+                user = False
+
+        cv.imshow('frame', out_frame)
+        if cv.waitKey(1) == ord('q'):
+            break
+    cap.release()
+    cv.destroyAllWindows()
+
+
 def run_filter():
     cap = cv.VideoCapture(sys.argv[1])
     while cap.isOpened():
@@ -137,4 +193,4 @@ def find_empty_cells():
     print(len(mapped_cells))
 
 if __name__ == "__main__":
-    find_empty_cells()
+    run_stream(BarrelDistortStream((720, 1280, 3)))
