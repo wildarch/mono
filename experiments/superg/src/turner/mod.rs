@@ -203,6 +203,11 @@ impl TurnerEngine {
             if let Some(comb) = top.comb() {
                 match comb {
                     Comb::S => {
+                        debug_assert!(
+                            self.stack.len() >= 4,
+                            "S requires 3 arguments on the stack: {:?}",
+                            self.stack
+                        );
                         // S f g x => f x (g x)
                         let l0 = self.stack[self.stack.len() - 2];
                         let l1 = self.stack[self.stack.len() - 3];
@@ -452,8 +457,7 @@ impl TurnerEngine {
                     vec![hd, tl]
                 };
                 self.garbage_collect(initial_queue);
-                self.next_cell.0 = 0;
-                cell_idx = 0;
+                cell_idx = ALL_COMBS.len();
                 continue;
             }
         }
@@ -822,7 +826,7 @@ mod tests {
                          (ack (- x 1) (ack x (- z 1))))))
 (defun main () (ack 3 4))
     "#;
-        assert_runs_to_int("test_ackermann", program, 61, StepLimit(10_000_000));
+        assert_runs_to_int("test_ackermann", program, 125, StepLimit(10_000_000));
     }
 
     struct StepLimit(usize);

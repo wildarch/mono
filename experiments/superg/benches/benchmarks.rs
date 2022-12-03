@@ -9,9 +9,9 @@ pub fn bench_ackermann(c: &mut Criterion) {
                      (if (= z 0)
                          (ack (- x 1) 1)
                          (ack (- x 1) (ack x (- z 1))))))
-(defun main () (ack 3 3))
+(defun main () (ack 3 4))
     "#;
-    assert_runs_to_int(c, "test_ackermann", program, 61);
+    assert_runs_to_int(c, "bench_ackermann", program, 125);
 }
 
 fn assert_runs_to_int(c: &mut Criterion, test_name: &str, program: &str, v: i32) {
