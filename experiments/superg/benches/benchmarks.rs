@@ -1,4 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
+use std::time::{Duration, Instant};
 use superg::turner::TurnerEngine;
 use superg::{lex, parse};
 
@@ -16,12 +17,19 @@ pub fn bench_ackermann(c: &mut Criterion) {
 
 fn assert_runs_to_int(c: &mut Criterion, test_name: &str, program: &str, v: i32) {
     let parsed = parse(lex(program));
-    let mut engine = TurnerEngine::compile(&parsed);
 
     c.bench_function(test_name, |b| {
-        b.iter(|| {
-            let ptr = engine.run();
-            assert_eq!(engine.get_int(ptr), Some(v));
+        b.iter_custom(|iters| {
+            let mut elapsed = Duration::ZERO;
+            for _ in 0..iters {
+                let mut engine = TurnerEngine::compile(&parsed);
+                // Measure only the time spent reducing the graph
+                let start = Instant::now();
+                let ptr = engine.run();
+                elapsed += start.elapsed();
+                assert_eq!(engine.get_int(ptr), Some(v));
+            }
+            elapsed
         })
     });
 }

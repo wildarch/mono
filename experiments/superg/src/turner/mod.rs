@@ -205,7 +205,8 @@ impl TurnerEngine {
                     Comb::S => {
                         debug_assert!(
                             self.stack.len() >= 4,
-                            "S requires 3 arguments on the stack: {:?}",
+                            "(step {}) S requires 4 arguments on the stack: {:?}",
+                            self.step_counter,
                             self.stack
                         );
                         // S f g x => f x (g x)
@@ -231,6 +232,12 @@ impl TurnerEngine {
                         self.stack.truncate(self.stack.len() - 3);
                     }
                     Comb::K => {
+                        debug_assert!(
+                            self.stack.len() >= 3,
+                            "(step {}) K requires 3 arguments on the stack: {:?}",
+                            self.step_counter,
+                            self.stack
+                        );
                         // K x y = x
                         let l0 = self.stack[self.stack.len() - 2];
                         let l1 = self.stack[self.stack.len() - 3];
@@ -246,6 +253,7 @@ impl TurnerEngine {
                         // Check if the value is an int, then we are done
                         if x_tag & TAG_RHS_INT != 0 {
                             if self.stack.len() == 3 {
+                                self.stack.truncate(self.stack.len() - 2);
                                 // No larger expression to evaluate next
                                 return l1;
                             }
@@ -259,6 +267,12 @@ impl TurnerEngine {
                         }
                     }
                     Comb::I => {
+                        debug_assert!(
+                            self.stack.len() >= 2,
+                            "(step {}) I requires 2 arguments on the stack: {:?}",
+                            self.step_counter,
+                            self.stack
+                        );
                         // TODO: Compress multiple indirections
                         // Check if we are done
                         let l0 = self.stack[self.stack.len() - 2];
@@ -266,6 +280,7 @@ impl TurnerEngine {
                         if tag0 & TAG_RHS_INT != 0 {
                             // Indirection node!
                             if self.stack.len() == 2 {
+                                self.stack.truncate(self.stack.len() - 1);
                                 // No larger expression to evaluate next
                                 return l0;
                             } else {
@@ -314,6 +329,12 @@ impl TurnerEngine {
                         }
                     }
                     Comb::Cond => {
+                        debug_assert!(
+                            self.stack.len() >= 4,
+                            "(step {}) Cond requires 4 arguments on the stack: {:?}",
+                            self.step_counter,
+                            self.stack
+                        );
                         // TODO: dedup with other strict combinators
                         let l0 = self.stack[self.stack.len() - 2];
                         let c = self.int_rhs(l0);
@@ -337,6 +358,7 @@ impl TurnerEngine {
                             // Check if the value is an int, then we are done
                             if tag & TAG_RHS_INT != 0 {
                                 if self.stack.len() == 4 {
+                                    self.stack.truncate(self.stack.len() - 3);
                                     // No larger expression to evaluate next
                                     return branch_ptr;
                                 }
@@ -393,6 +415,7 @@ impl TurnerEngine {
             self.tl[l1.0 as usize] = CellPtr(op(a, b));
 
             if self.stack.len() == 3 {
+                self.stack.truncate(self.stack.len() - 2);
                 // No larger expression to evaluate next
                 return Some(l1);
             } else {
@@ -471,7 +494,7 @@ impl TurnerEngine {
     // Simple mark and sweep garbage collect
     fn garbage_collect(&mut self, mut queue: Vec<CellPtr>) {
         // Phase 1: Mark everything unwanted
-        for t in self.tag.iter_mut() {
+        for t in self.tag.iter_mut().skip(ALL_COMBS.len()) {
             *t &= !TAG_WANTED;
         }
 
@@ -514,7 +537,8 @@ impl TurnerEngine {
         if cells_wanted >= CELLS {
             panic!("Out of memory!")
         }
-        //panic!("I am untested!");
+        // Reset next cell pointer
+        self.next_cell = CellPtr(ALL_COMBS.len() as i32);
     }
 
     fn alloc_compiled_expr(&mut self, expr: CompiledExpr) -> CellPtr {
@@ -542,13 +566,15 @@ impl TurnerEngine {
         self.tl[ptr.0 as usize] = v.into();
     }
 
-    pub fn dump_dot(&self) -> std::io::Result<()> {
+    pub fn dump_dot(&mut self) -> std::io::Result<()> {
         let mut w = if let Some(dump_path) = &self.dump_path {
             let f = File::create(dump_path.join(format!("step{}.dot", self.step_counter)))?;
             BufWriter::new(f)
         } else {
             return Ok(());
         };
+        // Garbage collect so we don't render dead cells
+        self.garbage_collect(vec![]);
         writeln!(w, "digraph {{")?;
         // Nodes
         writeln!(w, "node [shape=record];")?;
@@ -835,7 +861,7 @@ mod tests {
         let parsed = parse(lex(program));
         let mut engine = TurnerEngine::compile(&parsed);
         // disabled by default because it slows things down a lot, enable for debugging
-        //engine.set_dump_path(format!("/tmp/{}", test_name));
+        //engine.set_dump_path(format!("/tmp/{}", _test_name));
         engine.set_step_limit(l.0);
 
         let ptr = engine.run();
