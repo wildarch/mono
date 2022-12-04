@@ -1,8 +1,7 @@
 use crate::{ast::*, lexer::Token};
+use std::collections::VecDeque;
 
-pub fn parse(mut tokens: Vec<Token>) -> Program {
-    // We will pop from left to right
-    tokens.reverse();
+pub fn parse(mut tokens: VecDeque<Token>) -> Program {
     let mut defs = Vec::new();
 
     while !tokens.is_empty() {
@@ -11,7 +10,7 @@ pub fn parse(mut tokens: Vec<Token>) -> Program {
     Program { defs }
 }
 
-fn parse_def(tokens: &mut Vec<Token>) -> Def {
+fn parse_def(tokens: &mut VecDeque<Token>) -> Def {
     eat(tokens, Token::LParen);
     eat(tokens, Token::Symbol("defun".to_owned()));
 
@@ -24,31 +23,41 @@ fn parse_def(tokens: &mut Vec<Token>) -> Def {
     Def { name, params, expr }
 }
 
-fn parse_symbol(tokens: &mut Vec<Token>) -> String {
-    match tokens.pop() {
+fn parse_lam(tokens: &mut VecDeque<Token>) -> Expr {
+    let params = parse_params(tokens);
+    let mut expr = parse_expr(tokens);
+
+    for p in params.into_iter().rev() {
+        expr = Expr::Lam(p, Box::new(expr))
+    }
+    expr
+}
+
+fn parse_symbol(tokens: &mut VecDeque<Token>) -> String {
+    match tokens.pop_front() {
         None => panic!("Expected a symbol, but found nothing"),
         Some(Token::Symbol(s)) => s,
         Some(t) => panic!("Expected a symbol, but found {:?}", t),
     }
 }
 
-fn parse_params(tokens: &mut Vec<Token>) -> Vec<String> {
+fn parse_params(tokens: &mut VecDeque<Token>) -> Vec<String> {
     eat(tokens, Token::LParen);
     let mut params = Vec::new();
-    while tokens.last() != Some(&Token::RParen) {
+    while tokens.front() != Some(&Token::RParen) {
         params.push(parse_symbol(tokens));
     }
     eat(tokens, Token::RParen);
     params
 }
 
-fn parse_expr(tokens: &mut Vec<Token>) -> Expr {
-    match tokens.pop() {
+pub(crate) fn parse_expr(tokens: &mut VecDeque<Token>) -> Expr {
+    match tokens.pop_front() {
         None => panic!("Expected an expression, but found nothing"),
         Some(Token::Integer(i)) => Expr::Int(i),
         Some(Token::LParen) => {
             let mut expr = parse_expr(tokens);
-            while tokens.last() != Some(&Token::RParen) {
+            while tokens.front() != Some(&Token::RParen) {
                 expr = ap(expr, parse_expr(tokens));
             }
             eat(tokens, Token::RParen);
@@ -69,6 +78,7 @@ fn parse_expr(tokens: &mut Vec<Token>) -> Expr {
             "<" => parse_binop(tokens, BinOp::Lt),
             ">=" => parse_binop(tokens, BinOp::Gte),
             "<=" => parse_binop(tokens, BinOp::Lte),
+            "lam" => parse_lam(tokens),
             // Other identifiers
             _ => Expr::Var(s),
         },
@@ -76,12 +86,12 @@ fn parse_expr(tokens: &mut Vec<Token>) -> Expr {
     }
 }
 
-fn parse_binop(tokens: &mut Vec<Token>, op: BinOp) -> Expr {
+fn parse_binop(tokens: &mut VecDeque<Token>, op: BinOp) -> Expr {
     binop(parse_expr(tokens), op, parse_expr(tokens))
 }
 
-fn eat(tokens: &mut Vec<Token>, expected_token: Token) {
-    match tokens.pop() {
+fn eat(tokens: &mut VecDeque<Token>, expected_token: Token) {
+    match tokens.pop_front() {
         None => panic!("Expected {:?}, but found nothing to eat", expected_token),
         Some(t) => {
             if t != expected_token {

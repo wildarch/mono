@@ -17,6 +17,7 @@ pub enum Expr {
     BinOp(Box<Expr>, BinOp, Box<Expr>),
     Not(Box<Expr>),
     Ap(Box<Expr>, Box<Expr>),
+    Lam(String, Box<Expr>),
 }
 
 #[derive(Debug, PartialEq)]

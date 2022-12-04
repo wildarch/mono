@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Integer(i32),
@@ -7,7 +9,7 @@ pub enum Token {
     RParen,
 }
 
-pub fn lex(s: &str) -> Vec<Token> {
+pub fn lex(s: &str) -> VecDeque<Token> {
     // Trick from https://vishpat.github.io/lisp-rs/lexer.html
     let padded = s.replace("(", " ( ").replace(")", " ) ");
     let raw_tokens = padded.split_whitespace();

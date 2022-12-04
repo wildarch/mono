@@ -1,3 +1,4 @@
+use crate::compiled_expr::{Comb, CompiledExpr};
 use std::io::Write;
 use std::{collections::HashMap, fs::File, io::BufWriter, path::PathBuf};
 
@@ -10,132 +11,13 @@ pub struct CellPtr(i32);
 
 impl CellPtr {
     pub fn comb(&self) -> Option<Comb> {
-        ALL_COMBS.get(self.0 as usize).copied()
+        Comb::all().get(self.0 as usize).copied()
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[repr(i32)]
-pub enum Comb {
-    S,
-    K,
-    I,
-    Y,
-    U,
-    P,
-    Plus,
-    Minus,
-    Times,
-    Divide,
-    Cond,
-    Eq,
-    Neq,
-    Gt,
-    Gte,
-    Lt,
-    Lte,
-    And,
-    Or,
-    Not,
-    Abort,
-}
 impl Into<CellPtr> for Comb {
     fn into(self) -> CellPtr {
         CellPtr(self as i32)
-    }
-}
-const ALL_COMBS: &'static [Comb] = &[
-    Comb::S,
-    Comb::K,
-    Comb::I,
-    Comb::Y,
-    Comb::U,
-    Comb::P,
-    Comb::Plus,
-    Comb::Minus,
-    Comb::Times,
-    Comb::Divide,
-    Comb::Cond,
-    Comb::Eq,
-    Comb::Neq,
-    Comb::Gt,
-    Comb::Gte,
-    Comb::Lt,
-    Comb::Lte,
-    Comb::And,
-    Comb::Or,
-    Comb::Not,
-    Comb::Abort,
-];
-
-#[derive(Debug, Clone)]
-enum CompiledExpr {
-    Comb(Comb),
-    Ap(Box<CompiledExpr>, Box<CompiledExpr>),
-    Var(String),
-    Int(i32),
-}
-
-impl Into<CompiledExpr> for Comb {
-    fn into(self) -> CompiledExpr {
-        CompiledExpr::Comb(self)
-    }
-}
-
-fn cap<A: Into<CompiledExpr>, B: Into<CompiledExpr>>(a: A, b: B) -> CompiledExpr {
-    CompiledExpr::Ap(Box::new(a.into()), Box::new(b.into()))
-}
-
-impl CompiledExpr {
-    pub fn compile(e: &ast::Expr) -> CompiledExpr {
-        match e {
-            ast::Expr::Int(i) => CompiledExpr::Int(*i),
-            ast::Expr::Var(s) => match s.as_str() {
-                "if" => CompiledExpr::Comb(Comb::Cond),
-                s => CompiledExpr::Var(s.to_owned()),
-            },
-            ast::Expr::BinOp(l, o, r) => {
-                let op_comb = match o {
-                    ast::BinOp::Cons => Comb::P,
-                    ast::BinOp::Plus => Comb::Plus,
-                    ast::BinOp::Minus => Comb::Minus,
-                    ast::BinOp::Times => Comb::Times,
-                    ast::BinOp::Divide => Comb::Divide,
-                    ast::BinOp::Eq => Comb::Eq,
-                    ast::BinOp::Neq => Comb::Neq,
-                    ast::BinOp::Gt => Comb::Gt,
-                    ast::BinOp::Gte => Comb::Gte,
-                    ast::BinOp::Lt => Comb::Lt,
-                    ast::BinOp::Lte => Comb::Lte,
-                    ast::BinOp::And => Comb::And,
-                    ast::BinOp::Or => Comb::Or,
-                };
-                let l = CompiledExpr::compile(l);
-                let r = CompiledExpr::compile(r);
-                cap(cap(op_comb, l), r)
-            }
-            ast::Expr::Not(e) => cap(Comb::Not, CompiledExpr::compile(e)),
-            ast::Expr::Ap(l, r) => {
-                let l = CompiledExpr::compile(l);
-                let r = CompiledExpr::compile(r);
-                cap(l, r)
-            }
-        }
-    }
-
-    pub fn abstract_var(self, n: &str) -> CompiledExpr {
-        match self {
-            CompiledExpr::Comb(c) => cap(Comb::K, c),
-            CompiledExpr::Ap(l, r) => cap(cap(Comb::S, l.abstract_var(n)), r.abstract_var(n)),
-            CompiledExpr::Var(s) => {
-                if s == n {
-                    CompiledExpr::Comb(Comb::I)
-                } else {
-                    cap(CompiledExpr::Comb(Comb::K), CompiledExpr::Var(s))
-                }
-            }
-            i @ CompiledExpr::Int(_) => cap(CompiledExpr::Comb(Comb::K), i),
-        }
     }
 }
 
@@ -164,7 +46,7 @@ impl TurnerEngine {
             hd: vec![CellPtr(0i32); CELLS],
             tl: vec![CellPtr(0i32); CELLS],
             // We don't allocate cells when the pointer to it would be ambiguous
-            next_cell: CellPtr(ALL_COMBS.len() as i32),
+            next_cell: CellPtr(Comb::all().len() as i32),
             def_lookup: HashMap::new(),
             stack: Vec::new(),
             dump_path: None,
@@ -480,7 +362,7 @@ impl TurnerEngine {
                     vec![hd, tl]
                 };
                 self.garbage_collect(initial_queue);
-                cell_idx = ALL_COMBS.len();
+                cell_idx = Comb::all().len();
                 continue;
             }
         }
@@ -494,7 +376,7 @@ impl TurnerEngine {
     // Simple mark and sweep garbage collect
     fn garbage_collect(&mut self, mut queue: Vec<CellPtr>) {
         // Phase 1: Mark everything unwanted
-        for t in self.tag.iter_mut().skip(ALL_COMBS.len()) {
+        for t in self.tag.iter_mut().skip(Comb::all().len()) {
             *t &= !TAG_WANTED;
         }
 
@@ -538,7 +420,7 @@ impl TurnerEngine {
             panic!("Out of memory!")
         }
         // Reset next cell pointer
-        self.next_cell = CellPtr(ALL_COMBS.len() as i32);
+        self.next_cell = CellPtr(Comb::all().len() as i32);
     }
 
     fn alloc_compiled_expr(&mut self, expr: CompiledExpr) -> CellPtr {
