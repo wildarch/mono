@@ -22,21 +22,8 @@ fn infer_context(e: &BExpr) -> Context {
         }
         BExpr::Lam(e) => {
             let mut ctx = infer_context(e);
-            match ctx.last() {
-                // Abs0
-                None => ctx,
-                // Abs1
-                Some(Ignored) => {
-                    ctx.pop().unwrap();
-                    ctx
-                }
-                // Abs
-                // TODO: Merge?
-                Some(_) => {
-                    ctx.pop().unwrap();
-                    ctx
-                }
-            }
+            ctx.pop();
+            ctx
         }
         BExpr::Ap(f, a) => unify_contexts(infer_context(f), infer_context(a)),
         _ => todo!(),
@@ -48,12 +35,10 @@ fn unify_contexts(mut a: Context, mut b: Context) -> Context {
     let mut ctx = Context::new();
     loop {
         let e = match (a.pop(), b.pop()) {
-            (Some(Used), Some(Used)) => Used,
-            (None, Some(b)) => b,
-            (Some(a), None) => a,
-            (Some(Ignored), Some(Ignored)) => Ignored,
-            (Some(Ignored), Some(Used)) => Used,
-            (Some(Used), Some(Ignored)) => Used,
+            (Some(Used), _) | (_, Some(Used)) => Used,
+            (None, Some(Ignored)) | (Some(Ignored), None) | (Some(Ignored), Some(Ignored)) => {
+                Ignored
+            }
             (None, None) => {
                 // We are building the context in reverse order
                 ctx.reverse();
@@ -68,13 +53,9 @@ pub fn compile_lazy(e: &BExpr) -> CompiledExpr {
     use ContextElem::*;
     match e {
         BExpr::Var(i) => {
-            let ctx = infer_context(e);
-            if ctx.len() == 1 {
-                CompiledExpr::Comb(Comb::I)
-            } else {
-                // TODO: Just replace with I?
-                compile_lazy(&BExpr::Var(i - 1))
-            }
+            // Lazy weakening allows us to just reduce to I in all cases.
+            // K is inserted in Abs1 case for Lam below.
+            CompiledExpr::Comb(Comb::I)
         }
         BExpr::Lam(e) => {
             // Context for the inner expression
