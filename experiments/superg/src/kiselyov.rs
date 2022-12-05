@@ -1,4 +1,7 @@
-use crate::ast::Expr;
+use crate::{
+    ast::Expr,
+    compiled_expr::{Comb, CompiledExpr},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
@@ -8,15 +11,8 @@ pub enum Type {
 
 type Context = Vec<Type>;
 
-#[derive(Debug, PartialEq)]
-pub struct TypedExpr {
-    ctx: Context,
-    expr: Expr,
-    dtype: Type,
-}
-
 // Same as ast::Expr but using de Bruijn indices
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BExpr {
     Int(i32),
     Var(usize),
@@ -27,31 +23,92 @@ pub enum BExpr {
     Lam(Box<BExpr>),
 }
 
-fn to_debruijn(e: Expr, vars: &mut Vec<String>) -> BExpr {
+#[derive(Debug, PartialEq, Clone)]
+pub struct TypedExpr {
+    expr: BExpr,
+    n: usize,
+}
+
+fn infer_n(e: &BExpr) -> usize {
+    match e {
+        BExpr::Var(i) => i + 1,
+        BExpr::Lam(e) => {
+            let n = infer_n(e);
+            if n == 0 {
+                0
+            } else {
+                n - 1
+            }
+        }
+        BExpr::Ap(f, a) => {
+            let n_f = infer_n(f);
+            let n_a = infer_n(a);
+            std::cmp::max(n_f, n_a)
+        }
+        BExpr::Int(_) => 0,
+        BExpr::SVar(_) => 0,
+        BExpr::BinOp(l, _, r) => std::cmp::max(infer_n(l), infer_n(r)),
+        BExpr::Not(e) => infer_n(e),
+    }
+}
+
+fn compile(e: &BExpr) -> CompiledExpr {
+    let n = infer_n(e);
+    match e {
+        BExpr::Var(i) => {
+            if n == 1 {
+                CompiledExpr::Comb(Comb::I)
+            } else {
+                // TODO: Check if decrementing var works
+                let comp_inner = compile(&BExpr::Var(i - 1));
+                semantic(0, CompiledExpr::Comb(Comb::K), n - 1, comp_inner)
+            }
+        }
+        BExpr::Lam(e) => {
+            if n == 0 {
+                CompiledExpr::Ap(Box::new(CompiledExpr::Comb(Comb::K)), Box::new(compile(e)))
+            } else {
+                // TODO: Check
+                compile(e)
+            }
+        }
+        BExpr::Ap(e1, e2) => semantic(infer_n(e1), compile(e1), infer_n(e2), compile(e2)),
+        BExpr::Int(i) => CompiledExpr::Int(*i),
+        BExpr::SVar(s) => CompiledExpr::Var(s.clone()),
+        BExpr::BinOp(_, _, _) => todo!(),
+        BExpr::Not(_) => todo!(),
+    }
+}
+
+fn semantic(n1: usize, e1: CompiledExpr, n2: usize, e2: CompiledExpr) -> CompiledExpr {
+    todo!()
+}
+
+fn to_debruijn(e: &Expr, vars: &mut Vec<String>) -> BExpr {
     println!("de_bruijn {:?} {:?}", e, vars);
     match e {
-        Expr::Int(i) => BExpr::Int(i),
+        Expr::Int(i) => BExpr::Int(*i),
         Expr::Var(v) => {
-            if let Some(i) = vars.iter().position(|x| x == &v) {
+            if let Some(i) = vars.iter().position(|x| x == v) {
                 BExpr::Var(vars.len() - 1 - i)
             } else {
                 println!("Did not find {} in {:?}", v, vars);
-                BExpr::SVar(v)
+                BExpr::SVar(v.clone())
             }
         }
         Expr::BinOp(l, o, r) => BExpr::BinOp(
-            Box::new(to_debruijn(*l, vars)),
-            o,
-            Box::new(to_debruijn(*r, vars)),
+            Box::new(to_debruijn(l, vars)),
+            *o,
+            Box::new(to_debruijn(r, vars)),
         ),
-        Expr::Not(e) => BExpr::Not(Box::new(to_debruijn(*e, vars))),
+        Expr::Not(e) => BExpr::Not(Box::new(to_debruijn(e, vars))),
         Expr::Ap(f, a) => BExpr::Ap(
-            Box::new(to_debruijn(*f, vars)),
-            Box::new(to_debruijn(*a, vars)),
+            Box::new(to_debruijn(f, vars)),
+            Box::new(to_debruijn(a, vars)),
         ),
         Expr::Lam(v, e) => {
-            vars.push(v);
-            let e = to_debruijn(*e, vars);
+            vars.push(v.clone());
+            let e = to_debruijn(e, vars);
             vars.pop().unwrap();
             BExpr::Lam(Box::new(e))
         }
@@ -82,10 +139,19 @@ mod tests {
         );
     }
 
+    #[test]
+    fn kiselyov() {
+        let expr = "lam (x y) (y x)";
+        let mut tokens = lex(expr);
+        let parsed_expr = parse_expr(&mut tokens);
+        let bexpr = to_debruijn(&parsed_expr, &mut vec![]);
+        todo!()
+    }
+
     fn assert_de_bruijn_equals(expr: &str, expected_bexpr: BExpr) {
         let mut tokens = lex(expr);
         let parsed_expr = parse_expr(&mut tokens);
-        let bexpr = to_debruijn(parsed_expr, &mut vec![]);
+        let bexpr = to_debruijn(&parsed_expr, &mut vec![]);
         assert_eq!(bexpr, expected_bexpr);
     }
 

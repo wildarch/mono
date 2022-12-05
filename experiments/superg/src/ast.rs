@@ -20,7 +20,7 @@ pub enum Expr {
     Lam(String, Box<Expr>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BinOp {
     Cons,
     // Arithmetic
