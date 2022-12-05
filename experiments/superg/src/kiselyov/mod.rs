@@ -1,5 +1,6 @@
 use crate::ast::Expr;
 
+pub mod lazy;
 pub mod strict;
 
 #[derive(Debug, Clone, PartialEq)]
