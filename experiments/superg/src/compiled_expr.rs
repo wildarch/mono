@@ -9,6 +9,8 @@ pub enum Comb {
     Y,
     U,
     P,
+    B,
+    C,
     Plus,
     Minus,
     Times,
@@ -39,6 +41,8 @@ const ALL_COMBS: &'static [Comb] = &[
     Comb::Y,
     Comb::U,
     Comb::P,
+    Comb::B,
+    Comb::C,
     Comb::Plus,
     Comb::Minus,
     Comb::Times,
@@ -56,7 +60,7 @@ const ALL_COMBS: &'static [Comb] = &[
     Comb::Abort,
 ];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CompiledExpr {
     Comb(Comb),
     Ap(Box<CompiledExpr>, Box<CompiledExpr>),

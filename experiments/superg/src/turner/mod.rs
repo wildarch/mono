@@ -190,6 +190,8 @@ impl TurnerEngine {
                     Comb::Y => todo!("Y not implemented. Stack: {:?}", self.stack),
                     Comb::U => todo!(),
                     Comb::P => todo!(),
+                    Comb::B => todo!(),
+                    Comb::C => todo!(),
                     Comb::Plus => {
                         if let Some(ptr) = self.run_strict_binop(|a, b| a + b) {
                             return ptr;

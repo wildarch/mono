@@ -81,11 +81,25 @@ fn compile(e: &BExpr) -> CompiledExpr {
 }
 
 fn semantic(n1: usize, e1: CompiledExpr, n2: usize, e2: CompiledExpr) -> CompiledExpr {
-    todo!()
+    match (n1, n2) {
+        (0, 0) => cap(e1, e2),
+        (0, n2) => semantic(0, cap(Comb::B, e1), n2 - 1, e2),
+        (n1, 0) => semantic(0, cap(cap(Comb::C, Comb::C), e2), n1 - 1, e1),
+        (n1, n2) => semantic(
+            n1,
+            semantic(0, CompiledExpr::Comb(Comb::S), n1 - 1, e1),
+            n2 - 1,
+            e2,
+        ),
+        _ => todo!(),
+    }
+}
+
+fn cap<F: Into<CompiledExpr>, A: Into<CompiledExpr>>(f: F, a: A) -> CompiledExpr {
+    CompiledExpr::Ap(Box::new(f.into()), Box::new(a.into()))
 }
 
 fn to_debruijn(e: &Expr, vars: &mut Vec<String>) -> BExpr {
-    println!("de_bruijn {:?} {:?}", e, vars);
     match e {
         Expr::Int(i) => BExpr::Int(*i),
         Expr::Var(v) => {
@@ -145,7 +159,9 @@ mod tests {
         let mut tokens = lex(expr);
         let parsed_expr = parse_expr(&mut tokens);
         let bexpr = to_debruijn(&parsed_expr, &mut vec![]);
-        todo!()
+        let compiled = compile(&bexpr);
+        use Comb::{B, C, I};
+        assert_eq!(compiled, cap(cap(B, cap(C, I)), I))
     }
 
     fn assert_de_bruijn_equals(expr: &str, expected_bexpr: BExpr) {
