@@ -4,7 +4,7 @@ pub mod parser;
 pub mod turner;
 
 mod compiled_expr;
-mod kiselyov;
+pub mod kiselyov;
 
 pub use lexer::lex;
 pub use parser::parse;

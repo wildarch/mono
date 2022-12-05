@@ -74,7 +74,7 @@ impl Into<CompiledExpr> for Comb {
     }
 }
 
-fn cap<A: Into<CompiledExpr>, B: Into<CompiledExpr>>(a: A, b: B) -> CompiledExpr {
+pub fn cap<A: Into<CompiledExpr>, B: Into<CompiledExpr>>(a: A, b: B) -> CompiledExpr {
     CompiledExpr::Ap(Box::new(a.into()), Box::new(b.into()))
 }
 
