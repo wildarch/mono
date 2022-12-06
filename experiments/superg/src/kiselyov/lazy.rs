@@ -52,7 +52,7 @@ fn unify_contexts(mut a: Context, mut b: Context) -> Context {
 pub fn compile_lazy(e: &BExpr) -> CompiledExpr {
     use ContextElem::*;
     match e {
-        BExpr::Var(i) => {
+        BExpr::Var(_) => {
             // Lazy weakening allows us to just reduce to I in all cases.
             // K is inserted in Abs1 case for Lam below.
             CompiledExpr::Comb(Comb::I)
