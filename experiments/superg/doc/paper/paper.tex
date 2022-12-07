@@ -47,23 +47,43 @@ Lazy evaluation of programs is a powerful idea.
 It allows a program to operate on infinitely large data structures, and if part of the computation turns out to be unnecessary, it is more efficient than a strict evaluation.
 In practice, delaying computation often introduces overhead, making languages based on lazy evaluation slower than their strict counterparts.
 To compete with a strict implementation, a lazy runtime must maximize laziness while minimizing overhead.
-It is a difficult balance, and over the years many different evaluator designs, or \textit{abstract machines}, have been proposed\cite{kieburtz_g-machine_1985,fairbairn_tim_1987,burn_spineless_1988,koopman_fresh_1989,jones_implementing_nodate}.
-One of the early approaches to implementing lazy functional languages is combinator graph reduction\cite{turner_new_1979}.
+It is a difficult balance, and over the years many different evaluator designs, or \textit{abstract machines}, have been proposed~\cite{turner_new_1979,kieburtz_g-machine_1985,fairbairn_tim_1987,burn_spineless_1988,koopman_fresh_1989,jones_implementing_nodate}.
+One of the early approaches to implementing lazy functional languages is combinator graph reduction~\cite{turner_new_1979}.
 
-\textbf{TODO:} what is combinator reduction?
+Starting from a lambda calculus expression, we first translate it into an expression consisting exclusively of the application of a small set of predefined functions, or \textit{combinators}.
+It turns out that any lambda calculus expression can be expressed using just three combinators:
+\begin{itemize}
+    \item $S \ f \ g \ x = f \ x \ (g \ x)$
+    \item $K \ x \ y = x$
+    \item $I \ x = x$\footnote{It turns out that $SKK = I$, so even this combinator is not strictly necessary, but all reasonable implementations do include $I$, and it simplifies the example.}
+\end{itemize}
 
-Combinator reduction was the runtime for David Turner's Miranda language\cite{turner_miranda_1985}, the popular choice for pure functional languages at the time, and one of the few to be commercially supported.
+For example, $\lambda x.x+1$ can be converted into the combinator expression:
+
+\[
+    S \ (S \  (K \  +) \  I) \ (K \ 1)
+\]
+
+We invite the reader to verify this by applying $x$ to this expression and reducing it to $x+1$ with the usual $\beta$-reduction rule.
+While the generated expression is not as easy to read, the simplicity of its components is appealing: to execute a program compiled to combinators, an evaluator only needs to support four operations: the built-in $S$, $K$ and $I$ combinators, and function application\footnote{And any builtins of the language, like the plus operator in the example.}.
+Better still, conversion to combinators removes all bound variables.
+The runtime need not concern itself with passing arguments, this is all handled by the combinators.
+The compiled program is executed using graph reduction, a technique that is also common in other reduction engines\cite{kieburtz_g-machine_1985,fairbairn_tim_1987}.
+\textbf{TODO: } Should we also cover graph reduction?
+% In the reduction graph, vertices are combinators, constants or function applications, and edges connect the function and argument for application (combinators and constants have no outgoing edges, they are leaf nodes).
+
+Combinator reduction was the runtime for David Turner's Miranda language~\cite{turner_miranda_1985}, the popular choice for pure functional languages at the time, and one of the few to be commercially supported.
 Eventually, the interest in Miranda and combinator graph reduction with it waned.
-Part of the reason may be that Miranda was until very recently a closed-source, licensed software (its source code was released only in 2020\cite{noauthor_open_2021}), leading to the creation of the open-source Haskell language.
+Part of the reason may be that Miranda was until very recently a closed-source, licensed software (its source code was released only in 2020~\cite{noauthor_open_2021}), leading to the creation of the open-source Haskell language.
 But combinator reduction also deserves part of the blame.
-Firstly, expressions are reduced in many small steps, so the per-step overhead greatly impacts runtime performance.
+Firstly, owing to the simplicity of individual combinators, expressions are reduced in many small steps, so the per-step overhead greatly impacts runtime performance.
 Every reduction step modifies the stack and usually also the graph, resulting in high memory traffic.
 Another important issue is that the translation to combinators may result in much larger programs.
 For a lambda calculus expression of size $N$, the traditional bracket abstraction algorithm produces an output of $O(N^2)$ in the worst case, where other approaches such as supercombinators are linear\cite{spj_impl}.
 These disadvantages have led to combinator graph reduction being all but abandoned.
 
 % What did I research?
-% - Research problem / question
+% - Research problem/question
 %   * Definitions
 %   * Choices
 %   * Presuppositions

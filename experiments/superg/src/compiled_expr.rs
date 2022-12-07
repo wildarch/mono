@@ -112,7 +112,7 @@ impl CompiledExpr {
                 let r = CompiledExpr::compile(r);
                 cap(l, r)
             }
-            ast::Expr::Lam(_, _) => todo!(),
+            ast::Expr::Lam(x, e) => CompiledExpr::compile(e).abstract_var(x),
         }
     }
 
@@ -129,5 +129,28 @@ impl CompiledExpr {
             }
             i @ CompiledExpr::Int(_) => cap(CompiledExpr::Comb(Comb::K), i),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::lex;
+    use crate::parser::parse_expr;
+
+    #[test]
+    fn compile_increment() {
+        let expr = "lam (x) (+ x 1)";
+        let mut tokens = lex(expr);
+        let parsed_expr = parse_expr(&mut tokens);
+        let compiled = CompiledExpr::compile(&parsed_expr);
+        use Comb::{Plus, I, K, S};
+        assert_eq!(
+            compiled,
+            cap(
+                cap(S, cap(cap(S, cap(K, Plus)), I)),
+                cap(K, CompiledExpr::Int(1))
+            )
+        );
     }
 }
