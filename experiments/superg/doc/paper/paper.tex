@@ -48,8 +48,67 @@ It allows a program to operate on infinitely large data structures, and if part 
 In practice, delaying computation often introduces overhead, making languages based on lazy evaluation slower than their strict counterparts.
 To compete with a strict implementation, a lazy runtime must maximize laziness while minimizing overhead.
 It is a difficult balance, and over the years many different evaluator designs, or \textit{abstract machines}, have been proposed~\cite{turner_new_1979,kieburtz_g-machine_1985,fairbairn_tim_1987,burn_spineless_1988,koopman_fresh_1989,jones_implementing_nodate}.
-One of the early approaches to implementing lazy functional languages is combinator graph reduction~\cite{turner_new_1979}.
 
+One of the early approaches to implementing lazy functional languages is combinator graph reduction~\cite{turner_new_1979}.
+It was the basis for David Turner's Miranda language~\cite{turner_miranda_1985}, the popular choice for pure functional languages and one of the few to be commercially supported at the time.
+Eventually, the interest in Miranda and combinator graph reduction with it waned.
+Part of the reason may be that Miranda was until very recently a closed-source, licensed software (its source code was released only in 2020~\cite{noauthor_open_2021}), leading to the creation of the open-source Haskell language~\cite{hudak_history_2007}.
+But combinator reduction also deserves part of the blame.
+% Firstly, owing to the simplicity of individual combinators, expressions are reduced in many small steps, so the per-step overhead greatly impacts runtime performance.
+% Every reduction step modifies the stack and usually also the graph, resulting in high memory traffic.
+One of the major issues is that the translation to combinators may result in much larger programs.
+For a lambda calculus expression of size $N$, the traditional bracket abstraction algorithm produces an output of $O(N^2)$ in the worst case, where other approaches such as supercombinators are linear\cite{spj_impl}.
+Larger programs run slower, and along with other disadvantages, this led to combinator graph reduction being all but abandoned.
+
+% What did I research?
+% - Research problem/question
+%   * Definitions
+%   * Choices
+%   * Presuppositions
+% - Why specifically this research question?
+%   * Theoretical or societal relevance
+Recently, however, a new algorithm for the translation of lambda calculus expressions into combinatory logic has been proposed that is linear in the size of the input\cite{kiselyov_lambda_2018}.
+Kiselyov's translation algorithm is based on semantics rather than syntax and this deeper understanding of the program has been shown to produce more compact translations.
+While a clear improvement over previous translation strategies, it remains to be seen how big the impact is on real-world performance.
+Is it enough to bridge the performance gap with newer reduction engines based on different paradigms?
+This leads us to our first research question:
+
+\textbf{RQ1:} Does Kiselyov's semantic translation make combinator graph reduction competitive with contemporary lazy functional evaluators?
+
+% How did I research this?
+% - Methods
+% - Sub-questions
+We use GHC as the reference for a contemporary evaluator, and then measure the execution time of a set of benchmark programs.
+We also need a fast reduction engine that can run programs compiled to combinator expressions.
+Alas, there is no performant reduction engine tailored to executing such programs.
+The now open-sourced Miranda is a good starting point, but it is showing its age.
+The 2020 port compiles cleanly on a recent GCC, but enabling optimizations is known to break the garbage collector.
+Miranda's architecture is based on cells with a tag, head and tail as described in\cite{turner_new_1979}, but later work has shown that a tagless representation with direct pointers to code leads to better performance\cite{koopman_fresh_1989}.
+In absence of an up-to-date reference on building a practical combinator reduction engine, we formulate the second research question:
+
+\textbf{RQ2:} How is combinator graph reduction implemented efficiently on conventional hardware?
+
+We evaluate the state of the art in combinator graph reduction and build a fast implementation for a language that is simple but powerful enough to express our benchmark programs.
+Using this engine, we can then answer RQ1.
+
+% How did I organize the report?
+% - Structure Overview
+Concretely, our contributions are the following:
+\begin{itemize}
+    \item Kiselyov develops not one but two algorithms. The first does not have linear complexity, but tends to produce very compact code.
+          The second is guaranteed to be of linear complexity, at the cost of being less compact in certain cases.
+          Kiselyov's description is somewhat theoretical, so in section~\ref{sec:kiselyov} we describe both algorithms in a way that is straightforward to implement.
+    \item We implement a fast combinator graph reduction engine based on the ideas in Miranda~\cite{turner_miranda_1985} and later improvements~\cite{koopman_architecture_1992}.
+          We elaborate on its design in section~\ref{sec:engine}.
+    \item We evaluate the performance of Miranda, Haskell and our engine on a set of benchmark programs in section~\ref{sec:eval}.
+\end{itemize}
+
+For readers unfamiliar with combinatory logic and/or graph reduction, we provide a short introduction to these topics in section~\ref{sec:prelim}.
+
+\section{Preliminaries}
+\label{sec:prelim}
+\textbf{TODO: write section. Currently contains only a few small fragments}
+\subsection{Combinatory Logic}
 Starting from a lambda calculus expression, we first translate it into an expression consisting exclusively of the application of a small set of predefined functions, or \textit{combinators}.
 It turns out that any lambda calculus expression can be expressed using just three combinators:
 \begin{itemize}
@@ -69,76 +128,26 @@ While the generated expression is not as easy to read, the simplicity of its com
 Better still, conversion to combinators removes all bound variables.
 The runtime need not concern itself with passing arguments, this is all handled by the combinators.
 The compiled program is executed using graph reduction, a technique that is also common in other reduction engines\cite{kieburtz_g-machine_1985,fairbairn_tim_1987}.
-\textbf{TODO: } Should we also cover graph reduction?
+
+\subsection{Graph Reduction}
 % In the reduction graph, vertices are combinators, constants or function applications, and edges connect the function and argument for application (combinators and constants have no outgoing edges, they are leaf nodes).
 
-Combinator reduction was the runtime for David Turner's Miranda language~\cite{turner_miranda_1985}, the popular choice for pure functional languages at the time, and one of the few to be commercially supported.
-Eventually, the interest in Miranda and combinator graph reduction with it waned.
-Part of the reason may be that Miranda was until very recently a closed-source, licensed software (its source code was released only in 2020~\cite{noauthor_open_2021}), leading to the creation of the open-source Haskell language.
-But combinator reduction also deserves part of the blame.
-Firstly, owing to the simplicity of individual combinators, expressions are reduced in many small steps, so the per-step overhead greatly impacts runtime performance.
-Every reduction step modifies the stack and usually also the graph, resulting in high memory traffic.
-Another important issue is that the translation to combinators may result in much larger programs.
-For a lambda calculus expression of size $N$, the traditional bracket abstraction algorithm produces an output of $O(N^2)$ in the worst case, where other approaches such as supercombinators are linear\cite{spj_impl}.
-These disadvantages have led to combinator graph reduction being all but abandoned.
-
-% What did I research?
-% - Research problem/question
-%   * Definitions
-%   * Choices
-%   * Presuppositions
-% - Why specifically this research question?
-%   * Theoretical or societal relevance
-Recently, however, a new algorithm for the translation of lambda calculus expressions into combinatory logic has been proposed that is linear in the size of the input\cite{kiselyov_lambda_2018}.
-While a clear improvement over previous translation strategies, it remains to be seen how big the impact is on real-world performance.
-Is it enough to bridge the performance gap with newer reduction engines based on different paradigms?
-This leads us to our first research question:
-
-\textbf{RQ1:} Does Kiselyov's semantic translation make combinator graph reduction competitive with contemporary lazy functional evaluators?
-
-% How did I research this?
-% - Methods
-% - Sub-questions
-We use GHC as the reference for a contemporary evaluator, and then measure the execution time of a set of benchmark programs.
-We also need a fast reduction engine that can run the program compiled with Kiselyov's algorithm.
-Alas, there is no performant combinator graph reduction engine tailored to executing such programs.
-The now open-sourced Miranda is a good starting point, but it is showing its age.
-The 2020 port compiles cleanly on a recent GCC, but enabling optimizations is known to break the garbage collector.
-Miranda's architecture is based on cells with a tag, head and tail as described in\cite{turner_new_1979}, but later work has shown that a tagless representation with direct pointers to code leads to better performance\cite{koopman_fresh_1989}.
-In absence of an up-to-date reference on building a practical combinator reduction engine, we formulate the second research question:
-
-\textbf{RQ2:} How is combinator graph reduction implemented efficiently on conventional hardware?
-
-We evaluate the state of the art in combinator graph reduction and build a fast implementation for a language that is simple but powerful enough to express our benchmark programs.
-Using this engine, we can then answer RQ1.
-
-% How did I organize the report?
-% - Structure Overview
-Concretely, our contributions are the following:
-\begin{itemize}
-    \item Kiselyov describes not one but two algorithms. The first does not have linear complexity, but tends to produce very compact code.
-          The second is guaranteed to be of linear complexity, at the cost of being less compact in certain cases.
-          In section~\ref{sec:kiselyov} we describe both algorithms in a way that is straightforward to implement.
-    \item We implement a fast combinator graph reduction engine based on the ideas in Miranda~\cite{turner_miranda_1985} and later improvements~\cite{koopman_architecture_1992}.
-          We elaborate on its design in section~\ref{sec:engine}.
-    \item We evaluate the performance of Miranda, Haskell and our engine on a set of benchmark programs in section~\ref{sec:eval}.
-\end{itemize}
 
 \section{Kiselyov's algorithms}
 \label{sec:kiselyov}
-Describes the strict and lazy translation algorithms in practical terms.
+Describes the algorithms as implementable functions. Both recursive and linear semantic functions are covered (the two algorithms).
 
 \section{Engine implementation}
 \label{sec:engine}
 \subsection*{Miranda}
-Describe the implementation of SASL/Miranda.
+Describe the implementation of a SASL/Miranda-style engine.
 
 Compare performance with Open Source Miranda.
 
 \subsection*{TIGRE}
 Describe changes made to align with TIGRE.
 
-Compare performance with SASL-style engine.
+Compare performance with Miranda-style engine.
 
 \section{Performance evaluation}
 \label{sec:eval}
@@ -156,7 +165,7 @@ Programs:
     \item treesort
 \end{itemize}
 
-Evaluation performance of:
+Evaluate performance of:
 
 \begin{itemize}
     \item Bracket abstraction
