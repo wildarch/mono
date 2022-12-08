@@ -1,0 +1,12 @@
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+
+rust_library(
+    name = "superg",
+    srcs = glob(["src/**/*.rs"]),
+    edition = "2021",
+)
+
+rust_test(
+    name = "superg_test",
+    crate = ":superg",
+)
