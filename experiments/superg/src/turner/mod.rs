@@ -97,19 +97,19 @@ impl TurnerEngine {
                         let l2 = self.stack[self.stack.len() - 4];
 
                         // If x is an int, we should transfer that to the new location
-                        let x_tag = self.tag[l2.0 as usize] & TAG_RHS_INT;
-                        let x = self.tl[l2.0 as usize];
-                        let g = self.tl[l1.0 as usize];
-                        let f = self.tl[l0.0 as usize];
+                        let x_tag = self.tag(l2) & TAG_RHS_INT;
+                        let x = self.tl(l2);
+                        let g = self.tl(l1);
+                        let f = self.tl(l0);
 
                         // Make lower cells
                         // TODO: check if we guarantee nobody else holds a reference to cells l0 and l1, so we can overwrite them
                         let left_cell = self.make_cell(x_tag | TAG_WANTED, f, x);
                         let right_cell = self.make_cell(x_tag | TAG_WANTED, g, x);
                         // Overwrite upper cell
-                        self.tag[l2.0 as usize] = TAG_WANTED;
-                        self.hd[l2.0 as usize] = left_cell;
-                        self.tl[l2.0 as usize] = right_cell;
+                        self.set_tag(l2, TAG_WANTED);
+                        self.set_hd(l2, left_cell);
+                        self.set_tl(l2, right_cell);
                         // Truncate to upper cell
                         self.stack.truncate(self.stack.len() - 3);
                     }
@@ -123,14 +123,14 @@ impl TurnerEngine {
                         // K x y = x
                         let l0 = self.stack[self.stack.len() - 2];
                         let l1 = self.stack[self.stack.len() - 3];
-                        let x = self.tl[l0.0 as usize];
+                        let x = self.tl(l0);
                         // If x is an int, we should transfer that to the new location
-                        let x_tag = self.tag[l0.0 as usize] & TAG_RHS_INT;
+                        let x_tag = self.tag(l0) & TAG_RHS_INT;
 
                         // Make the indirection node
-                        self.tag[l1.0 as usize] = x_tag | TAG_WANTED;
-                        self.hd[l1.0 as usize] = CellPtr(Comb::I as i32);
-                        self.tl[l1.0 as usize] = x;
+                        self.set_tag(l1, x_tag | TAG_WANTED);
+                        self.set_hd(l1, Comb::I);
+                        self.set_tl(l1, x);
 
                         // Check if the value is an int, then we are done
                         if x_tag & TAG_RHS_INT != 0 {
@@ -158,7 +158,7 @@ impl TurnerEngine {
                         // TODO: Compress multiple indirections
                         // Check if we are done
                         let l0 = self.stack[self.stack.len() - 2];
-                        let tag0 = self.tag[l0.0 as usize];
+                        let tag0 = self.tag(l0);
                         if tag0 & TAG_RHS_INT != 0 {
                             // Indirection node!
                             if self.stack.len() == 2 {
@@ -171,12 +171,12 @@ impl TurnerEngine {
                             }
                         } else {
                             // Take the argument, and evaluate that instead
-                            let arg = self.tl[l0.0 as usize];
+                            let arg = self.tl(l0);
                             // Special case: for I (I x) = I x
                             if arg.comb() == Some(Comb::I) {
                                 let l1 = self.stack[self.stack.len() - 3];
                                 // Fixup the new indirection node
-                                self.hd[l1.0 as usize] = CellPtr(Comb::I as i32);
+                                self.set_hd(l1, Comb::I);
 
                                 self.stack.truncate(self.stack.len() - 2);
                             } else {
@@ -232,12 +232,12 @@ impl TurnerEngine {
                                 1 => l1,
                                 v => panic!("Illegal condition value {}", v),
                             };
-                            let tag = self.tag[branch_ptr.0 as usize] & TAG_RHS_INT;
-                            let branch_tl = self.tl[branch_ptr.0 as usize];
+                            let tag = self.tag(branch_ptr) & TAG_RHS_INT;
+                            let branch_tl = self.tl(branch_ptr);
                             // Make an indirection node to branch_ptr's RHS
-                            self.tag[l2.0 as usize] = tag | TAG_WANTED;
-                            self.hd[l2.0 as usize] = CellPtr(Comb::I as i32);
-                            self.tl[l2.0 as usize] = branch_tl;
+                            self.set_tag(l2, tag | TAG_WANTED);
+                            self.set_hd(l2, Comb::I);
+                            self.set_tl(l2, branch_tl);
 
                             // Check if the value is an int, then we are done
                             if tag & TAG_RHS_INT != 0 {
@@ -255,7 +255,7 @@ impl TurnerEngine {
                                 self.stack.truncate(new_len);
                             }
                         } else {
-                            self.stack.push(self.tl[l0.0 as usize]);
+                            self.stack.push(self.tl(l0));
                         }
                     }
                     Comb::Eq => {
@@ -280,7 +280,7 @@ impl TurnerEngine {
                 }
             } else {
                 // An application, so push the left subtree
-                self.stack.push(self.hd[top.0 as usize]);
+                self.stack.push(self.hd(*top));
             }
         }
     }
@@ -294,9 +294,9 @@ impl TurnerEngine {
 
         if let (Some(a), Some(b)) = (a, b) {
             // Already reduced
-            self.tag[l1.0 as usize] = TAG_WANTED | TAG_RHS_INT;
-            self.hd[l1.0 as usize] = CellPtr(Comb::I as i32);
-            self.tl[l1.0 as usize] = CellPtr(op(a, b));
+            self.set_tag(l1, TAG_WANTED | TAG_RHS_INT);
+            self.set_hd(l1, Comb::I);
+            self.set_tl(l1, CellPtr(op(a, b)));
 
             if self.stack.len() == 3 {
                 self.stack.truncate(self.stack.len() - 2);
@@ -310,22 +310,22 @@ impl TurnerEngine {
 
         // Push a and/or b onto the stack to evaluate
         if b.is_none() {
-            self.stack.push(self.tl[l1.0 as usize]);
+            self.stack.push(self.tl(l1));
         }
         if a.is_none() {
-            self.stack.push(self.tl[l0.0 as usize]);
+            self.stack.push(self.tl(l0));
         }
         None
     }
 
     fn int_rhs(&self, cell_ptr: CellPtr) -> Option<i32> {
-        let tag = self.tag[cell_ptr.0 as usize];
-        let rhs_ptr = self.tl[cell_ptr.0 as usize];
+        let tag = self.tag(cell_ptr);
+        let rhs_ptr = self.tl(cell_ptr);
         if tag & TAG_RHS_INT != 0 {
             return Some(rhs_ptr.0);
         }
         // Check to see if RHS happens to point to an indirection node
-        if self.hd[rhs_ptr.0 as usize].comb() == Some(Comb::I) {
+        if self.hd(rhs_ptr).comb() == Some(Comb::I) {
             return self.int_rhs(rhs_ptr);
         }
         None
@@ -368,11 +368,12 @@ impl TurnerEngine {
                 continue;
             }
         }
-        self.tag[cell_idx] = tag;
-        self.hd[cell_idx] = hd;
-        self.tl[cell_idx] = tl;
+        let cell_ptr = CellPtr(cell_idx as i32);
+        self.set_tag(cell_ptr, tag);
+        self.set_hd(cell_ptr, hd);
+        self.set_tl(cell_ptr, tl);
         self.next_cell = CellPtr(cell_idx as i32 + 1);
-        CellPtr(cell_idx as i32)
+        cell_ptr
     }
 
     // Simple mark and sweep garbage collect
@@ -391,29 +392,35 @@ impl TurnerEngine {
                 continue;
             }
             // Skip if already marked
-            let tag = self.tag[cell_ptr.0 as usize];
+            let tag = self.tag(cell_ptr);
             let visited = tag & TAG_WANTED != 0;
             if visited {
                 continue;
             }
 
             // Mark this cell as wanted
-            self.tag[cell_ptr.0 as usize] |= TAG_WANTED;
+            self.set_tag(cell_ptr, self.tag(cell_ptr) | TAG_WANTED);
             cells_wanted += 1;
 
             // Check children
-            let hd = self.hd[cell_ptr.0 as usize];
-            let hd_visited = self.tag[hd.0 as usize] & TAG_WANTED != 0;
-            if !hd_visited {
-                queue.push(hd);
+            let hd = self.hd(cell_ptr);
+            if hd.comb().is_none() {
+                // hd is ptr
+                let hd_visited = self.tag(hd) & TAG_WANTED != 0;
+                if !hd_visited {
+                    queue.push(hd);
+                }
             }
 
             if tag & TAG_RHS_INT == 0 {
-                // tl is a ptr, not int
-                let tl = self.tl[cell_ptr.0 as usize];
-                let tl_visited = self.tag[tl.0 as usize] & TAG_WANTED != 0;
-                if !tl_visited {
-                    queue.push(tl);
+                // tl is a ptr or comb, not int
+                let tl = self.tl(cell_ptr);
+                if tl.comb().is_none() {
+                    // tl is ptr
+                    let tl_visited = self.tag(tl) & TAG_WANTED != 0;
+                    if !tl_visited {
+                        queue.push(tl);
+                    }
                 }
             }
         }
@@ -446,8 +453,54 @@ impl TurnerEngine {
         }
     }
 
+    // In debug mode, checks that this is a valid CellPtr.
+    // In release mode it is a no-op.
+    fn debug_assert_ptr(&self, ptr: CellPtr) {
+        // Responsibility of the caller to
+        // check this in release mode.
+        // Even if ptr is actually to a combinator,
+        // it still points to a valid element in the array,
+        // so it is a correctness bug rather than a memory error.
+        debug_assert!(ptr.comb().is_none());
+        // Bounds check only in debug mode.
+        // We assume CellPtr is never fabricated,
+        // so it always contains a valid index.
+        debug_assert!(ptr.0 >= 0);
+        debug_assert!(
+            (ptr.0 as usize) < self.tag.len()
+                && (ptr.0 as usize) < self.hd.len()
+                && (ptr.0 as usize) < self.tl.len()
+        );
+    }
+
+    fn set_tag(&mut self, ptr: CellPtr, t: u8) {
+        self.debug_assert_ptr(ptr);
+        *unsafe { self.tag.get_unchecked_mut(ptr.0 as usize) } = t;
+    }
+
+    fn tag(&self, ptr: CellPtr) -> u8 {
+        self.debug_assert_ptr(ptr);
+        *unsafe { self.tag.get_unchecked(ptr.0 as usize) }
+    }
+
+    fn set_hd<I: Into<CellPtr>>(&mut self, ptr: CellPtr, v: I) {
+        self.debug_assert_ptr(ptr);
+        *unsafe { self.hd.get_unchecked_mut(ptr.0 as usize) } = v.into();
+    }
+
+    fn hd(&self, ptr: CellPtr) -> CellPtr {
+        self.debug_assert_ptr(ptr);
+        *unsafe { self.hd.get_unchecked(ptr.0 as usize) }
+    }
+
     fn set_tl<I: Into<CellPtr>>(&mut self, ptr: CellPtr, v: I) {
-        self.tl[ptr.0 as usize] = v.into();
+        self.debug_assert_ptr(ptr);
+        *unsafe { self.tl.get_unchecked_mut(ptr.0 as usize) } = v.into();
+    }
+
+    fn tl(&self, ptr: CellPtr) -> CellPtr {
+        self.debug_assert_ptr(ptr);
+        *unsafe { self.tl.get_unchecked(ptr.0 as usize) }
     }
 
     pub fn dump_dot(&mut self) -> std::io::Result<()> {
@@ -557,7 +610,7 @@ impl TurnerEngine {
 
     pub fn get_int(&self, ptr: CellPtr) -> Option<i32> {
         if self.tag[ptr.0 as usize] | TAG_RHS_INT != 0 {
-            Some(self.tl[ptr.0 as usize].0)
+            Some(self.tl(ptr).0)
         } else {
             None
         }
