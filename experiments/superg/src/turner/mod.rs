@@ -33,10 +33,6 @@ pub struct TurnerEngine {
     // Points to the cell containing the compiled definition
     def_lookup: HashMap<String, CellPtr>,
     stack: Vec<CellPtr>,
-    // The directory to dump debug information to
-    dump_path: Option<PathBuf>,
-    step_counter: usize,
-    step_limit: Option<usize>,
 }
 
 impl TurnerEngine {
@@ -49,9 +45,6 @@ impl TurnerEngine {
             next_cell: CellPtr(Comb::all().len() as i32),
             def_lookup: HashMap::new(),
             stack: Vec::new(),
-            dump_path: None,
-            step_counter: 0,
-            step_limit: None,
         };
 
         // Reserve a spot for each definition
@@ -81,13 +74,6 @@ impl TurnerEngine {
     }
 
     fn step(&mut self) -> Option<CellPtr> {
-        self.step_counter += 1;
-        if let Some(limit) = self.step_limit {
-            if self.step_counter > limit {
-                panic!("Max cycle reached");
-            }
-        }
-        self.dump_dot().expect("Dump failed");
         let top = self.stack.last().unwrap();
         if let Some(comb) = top.comb() {
             match comb {
@@ -111,46 +97,14 @@ impl TurnerEngine {
                         StepResult::Cell(engine.tl(args[0]))
                     }
                 }),
-                Comb::I => {
-                    debug_assert!(
-                        self.stack.len() >= 2,
-                        "I requires 1 argument on the stack: {:?}",
-                        self.stack
-                    );
-                    // TODO: Compress multiple indirections
-                    // Check if we are done
-                    let l0 = self.stack[self.stack.len() - 2];
-                    let tag0 = self.tag(l0);
-                    if tag0 & TAG_RHS_INT != 0 {
-                        // Indirection node!
-                        if self.stack.len() == 2 {
-                            self.stack.truncate(self.stack.len() - 1);
-                            // No larger expression to evaluate next
-                            return Some(l0);
-                        } else {
-                            // Continue with the larger expression on the stack
-                            self.stack.truncate(self.stack.len() - 2);
-                            None
-                        }
+                Comb::I => self.run_comb1(|engine, args| {
+                    // I x = x
+                    if let Some(v) = engine.int_rhs(args[0]) {
+                        StepResult::Value(v)
                     } else {
-                        // Take the argument, and evaluate that instead
-                        let arg = self.tl(l0);
-                        // Special case: for I (I x) = I x
-                        if arg.comb() == Some(Comb::I) {
-                            let l1 = self.stack[self.stack.len() - 3];
-                            // Fixup the new indirection node
-                            self.set_hd(l1, Comb::I);
-
-                            self.stack.truncate(self.stack.len() - 2);
-                        } else {
-                            // Replace two items with one arg
-                            let new_len = self.stack.len() - 1;
-                            self.stack[new_len - 1] = arg;
-                            self.stack.truncate(new_len);
-                        }
-                        None
+                        StepResult::Cell(engine.tl(args[0]))
                     }
-                }
+                }),
                 Comb::Y => todo!("Y not implemented. Stack: {:?}", self.stack),
                 Comb::U => todo!(),
                 Comb::P => todo!(),
@@ -413,118 +367,30 @@ impl TurnerEngine {
         *unsafe { self.tl.get_unchecked(ptr.0 as usize) }
     }
 
-    pub fn dump_dot(&mut self) -> std::io::Result<()> {
-        let mut w = if let Some(dump_path) = &self.dump_path {
-            let f = File::create(dump_path.join(format!("step{}.dot", self.step_counter)))?;
-            BufWriter::new(f)
-        } else {
-            return Ok(());
-        };
-        // Garbage collect so we don't render dead cells
-        self.garbage_collect(vec![]);
-        writeln!(w, "digraph {{")?;
-        // Nodes
-        writeln!(w, "node [shape=record];")?;
-        for c in 0..CELLS {
-            let tag = self.tag[c];
-            if tag & TAG_WANTED == 0 {
-                // unwanted
-                continue;
-            }
-            let hd = self.hd[c];
-            let hd = if let Some(comb) = hd.comb() {
-                format!("{:?}", comb)
-            } else {
-                String::new()
-            };
-            let tl = self.tl[c];
-            let tl = if tag & TAG_RHS_INT != 0 {
-                format!("{}", tl.0)
-            } else if let Some(comb) = tl.comb() {
-                format!("{:?}", comb)
-            } else {
-                String::new()
-            };
-            writeln!(w, "cell{} [label=\"<hd> {}|<tl> {}\"];", c, hd, tl)?;
-        }
-        // Stack
-        if !self.stack.is_empty() {
-            write!(w, "stack [pos=\"0,0!\", label=\"{{")?;
-            for (i, c) in self.stack.iter().enumerate() {
-                if let Some(comb) = c.comb() {
-                    write!(w, "<s{}> {:?}", i, comb)?;
-                } else {
-                    write!(w, "<s{}> ", i)?;
-                }
-                if i != self.stack.len() - 1 {
-                    write!(w, "|")?;
-                }
-            }
-            writeln!(w, "}}\"];")?;
-        }
-
-        // Edges
-        for c in 0..CELLS {
-            let tag = self.tag[c];
-            if tag & TAG_WANTED == 0 {
-                // unwanted
-                continue;
-            }
-            let hd = self.hd[c];
-            if hd.comb().is_none() {
-                writeln!(w, "cell{}:hd -> cell{};", c, hd.0)?;
-            }
-            let tl = self.tl[c];
-            if tl.comb().is_none() && tag & TAG_RHS_INT == 0 {
-                writeln!(w, "cell{}:tl -> cell{};", c, tl.0)?;
-            }
-        }
-        // Defs
-        for (n, p) in self.def_lookup.iter() {
-            writeln!(w, "{} -> cell{}", n, p.0)?;
-        }
-
-        // Stack edges
-        if !self.stack.is_empty() {
-            for (i, c) in self.stack.iter().enumerate() {
-                if c.comb().is_none() {
-                    writeln!(w, "stack:s{} -> cell{}", i, c.0)?;
-                }
-            }
-        }
-
-        writeln!(w, "}}")?;
-        Ok(())
-    }
-
-    pub fn set_dump_path(&mut self, dump_path: String) {
-        let dump_path = PathBuf::from(dump_path);
-        std::fs::create_dir_all(&dump_path).expect("failed to create dump directory");
-        // Clean up old dump files
-        for entry in std::fs::read_dir(&dump_path).unwrap() {
-            let entry = entry.unwrap();
-            if let Some(name) = entry.file_name().to_str() {
-                if name.ends_with(".dot") {
-                    let path = dump_path.join(entry.file_name());
-                    println!("Deleting file {:?}", path);
-                    std::fs::remove_file(path).expect("failed to delete file");
-                }
-            }
-        }
-        self.dump_path = Some(dump_path);
-    }
-
-    pub fn set_step_limit(&mut self, l: usize) {
-        self.step_limit = Some(l);
-    }
-
     pub fn get_int(&self, ptr: CellPtr) -> Option<i32> {
-        if self.tag[ptr.0 as usize] | TAG_RHS_INT != 0 {
+        if self.tag(ptr) | TAG_RHS_INT != 0 {
             Some(self.tl(ptr).0)
         } else {
             None
         }
     }
+
+    pub fn with_debug(self) -> TurnerEngineDebug {
+        TurnerEngineDebug {
+            engine: self,
+            dump_path: None,
+            step_counter: 0,
+            step_limit: None,
+        }
+    }
+}
+
+enum StepResult {
+    Value(i32),
+    Cell(CellPtr),
+    CellContents(u8, CellPtr, CellPtr),
+    EvaluateArg(CellPtr),
+    EvaluateArg2(CellPtr, CellPtr),
 }
 
 // Generates helper functions for executing combinators that take $arg_count number of arguments to evaluate.
@@ -600,17 +466,158 @@ macro_rules! run_comb {
 }
 
 impl TurnerEngine {
+    run_comb!(run_comb1, 1);
     run_comb!(run_comb2, 2);
     run_comb!(run_comb3, 3);
 }
 
-#[derive(Debug)]
-enum StepResult {
-    Value(i32),
-    Cell(CellPtr),
-    CellContents(u8, CellPtr, CellPtr),
-    EvaluateArg(CellPtr),
-    EvaluateArg2(CellPtr, CellPtr),
+/// To avoid slowing down [`TurnerEngine`] in benchmarks, all debugging related routines are in this wrapper.
+pub struct TurnerEngineDebug {
+    engine: TurnerEngine,
+    // The directory to dump debug information to
+    dump_path: Option<PathBuf>,
+    step_counter: usize,
+    step_limit: Option<usize>,
+}
+
+impl TurnerEngineDebug {
+    fn step(&mut self) -> Option<CellPtr> {
+        self.step_counter += 1;
+        if let Some(limit) = self.step_limit {
+            if self.step_counter > limit {
+                panic!("Max cycle reached");
+            }
+        }
+        self.dump_dot().expect("Dump failed");
+        self.engine.step()
+    }
+
+    pub fn run(&mut self) -> CellPtr {
+        // This is a copy of run under TurnerEngine.
+        // TODO: deduplicate?
+        self.engine.stack.clear();
+        self.engine.stack.push(
+            *self
+                .engine
+                .def_lookup
+                .get("main")
+                .expect("no main function found"),
+        );
+        loop {
+            if let Some(cell_ptr) = self.step() {
+                return cell_ptr;
+            }
+        }
+    }
+
+    pub fn get_int(&self, cell_ptr: CellPtr) -> Option<i32> {
+        self.engine.get_int(cell_ptr)
+    }
+
+    pub fn dump_dot(&mut self) -> std::io::Result<()> {
+        let mut w = if let Some(dump_path) = &self.dump_path {
+            let f = File::create(dump_path.join(format!("step{}.dot", self.step_counter)))?;
+            BufWriter::new(f)
+        } else {
+            return Ok(());
+        };
+        // Garbage collect so we don't render dead cells
+        self.engine.garbage_collect(vec![]);
+        writeln!(w, "digraph {{")?;
+        // Nodes
+        writeln!(w, "node [shape=record];")?;
+        for c in 0..CELLS {
+            let tag = self.engine.tag[c];
+            if tag & TAG_WANTED == 0 {
+                // unwanted
+                continue;
+            }
+            let hd = self.engine.hd[c];
+            let hd = if let Some(comb) = hd.comb() {
+                format!("{:?}", comb)
+            } else {
+                String::new()
+            };
+            let tl = self.engine.tl[c];
+            let tl = if tag & TAG_RHS_INT != 0 {
+                format!("{}", tl.0)
+            } else if let Some(comb) = tl.comb() {
+                format!("{:?}", comb)
+            } else {
+                String::new()
+            };
+            writeln!(w, "cell{} [label=\"<hd> {}|<tl> {}\"];", c, hd, tl)?;
+        }
+        // Stack
+        if !self.engine.stack.is_empty() {
+            write!(w, "stack [pos=\"0,0!\", label=\"{{")?;
+            for (i, c) in self.engine.stack.iter().enumerate() {
+                if let Some(comb) = c.comb() {
+                    write!(w, "<s{}> {:?}", i, comb)?;
+                } else {
+                    write!(w, "<s{}> ", i)?;
+                }
+                if i != self.engine.stack.len() - 1 {
+                    write!(w, "|")?;
+                }
+            }
+            writeln!(w, "}}\"];")?;
+        }
+
+        // Edges
+        for c in 0..CELLS {
+            let tag = self.engine.tag[c];
+            if tag & TAG_WANTED == 0 {
+                // unwanted
+                continue;
+            }
+            let hd = self.engine.hd[c];
+            if hd.comb().is_none() {
+                writeln!(w, "cell{}:hd -> cell{};", c, hd.0)?;
+            }
+            let tl = self.engine.tl[c];
+            if tl.comb().is_none() && tag & TAG_RHS_INT == 0 {
+                writeln!(w, "cell{}:tl -> cell{};", c, tl.0)?;
+            }
+        }
+        // Defs
+        for (n, p) in self.engine.def_lookup.iter() {
+            writeln!(w, "{} -> cell{}", n, p.0)?;
+        }
+
+        // Stack edges
+        if !self.engine.stack.is_empty() {
+            for (i, c) in self.engine.stack.iter().enumerate() {
+                if c.comb().is_none() {
+                    writeln!(w, "stack:s{} -> cell{}", i, c.0)?;
+                }
+            }
+        }
+
+        writeln!(w, "}}")?;
+        Ok(())
+    }
+
+    pub fn set_dump_path(&mut self, dump_path: String) {
+        let dump_path = PathBuf::from(dump_path);
+        std::fs::create_dir_all(&dump_path).expect("failed to create dump directory");
+        // Clean up old dump files
+        for entry in std::fs::read_dir(&dump_path).unwrap() {
+            let entry = entry.unwrap();
+            if let Some(name) = entry.file_name().to_str() {
+                if name.ends_with(".dot") {
+                    let path = dump_path.join(entry.file_name());
+                    println!("Deleting file {:?}", path);
+                    std::fs::remove_file(path).expect("failed to delete file");
+                }
+            }
+        }
+        self.dump_path = Some(dump_path);
+    }
+
+    pub fn set_step_limit(&mut self, l: usize) {
+        self.step_limit = Some(l);
+    }
 }
 
 #[cfg(test)]
@@ -792,7 +799,7 @@ mod tests {
 
     fn assert_runs_to_int(_test_name: &str, program: &str, v: i32, l: StepLimit) {
         let parsed = parse(lex(program));
-        let mut engine = TurnerEngine::compile(&parsed);
+        let mut engine = TurnerEngine::compile(&parsed).with_debug();
         // disabled by default because it slows things down a lot, enable for debugging
         //engine.set_dump_path(format!("/tmp/{}", _test_name));
         engine.set_step_limit(l.0);
