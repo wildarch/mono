@@ -74,259 +74,169 @@ impl TurnerEngine {
         self.stack
             .push(*self.def_lookup.get("main").expect("no main function found"));
         loop {
-            self.step_counter += 1;
-            if let Some(limit) = self.step_limit {
-                if self.step_counter > limit {
-                    panic!("Max cycle reached");
-                }
+            if let Some(cell_ptr) = self.step() {
+                return cell_ptr;
             }
-            self.dump_dot().expect("Dump failed");
-            let top = self.stack.last().unwrap();
-            if let Some(comb) = top.comb() {
-                match comb {
-                    Comb::S => {
-                        debug_assert!(
-                            self.stack.len() >= 4,
-                            "(step {}) S requires 4 arguments on the stack: {:?}",
-                            self.step_counter,
-                            self.stack
-                        );
-                        // S f g x => f x (g x)
-                        let l0 = self.stack[self.stack.len() - 2];
-                        let l1 = self.stack[self.stack.len() - 3];
-                        let l2 = self.stack[self.stack.len() - 4];
+        }
+    }
 
-                        // If x is an int, we should transfer that to the new location
-                        let x_tag = self.tag(l2) & TAG_RHS_INT;
-                        let x = self.tl(l2);
-                        let g = self.tl(l1);
-                        let f = self.tl(l0);
-
-                        // Make lower cells
-                        // TODO: check if we guarantee nobody else holds a reference to cells l0 and l1, so we can overwrite them
-                        let left_cell = self.make_cell(x_tag | TAG_WANTED, f, x);
-                        let right_cell = self.make_cell(x_tag | TAG_WANTED, g, x);
-                        // Overwrite upper cell
-                        self.set_tag(l2, TAG_WANTED);
-                        self.set_hd(l2, left_cell);
-                        self.set_tl(l2, right_cell);
-                        // Truncate to upper cell
-                        self.stack.truncate(self.stack.len() - 3);
+    fn step(&mut self) -> Option<CellPtr> {
+        self.step_counter += 1;
+        if let Some(limit) = self.step_limit {
+            if self.step_counter > limit {
+                panic!("Max cycle reached");
+            }
+        }
+        self.dump_dot().expect("Dump failed");
+        let top = self.stack.last().unwrap();
+        if let Some(comb) = top.comb() {
+            match comb {
+                Comb::S => self.run_comb3(|engine, args| {
+                    // S f g x => f x (g x)
+                    let x = engine.tl(args[2]);
+                    let g = engine.tl(args[1]);
+                    let f = engine.tl(args[0]);
+                    // If x is an int, we should transfer that to the new location
+                    let x_int = engine.tag(args[2]) & TAG_RHS_INT;
+                    // Make lower cells
+                    let left_cell = engine.make_cell(x_int | TAG_WANTED, f, x);
+                    let right_cell = engine.make_cell(x_int | TAG_WANTED, g, x);
+                    StepResult::CellContents(TAG_WANTED, left_cell, right_cell)
+                }),
+                Comb::K => self.run_comb2(|engine, args| {
+                    // K x y = x
+                    if let Some(v) = engine.int_rhs(args[0]) {
+                        StepResult::Value(v)
+                    } else {
+                        StepResult::Cell(engine.tl(args[0]))
                     }
-                    Comb::K => {
-                        debug_assert!(
-                            self.stack.len() >= 3,
-                            "(step {}) K requires 3 arguments on the stack: {:?}",
-                            self.step_counter,
-                            self.stack
-                        );
-                        // K x y = x
-                        let l0 = self.stack[self.stack.len() - 2];
-                        let l1 = self.stack[self.stack.len() - 3];
-                        let x = self.tl(l0);
-                        // If x is an int, we should transfer that to the new location
-                        let x_tag = self.tag(l0) & TAG_RHS_INT;
-
-                        // Make the indirection node
-                        self.set_tag(l1, x_tag | TAG_WANTED);
-                        self.set_hd(l1, Comb::I);
-                        self.set_tl(l1, x);
-
-                        // Check if the value is an int, then we are done
-                        if x_tag & TAG_RHS_INT != 0 {
-                            if self.stack.len() == 3 {
-                                self.stack.truncate(self.stack.len() - 2);
-                                // No larger expression to evaluate next
-                                return l1;
-                            }
-                            // Continue with the larger expression on the stack
-                            self.stack.truncate(self.stack.len() - 3);
+                }),
+                Comb::I => {
+                    debug_assert!(
+                        self.stack.len() >= 2,
+                        "I requires 1 argument on the stack: {:?}",
+                        self.stack
+                    );
+                    // TODO: Compress multiple indirections
+                    // Check if we are done
+                    let l0 = self.stack[self.stack.len() - 2];
+                    let tag0 = self.tag(l0);
+                    if tag0 & TAG_RHS_INT != 0 {
+                        // Indirection node!
+                        if self.stack.len() == 2 {
+                            self.stack.truncate(self.stack.len() - 1);
+                            // No larger expression to evaluate next
+                            return Some(l0);
                         } else {
-                            // Put x on the stack
-                            let new_len = self.stack.len() - 2;
-                            self.stack[new_len - 1] = x;
+                            // Continue with the larger expression on the stack
+                            self.stack.truncate(self.stack.len() - 2);
+                            None
+                        }
+                    } else {
+                        // Take the argument, and evaluate that instead
+                        let arg = self.tl(l0);
+                        // Special case: for I (I x) = I x
+                        if arg.comb() == Some(Comb::I) {
+                            let l1 = self.stack[self.stack.len() - 3];
+                            // Fixup the new indirection node
+                            self.set_hd(l1, Comb::I);
+
+                            self.stack.truncate(self.stack.len() - 2);
+                        } else {
+                            // Replace two items with one arg
+                            let new_len = self.stack.len() - 1;
+                            self.stack[new_len - 1] = arg;
                             self.stack.truncate(new_len);
                         }
+                        None
                     }
-                    Comb::I => {
-                        debug_assert!(
-                            self.stack.len() >= 2,
-                            "(step {}) I requires 2 arguments on the stack: {:?}",
-                            self.step_counter,
-                            self.stack
-                        );
-                        // TODO: Compress multiple indirections
-                        // Check if we are done
-                        let l0 = self.stack[self.stack.len() - 2];
-                        let tag0 = self.tag(l0);
-                        if tag0 & TAG_RHS_INT != 0 {
-                            // Indirection node!
-                            if self.stack.len() == 2 {
-                                self.stack.truncate(self.stack.len() - 1);
-                                // No larger expression to evaluate next
-                                return l0;
-                            } else {
-                                // Continue with the larger expression on the stack
-                                self.stack.truncate(self.stack.len() - 2);
-                            }
-                        } else {
-                            // Take the argument, and evaluate that instead
-                            let arg = self.tl(l0);
-                            // Special case: for I (I x) = I x
-                            if arg.comb() == Some(Comb::I) {
-                                let l1 = self.stack[self.stack.len() - 3];
-                                // Fixup the new indirection node
-                                self.set_hd(l1, Comb::I);
-
-                                self.stack.truncate(self.stack.len() - 2);
-                            } else {
-                                // Replace two items with one arg
-                                let new_len = self.stack.len() - 1;
-                                self.stack[new_len - 1] = arg;
-                                self.stack.truncate(new_len);
-                            }
-                        }
-                    }
-                    Comb::Y => todo!("Y not implemented. Stack: {:?}", self.stack),
-                    Comb::U => todo!(),
-                    Comb::P => todo!(),
-                    Comb::B => todo!(),
-                    Comb::C => todo!(),
-                    Comb::Plus => {
-                        if let Some(ptr) = self.run_strict_binop(|a, b| a + b) {
-                            return ptr;
-                        }
-                    }
-                    Comb::Minus => {
-                        if let Some(ptr) = self.run_strict_binop(|a, b| a - b) {
-                            return ptr;
-                        }
-                    }
-                    Comb::Times => {
-                        if let Some(ptr) = self.run_strict_binop(|a, b| a * b) {
-                            return ptr;
-                        }
-                    }
-                    Comb::Divide => {
-                        if let Some(ptr) = self.run_strict_binop(|a, b| a / b) {
-                            return ptr;
-                        }
-                    }
-                    Comb::Cond => {
-                        debug_assert!(
-                            self.stack.len() >= 4,
-                            "(step {}) Cond requires 4 arguments on the stack: {:?}",
-                            self.step_counter,
-                            self.stack
-                        );
-                        // TODO: dedup with other strict combinators
-                        let l0 = self.stack[self.stack.len() - 2];
-                        let c = self.int_rhs(l0);
-                        if let Some(c) = c {
-                            // Condition already evaluated
-                            let l1 = self.stack[self.stack.len() - 3];
-                            let l2 = self.stack[self.stack.len() - 4];
-
-                            let branch_ptr = match c {
-                                0 => l2,
-                                1 => l1,
-                                v => panic!("Illegal condition value {}", v),
-                            };
-                            let tag = self.tag(branch_ptr) & TAG_RHS_INT;
-                            let branch_tl = self.tl(branch_ptr);
-                            // Make an indirection node to branch_ptr's RHS
-                            self.set_tag(l2, tag | TAG_WANTED);
-                            self.set_hd(l2, Comb::I);
-                            self.set_tl(l2, branch_tl);
-
-                            // Check if the value is an int, then we are done
-                            if tag & TAG_RHS_INT != 0 {
-                                if self.stack.len() == 4 {
-                                    self.stack.truncate(self.stack.len() - 3);
-                                    // No larger expression to evaluate next
-                                    return branch_ptr;
-                                }
-                                // Continue with the larger expression on the stack
-                                self.stack.truncate(self.stack.len() - 4);
-                            } else {
-                                // Update stack to the chosen branch
-                                let new_len = self.stack.len() - 3;
-                                self.stack[new_len - 1] = branch_tl;
-                                self.stack.truncate(new_len);
-                            }
-                        } else {
-                            self.stack.push(self.tl(l0));
-                        }
-                    }
-                    Comb::Eq => {
-                        if let Some(ptr) = self.run_strict_binop(|a, b| if a == b { 1 } else { 0 })
-                        {
-                            return ptr;
-                        }
-                    }
-                    Comb::Neq => todo!(),
-                    Comb::Gt => todo!(),
-                    Comb::Gte => todo!(),
-                    Comb::Lt => {
-                        if let Some(ptr) = self.run_strict_binop(|a, b| if a < b { 1 } else { 0 }) {
-                            return ptr;
-                        }
-                    }
-                    Comb::Lte => todo!(),
-                    Comb::And => todo!(),
-                    Comb::Or => todo!(),
-                    Comb::Not => todo!(),
-                    Comb::Abort => todo!(),
                 }
-            } else {
-                // An application, so push the left subtree
-                self.stack.push(self.hd(*top));
+                Comb::Y => todo!("Y not implemented. Stack: {:?}", self.stack),
+                Comb::U => todo!(),
+                Comb::P => todo!(),
+                Comb::B => todo!(),
+                Comb::C => todo!(),
+                Comb::Plus => self.run_strict_binop(|a, b| a + b),
+                Comb::Minus => self.run_strict_binop(|a, b| a - b),
+                Comb::Times => self.run_strict_binop(|a, b| a * b),
+                Comb::Divide => self.run_strict_binop(|a, b| a / b),
+                Comb::Cond => self.run_comb3(|engine, args| {
+                    // COND c t f = if(c) t else f
+                    if let Some(c) = engine.int_rhs(args[0]) {
+                        let branch_ptr = match c {
+                            0 => args[2],
+                            1 => args[1],
+                            v => {
+                                // We expect never to reach this code.
+                                // In debug mode we panic, in release the behaviour is undefined.
+                                debug_assert!(
+                                    v == 0 || v == 1,
+                                    "condition variable should be 0 or 1"
+                                );
+                                unsafe { std::hint::unreachable_unchecked() }
+                            }
+                        };
+                        let branch_tl = engine.tl(branch_ptr);
+                        // Check if tl is int
+                        if engine.tag(branch_ptr) & TAG_RHS_INT != 0 {
+                            println!("Cond result: value {}", branch_tl.0);
+                            StepResult::Value(branch_tl.0)
+                        } else {
+                            StepResult::Cell(branch_tl)
+                        }
+                    } else {
+                        StepResult::EvaluateArg(engine.tl(args[0]))
+                    }
+                }),
+                Comb::Eq => self.run_strict_binop(|a, b| if a == b { 1 } else { 0 }),
+                Comb::Neq => todo!(),
+                Comb::Gt => todo!(),
+                Comb::Gte => todo!(),
+                Comb::Lt => self.run_strict_binop(|a, b| if a < b { 1 } else { 0 }),
+                Comb::Lte => todo!(),
+                Comb::And => todo!(),
+                Comb::Or => todo!(),
+                Comb::Not => todo!(),
+                Comb::Abort => todo!(),
             }
+        } else {
+            // An application, so push the left subtree
+            self.stack.push(self.hd(*top));
+            None
         }
     }
 
     fn run_strict_binop(&mut self, op: fn(i32, i32) -> i32) -> Option<CellPtr> {
-        let l0 = self.stack[self.stack.len() - 2];
-        let l1 = self.stack[self.stack.len() - 3];
+        self.run_comb2(|engine, args| {
+            let a = engine.int_rhs(args[0]);
+            let b = engine.int_rhs(args[1]);
 
-        let a = self.int_rhs(l0);
-        let b = self.int_rhs(l1);
-
-        if let (Some(a), Some(b)) = (a, b) {
-            // Already reduced
-            self.set_tag(l1, TAG_WANTED | TAG_RHS_INT);
-            self.set_hd(l1, Comb::I);
-            self.set_tl(l1, CellPtr(op(a, b)));
-
-            if self.stack.len() == 3 {
-                self.stack.truncate(self.stack.len() - 2);
-                // No larger expression to evaluate next
-                return Some(l1);
-            } else {
-                // Continue with the larger expression on the stack
-                self.stack.truncate(self.stack.len() - 3);
+            match (a, b) {
+                (Some(a), Some(b)) => StepResult::Value(op(a, b)),
+                (Some(_), None) => StepResult::EvaluateArg(engine.tl(args[1])),
+                (None, Some(_)) => StepResult::EvaluateArg(engine.tl(args[0])),
+                (None, None) => StepResult::EvaluateArg2(engine.tl(args[0]), engine.tl(args[1])),
             }
-        }
-
-        // Push a and/or b onto the stack to evaluate
-        if b.is_none() {
-            self.stack.push(self.tl(l1));
-        }
-        if a.is_none() {
-            self.stack.push(self.tl(l0));
-        }
-        None
+        })
     }
 
-    fn int_rhs(&self, cell_ptr: CellPtr) -> Option<i32> {
+    fn int_rhs(&mut self, cell_ptr: CellPtr) -> Option<i32> {
         let tag = self.tag(cell_ptr);
         let rhs_ptr = self.tl(cell_ptr);
         if tag & TAG_RHS_INT != 0 {
             return Some(rhs_ptr.0);
         }
+        if rhs_ptr.comb().is_some() {
+            // rhs points to a combinator
+            return None;
+        }
         // Check to see if RHS happens to point to an indirection node
         if self.hd(rhs_ptr).comb() == Some(Comb::I) {
-            return self.int_rhs(rhs_ptr);
+            // TODO: Consider making indirection compression a job for I reduction
+            // Remove one layer of indirection
+            self.set_tag(cell_ptr, self.tag(rhs_ptr));
+            self.set_tl(cell_ptr, self.tl(rhs_ptr));
+            return self.int_rhs(cell_ptr);
         }
         None
     }
@@ -615,6 +525,92 @@ impl TurnerEngine {
             None
         }
     }
+}
+
+// Generates helper functions for executing combinators that take $arg_count number of arguments to evaluate.
+macro_rules! run_comb {
+    ($name:ident, $arg_count:literal) => {
+        fn $name<F: FnOnce(&mut TurnerEngine, [CellPtr; $arg_count]) -> StepResult>(
+            &mut self,
+            handler: F,
+        ) -> Option<CellPtr> {
+            const FRAME_SIZE: usize = $arg_count + 1;
+            debug_assert!(self.stack.len() >= FRAME_SIZE);
+            // Arguments are in reverse order because the stack is LIFO.
+            let mut args = [CellPtr(0); $arg_count];
+            for i in 0..$arg_count {
+                args[i] = *unsafe { self.stack.get_unchecked(self.stack.len() - 2 - i) };
+            }
+            let frame_start = args[$arg_count - 1];
+
+            match handler(self, args) {
+                StepResult::Value(v) => {
+                    // Make an indirection node
+                    self.set_tag(frame_start, TAG_WANTED | TAG_RHS_INT);
+                    self.set_hd(frame_start, Comb::I);
+                    self.set_tl(frame_start, CellPtr(v));
+
+                    // If nothing is on the stack, return the node
+                    if self.stack.len() == FRAME_SIZE {
+                        return Some(frame_start);
+                    }
+                    // Remove this frame, returning to the parent expression on the stack
+                    unsafe { self.stack.set_len(self.stack.len() - FRAME_SIZE) };
+                    None
+                }
+                StepResult::Cell(c) => {
+                    // Make an indirection node
+                    self.set_tag(frame_start, TAG_WANTED);
+                    self.set_hd(frame_start, Comb::I);
+                    self.set_tl(frame_start, c);
+
+                    // Make the new cell top of the stack
+                    let new_len = self.stack.len() - $arg_count;
+                    unsafe {
+                        *self.stack.get_unchecked_mut(new_len - 1) = c;
+                        self.stack.set_len(new_len);
+                    }
+                    None
+                }
+                StepResult::CellContents(tag, hd, tl) => {
+                    // Create the new cell over the old one
+                    self.set_tag(frame_start, tag);
+                    self.set_hd(frame_start, hd);
+                    self.set_tl(frame_start, tl);
+
+                    // Make the new cell top of the stack
+                    let new_len = self.stack.len() - $arg_count;
+                    unsafe {
+                        self.stack.set_len(new_len);
+                    }
+                    None
+                }
+                StepResult::EvaluateArg(a) => {
+                    self.stack.push(a);
+                    None
+                }
+                StepResult::EvaluateArg2(a, b) => {
+                    self.stack.push(a);
+                    self.stack.push(b);
+                    None
+                }
+            }
+        }
+    };
+}
+
+impl TurnerEngine {
+    run_comb!(run_comb2, 2);
+    run_comb!(run_comb3, 3);
+}
+
+#[derive(Debug)]
+enum StepResult {
+    Value(i32),
+    Cell(CellPtr),
+    CellContents(u8, CellPtr, CellPtr),
+    EvaluateArg(CellPtr),
+    EvaluateArg2(CellPtr, CellPtr),
 }
 
 #[cfg(test)]
