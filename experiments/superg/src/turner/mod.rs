@@ -4,8 +4,11 @@ use std::{collections::HashMap, fs::File, io::BufWriter, path::PathBuf};
 
 use crate::ast;
 
+// TODO: Allow dynamically growing the heap.
 const CELLS: usize = 250_000;
 
+/// The core atom in the reduction machine.
+/// Low pointer values represent combinators, high values are indices into the global cells array.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct CellPtr(i32);
 
@@ -21,11 +24,49 @@ impl Into<CellPtr> for Comb {
     }
 }
 
-const TAG_WANTED: u8 = 1u8 << 7;
-const TAG_RHS_INT: u8 = 1u8 << 6;
+/// Tag byte.
+/// Contains bitflags for a cell.
+#[derive(Debug, Copy, Clone)]
+struct Tag(u8);
+
+impl Tag {
+    const WANTED: u8 = 1u8 << 7;
+    const RHS_INT: u8 = 1u8 << 6;
+    pub fn wanted() -> Tag {
+        Tag(Tag::WANTED)
+    }
+
+    pub fn set_rhs_int(self) -> Tag {
+        Tag(self.0 | Tag::RHS_INT)
+    }
+
+    pub fn set_wanted(self) -> Tag {
+        Tag(self.0 | Tag::WANTED)
+    }
+
+    pub fn set_unwanted(self) -> Tag {
+        Tag(self.0 & (!Tag::WANTED))
+    }
+
+    pub fn is_wanted(self) -> bool {
+        return self.0 & Tag::WANTED != 0;
+    }
+
+    pub fn is_rhs_int(self) -> bool {
+        return self.0 & Tag::RHS_INT != 0;
+    }
+}
 
 pub struct TurnerEngine {
-    tag: Vec<u8>,
+    // Conceptually, a cell looks like this:
+    //
+    // |=====|======|======|
+    // | TAG | HEAD | TAIL |
+    // |=====|======|======|
+    //
+    // We could store that in a Vec<(Tag, CellPtr,CellPtr), or even define a Cell type, but Miranda choosen this decomposed form, so we stick with that.
+    // TODO: Experiment with storing tuples instead.
+    tag: Vec<Tag>,
     hd: Vec<CellPtr>,
     tl: Vec<CellPtr>,
     // The next free cell
@@ -38,7 +79,7 @@ pub struct TurnerEngine {
 impl TurnerEngine {
     pub fn compile(program: &ast::Program) -> TurnerEngine {
         let mut engine = TurnerEngine {
-            tag: vec![0; CELLS],
+            tag: vec![Tag::wanted(); CELLS],
             hd: vec![CellPtr(0i32); CELLS],
             tl: vec![CellPtr(0i32); CELLS],
             // We don't allocate cells when the pointer to it would be ambiguous
@@ -49,7 +90,7 @@ impl TurnerEngine {
 
         // Reserve a spot for each definition
         for def in &program.defs {
-            let cell_ptr = engine.make_cell(TAG_WANTED, Comb::I, Comb::Abort);
+            let cell_ptr = engine.make_cell(Tag::wanted(), Comb::I, Comb::Abort);
             if let Some(_) = engine.def_lookup.insert(def.name.clone(), cell_ptr) {
                 panic!("Duplicate definition of {}", def.name);
             }
@@ -83,11 +124,14 @@ impl TurnerEngine {
                     let g = engine.tl(args[1]);
                     let f = engine.tl(args[0]);
                     // If x is an int, we should transfer that to the new location
-                    let x_int = engine.tag(args[2]) & TAG_RHS_INT;
+                    let mut tag = Tag::wanted();
+                    if engine.tag(args[2]).is_rhs_int() {
+                        tag = tag.set_rhs_int();
+                    }
                     // Make lower cells
-                    let left_cell = engine.make_cell(x_int | TAG_WANTED, f, x);
-                    let right_cell = engine.make_cell(x_int | TAG_WANTED, g, x);
-                    StepResult::CellContents(TAG_WANTED, left_cell, right_cell)
+                    let left_cell = engine.make_cell(tag, f, x);
+                    let right_cell = engine.make_cell(tag, g, x);
+                    StepResult::CellContents(Tag::wanted(), left_cell, right_cell)
                 }),
                 Comb::K => self.run_comb2(|engine, args| {
                     // K x y = x
@@ -132,8 +176,7 @@ impl TurnerEngine {
                         };
                         let branch_tl = engine.tl(branch_ptr);
                         // Check if tl is int
-                        if engine.tag(branch_ptr) & TAG_RHS_INT != 0 {
-                            println!("Cond result: value {}", branch_tl.0);
+                        if engine.tag(branch_ptr).is_rhs_int() {
                             StepResult::Value(branch_tl.0)
                         } else {
                             StepResult::Cell(branch_tl)
@@ -177,7 +220,7 @@ impl TurnerEngine {
     fn int_rhs(&mut self, cell_ptr: CellPtr) -> Option<i32> {
         let tag = self.tag(cell_ptr);
         let rhs_ptr = self.tl(cell_ptr);
-        if tag & TAG_RHS_INT != 0 {
+        if tag.is_rhs_int() {
             return Some(rhs_ptr.0);
         }
         if rhs_ptr.comb().is_some() {
@@ -208,7 +251,7 @@ impl TurnerEngine {
 
     fn make_cell<CP0: Into<CellPtr>, CP1: Into<CellPtr>>(
         &mut self,
-        tag: u8,
+        tag: Tag,
         hd: CP0,
         tl: CP1,
     ) -> CellPtr {
@@ -216,13 +259,13 @@ impl TurnerEngine {
         let mut cell_idx = self.next_cell.0 as usize;
         let hd = hd.into();
         let tl = tl.into();
-        while cell_idx >= self.tag.len() || self.tag[cell_idx] & TAG_WANTED != 0 {
+        while cell_idx >= self.tag.len() || self.tag[cell_idx].is_wanted() {
             cell_idx += 1;
 
             // We have exhausted the memory
             if cell_idx >= self.tag.len() {
                 // Time for gc!
-                let initial_queue = if tag & TAG_RHS_INT != 0 {
+                let initial_queue = if tag.is_rhs_int() {
                     vec![hd]
                 } else {
                     vec![hd, tl]
@@ -244,7 +287,7 @@ impl TurnerEngine {
     fn garbage_collect(&mut self, mut queue: Vec<CellPtr>) {
         // Phase 1: Mark everything unwanted
         for t in self.tag.iter_mut().skip(Comb::all().len()) {
-            *t &= !TAG_WANTED;
+            *t = t.set_unwanted();
         }
 
         // Phase 2: Start at the stack and mark everything reachable from it
@@ -257,31 +300,31 @@ impl TurnerEngine {
             }
             // Skip if already marked
             let tag = self.tag(cell_ptr);
-            let visited = tag & TAG_WANTED != 0;
+            let visited = tag.is_wanted();
             if visited {
                 continue;
             }
 
             // Mark this cell as wanted
-            self.set_tag(cell_ptr, self.tag(cell_ptr) | TAG_WANTED);
+            self.set_tag(cell_ptr, self.tag(cell_ptr).set_wanted());
             cells_wanted += 1;
 
             // Check children
             let hd = self.hd(cell_ptr);
             if hd.comb().is_none() {
                 // hd is ptr
-                let hd_visited = self.tag(hd) & TAG_WANTED != 0;
+                let hd_visited = self.tag(hd).is_wanted();
                 if !hd_visited {
                     queue.push(hd);
                 }
             }
 
-            if tag & TAG_RHS_INT == 0 {
+            if !tag.is_rhs_int() {
                 // tl is a ptr or comb, not int
                 let tl = self.tl(cell_ptr);
                 if tl.comb().is_none() {
                     // tl is ptr
-                    let tl_visited = self.tag(tl) & TAG_WANTED != 0;
+                    let tl_visited = self.tag(tl).is_wanted();
                     if !tl_visited {
                         queue.push(tl);
                     }
@@ -305,9 +348,9 @@ impl TurnerEngine {
                 .copied()
                 .expect(&format!("Missing definition for {:?}", s)),
             CompiledExpr::Ap(l, r) => {
-                let mut tag = TAG_WANTED;
+                let mut tag = Tag::wanted();
                 if let CompiledExpr::Int(_) = *r {
-                    tag |= TAG_RHS_INT;
+                    tag = tag.set_rhs_int();
                 }
                 let l = self.alloc_compiled_expr(*l);
                 let r = self.alloc_compiled_expr(*r);
@@ -337,12 +380,12 @@ impl TurnerEngine {
         );
     }
 
-    fn set_tag(&mut self, ptr: CellPtr, t: u8) {
+    fn set_tag(&mut self, ptr: CellPtr, t: Tag) {
         self.debug_assert_ptr(ptr);
         *unsafe { self.tag.get_unchecked_mut(ptr.0 as usize) } = t;
     }
 
-    fn tag(&self, ptr: CellPtr) -> u8 {
+    fn tag(&self, ptr: CellPtr) -> Tag {
         self.debug_assert_ptr(ptr);
         *unsafe { self.tag.get_unchecked(ptr.0 as usize) }
     }
@@ -368,7 +411,7 @@ impl TurnerEngine {
     }
 
     pub fn get_int(&self, ptr: CellPtr) -> Option<i32> {
-        if self.tag(ptr) | TAG_RHS_INT != 0 {
+        if self.tag(ptr).is_rhs_int() {
             Some(self.tl(ptr).0)
         } else {
             None
@@ -388,7 +431,7 @@ impl TurnerEngine {
 enum StepResult {
     Value(i32),
     Cell(CellPtr),
-    CellContents(u8, CellPtr, CellPtr),
+    CellContents(Tag, CellPtr, CellPtr),
     EvaluateArg(CellPtr),
     EvaluateArg2(CellPtr, CellPtr),
 }
@@ -412,7 +455,7 @@ macro_rules! run_comb {
             match handler(self, args) {
                 StepResult::Value(v) => {
                     // Make an indirection node
-                    self.set_tag(frame_start, TAG_WANTED | TAG_RHS_INT);
+                    self.set_tag(frame_start, Tag::wanted().set_rhs_int());
                     self.set_hd(frame_start, Comb::I);
                     self.set_tl(frame_start, CellPtr(v));
 
@@ -426,7 +469,7 @@ macro_rules! run_comb {
                 }
                 StepResult::Cell(c) => {
                     // Make an indirection node
-                    self.set_tag(frame_start, TAG_WANTED);
+                    self.set_tag(frame_start, Tag::wanted());
                     self.set_hd(frame_start, Comb::I);
                     self.set_tl(frame_start, c);
 
@@ -528,7 +571,7 @@ impl TurnerEngineDebug {
         writeln!(w, "node [shape=record];")?;
         for c in 0..CELLS {
             let tag = self.engine.tag[c];
-            if tag & TAG_WANTED == 0 {
+            if !tag.is_wanted() {
                 // unwanted
                 continue;
             }
@@ -539,7 +582,7 @@ impl TurnerEngineDebug {
                 String::new()
             };
             let tl = self.engine.tl[c];
-            let tl = if tag & TAG_RHS_INT != 0 {
+            let tl = if tag.is_rhs_int() {
                 format!("{}", tl.0)
             } else if let Some(comb) = tl.comb() {
                 format!("{:?}", comb)
@@ -567,8 +610,7 @@ impl TurnerEngineDebug {
         // Edges
         for c in 0..CELLS {
             let tag = self.engine.tag[c];
-            if tag & TAG_WANTED == 0 {
-                // unwanted
+            if !tag.is_wanted() {
                 continue;
             }
             let hd = self.engine.hd[c];
@@ -576,7 +618,7 @@ impl TurnerEngineDebug {
                 writeln!(w, "cell{}:hd -> cell{};", c, hd.0)?;
             }
             let tl = self.engine.tl[c];
-            if tl.comb().is_none() && tag & TAG_RHS_INT == 0 {
+            if tl.comb().is_none() && !tag.is_rhs_int() {
                 writeln!(w, "cell{}:tl -> cell{};", c, tl.0)?;
             }
         }
