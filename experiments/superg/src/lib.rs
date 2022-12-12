@@ -3,7 +3,8 @@ pub mod lexer;
 pub mod parser;
 pub mod turner;
 
-mod compiled_expr;
+pub mod bracket;
+pub mod compiled_expr;
 pub mod kiselyov;
 
 pub use lexer::lex;

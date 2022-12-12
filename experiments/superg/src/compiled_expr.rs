@@ -1,5 +1,3 @@
-use crate::ast;
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(i32)]
 pub enum Comb {
@@ -76,81 +74,4 @@ impl Into<CompiledExpr> for Comb {
 
 pub fn cap<A: Into<CompiledExpr>, B: Into<CompiledExpr>>(a: A, b: B) -> CompiledExpr {
     CompiledExpr::Ap(Box::new(a.into()), Box::new(b.into()))
-}
-
-impl CompiledExpr {
-    pub fn compile(e: &ast::Expr) -> CompiledExpr {
-        match e {
-            ast::Expr::Int(i) => CompiledExpr::Int(*i),
-            ast::Expr::Var(s) => match s.as_str() {
-                "if" => CompiledExpr::Comb(Comb::Cond),
-                s => CompiledExpr::Var(s.to_owned()),
-            },
-            ast::Expr::BinOp(l, o, r) => {
-                let op_comb = match o {
-                    ast::BinOp::Cons => Comb::P,
-                    ast::BinOp::Plus => Comb::Plus,
-                    ast::BinOp::Minus => Comb::Minus,
-                    ast::BinOp::Times => Comb::Times,
-                    ast::BinOp::Divide => Comb::Divide,
-                    ast::BinOp::Eq => Comb::Eq,
-                    ast::BinOp::Neq => Comb::Neq,
-                    ast::BinOp::Gt => Comb::Gt,
-                    ast::BinOp::Gte => Comb::Gte,
-                    ast::BinOp::Lt => Comb::Lt,
-                    ast::BinOp::Lte => Comb::Lte,
-                    ast::BinOp::And => Comb::And,
-                    ast::BinOp::Or => Comb::Or,
-                };
-                let l = CompiledExpr::compile(l);
-                let r = CompiledExpr::compile(r);
-                cap(cap(op_comb, l), r)
-            }
-            ast::Expr::Not(e) => cap(Comb::Not, CompiledExpr::compile(e)),
-            ast::Expr::Ap(l, r) => {
-                let l = CompiledExpr::compile(l);
-                let r = CompiledExpr::compile(r);
-                cap(l, r)
-            }
-            ast::Expr::Lam(x, e) => CompiledExpr::compile(e).abstract_var(x),
-        }
-    }
-
-    pub fn abstract_var(self, n: &str) -> CompiledExpr {
-        match self {
-            CompiledExpr::Comb(c) => cap(Comb::K, c),
-            CompiledExpr::Ap(l, r) => cap(cap(Comb::S, l.abstract_var(n)), r.abstract_var(n)),
-            CompiledExpr::Var(s) => {
-                if s == n {
-                    CompiledExpr::Comb(Comb::I)
-                } else {
-                    cap(CompiledExpr::Comb(Comb::K), CompiledExpr::Var(s))
-                }
-            }
-            i @ CompiledExpr::Int(_) => cap(CompiledExpr::Comb(Comb::K), i),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::lexer::lex;
-    use crate::parser::parse_expr;
-
-    #[test]
-    fn compile_increment() {
-        let expr = "lam (x) (+ x 1)";
-        let mut tokens = lex(expr);
-        let parsed_expr = parse_expr(&mut tokens);
-        let compiled = CompiledExpr::compile(&parsed_expr);
-        use Comb::{Plus, I, K, S};
-        assert_eq!(
-            compiled,
-            cap(
-                cap(S, cap(cap(S, cap(K, Plus)), I)),
-                cap(K, CompiledExpr::Int(1))
-            )
-        );
-    }
 }

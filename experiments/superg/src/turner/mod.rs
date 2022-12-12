@@ -2,7 +2,7 @@ use crate::compiled_expr::{Comb, CompiledExpr};
 use std::io::Write;
 use std::{collections::HashMap, fs::File, io::BufWriter, path::PathBuf};
 
-use crate::ast;
+use crate::{ast, bracket};
 
 // TODO: Allow dynamically growing the heap.
 const CELLS: usize = 250_000;
@@ -239,9 +239,9 @@ impl TurnerEngine {
     }
 
     fn compile_def(&mut self, def: &ast::Def) {
-        let mut compiled_expr = CompiledExpr::compile(&def.expr);
+        let mut compiled_expr = bracket::compile(&def.expr);
         for param in def.params.iter().rev() {
-            compiled_expr = compiled_expr.abstract_var(param);
+            compiled_expr = bracket::abstract_var(compiled_expr, param);
         }
         let cell_ptr = self.alloc_compiled_expr(compiled_expr);
         let def_ptr = self.def_lookup.get(&def.name).unwrap();
