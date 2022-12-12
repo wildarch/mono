@@ -38,7 +38,7 @@ pub fn compile(e: &ast::Expr) -> CompiledExpr {
     }
 }
 
-pub fn abstract_var(e: CompiledExpr, n: &str) -> CompiledExpr {
+fn abstract_var(e: CompiledExpr, n: &str) -> CompiledExpr {
     match e {
         CompiledExpr::Comb(c) => cap(Comb::K, c),
         CompiledExpr::Ap(l, r) => cap(cap(Comb::S, abstract_var(*l, n)), abstract_var(*r, n)),

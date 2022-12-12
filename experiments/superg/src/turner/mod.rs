@@ -239,10 +239,7 @@ impl TurnerEngine {
     }
 
     fn compile_def(&mut self, def: &ast::Def) {
-        let mut compiled_expr = bracket::compile(&def.expr);
-        for param in def.params.iter().rev() {
-            compiled_expr = bracket::abstract_var(compiled_expr, param);
-        }
+        let compiled_expr = bracket::compile(&def.as_lam());
         let cell_ptr = self.alloc_compiled_expr(compiled_expr);
         let def_ptr = self.def_lookup.get(&def.name).unwrap();
         // Set up the indirection from the definition to the compiled expression

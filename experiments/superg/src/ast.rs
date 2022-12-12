@@ -10,7 +10,19 @@ pub struct Def {
     pub expr: Expr,
 }
 
-#[derive(Debug, PartialEq)]
+impl Def {
+    /// Convert this definition into a lambda expression,
+    /// discarding the name.
+    pub fn as_lam(&self) -> Expr {
+        let mut expr = self.expr.clone();
+        for arg in self.params.iter().rev() {
+            expr = Expr::Lam(arg.clone(), Box::new(expr));
+        }
+        expr
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
     Int(i32),
     Var(String),
