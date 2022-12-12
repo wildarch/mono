@@ -1,6 +1,7 @@
 use crate::ast::Expr;
 
 pub mod lazy;
+pub mod lazy_opt;
 pub mod linear;
 pub mod strict;
 
