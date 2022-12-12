@@ -1,6 +1,7 @@
 use crate::ast::Expr;
 
 pub mod lazy;
+pub mod linear;
 pub mod strict;
 
 #[derive(Debug, Clone, PartialEq)]

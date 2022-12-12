@@ -94,8 +94,8 @@ fn semantic<E1: Into<CompiledExpr>, E2: Into<CompiledExpr>>(
 
     match (c1.pop(), c2.pop()) {
         (None, None) => cap(e1, e2),
-        (None, Some(_)) => semantic(Context::new(), cap(Comb::B, e1), c2, e2),
-        (Some(_), None) => semantic(Context::new(), cap(cap(Comb::C, Comb::C), e2), c1, e1),
+        (None, Some(Used)) => semantic(Context::new(), cap(Comb::B, e1), c2, e2),
+        (Some(Used), None) => semantic(Context::new(), cap(cap(Comb::C, Comb::C), e2), c1, e1),
         (Some(Used), Some(Used)) => semantic(
             c1.clone(),
             semantic(Context::new(), Comb::S, c1, e1),
@@ -118,6 +118,10 @@ fn semantic<E1: Into<CompiledExpr>, E2: Into<CompiledExpr>>(
             c2,
             e2,
         ),
+        // Not clearly described in the paper, but necessary for matching results.
+        // This is correct, because we can model a shorter context as one with implicit 'unused' elements.
+        (None, Some(Ignored)) => semantic(c1, e1, c2, e2),
+        (Some(Ignored), None) => semantic(c1, e1, c2, e2),
     }
 }
 
@@ -125,16 +129,45 @@ fn semantic<E1: Into<CompiledExpr>, E2: Into<CompiledExpr>>(
 mod tests {
     use super::super::to_debruijn;
     use super::*;
-    use crate::{lex, parser::parse_expr};
+    use crate::{
+        lex,
+        parser::{parse_compiled_expr, parse_expr},
+    };
+
+    // Testcases taken from Kiselyov's paper, Table 1.
+    #[test]
+    fn kiselyov_examples() {
+        assert_compiles_to("lam (x) (lam (y) y)", "KI");
+        assert_compiles_to("lam (x) (lam (y) x)", "BKI");
+        assert_compiles_to("lam (x) (lam (y) (x y))", "CCI(BBI)");
+        assert_compiles_to("lam (x) (lam (y) (y x))", "B(CI)I");
+        assert_compiles_to("lam (x) (lam (y) (lam (z) (z x)))", "BK(B(CI)I)");
+        assert_compiles_to("lam (x) (lam (y) (lam (z) ((lam (w) w) x)))", "BK(BK(BII))");
+        assert_compiles_to(
+            "lam (x) (lam (y) (lam (z) ((x z) (y z))))",
+            "CC(CCI(BBI)) (BB(BS (CCI(BBI))))",
+        );
+    }
 
     #[test]
-    fn example() {
-        let expr = "lam (x y) (y x)";
+    fn kiselyov_worsecase() {
+        assert_compiles_to("lam (x) (lam (y) (y x))", "B(CI)I");
+        assert_compiles_to("lam (x) (lam (y) (lam (z) (z y x)))", "B(C(BC (B(CI)I)))I");
+        assert_compiles_to(
+            "lam (x) (lam (y) (lam (z) (lam (a) (a z y x))))",
+            "B(C(BC(B(BC) (B(C(BC (B(CI)I)))I))))I",
+        );
+    }
+
+    fn assert_compiles_to(expr: &str, compiled_expr: &str) {
+        // Compile expr
         let mut tokens = lex(expr);
         let parsed_expr = parse_expr(&mut tokens);
         let bexpr = to_debruijn(&parsed_expr, &mut vec![]);
-        let compiled = compile_lazy(&bexpr);
-        use Comb::{B, C, I};
-        assert_eq!(compiled, cap(cap(B, cap(C, I)), I));
+        let actual_compiled_expr = compile_lazy(&bexpr);
+        // Parse expected expr
+        let expected_compiled_expr = parse_compiled_expr(lex(compiled_expr));
+
+        assert_eq!(actual_compiled_expr, expected_compiled_expr);
     }
 }

@@ -1,4 +1,8 @@
-use crate::{ast::*, lexer::Token};
+use crate::{
+    ast::*,
+    compiled_expr::{Comb, CompiledExpr},
+    lexer::Token,
+};
 use std::collections::VecDeque;
 
 pub fn parse(mut tokens: VecDeque<Token>) -> Program {
@@ -83,6 +87,80 @@ pub(crate) fn parse_expr(tokens: &mut VecDeque<Token>) -> Expr {
             _ => Expr::Var(s),
         },
         Some(Token::RParen) => panic!("Unexpected right paren"),
+    }
+}
+
+pub fn parse_compiled_expr(mut tokens: VecDeque<Token>) -> CompiledExpr {
+    use crate::compiled_expr::cap;
+    let mut expr = parse_compiled_expr_inner(&mut tokens);
+    while !tokens.is_empty() {
+        expr = cap(expr, parse_compiled_expr_inner(&mut tokens));
+    }
+    expr
+}
+
+fn parse_compiled_expr_inner(tokens: &mut VecDeque<Token>) -> CompiledExpr {
+    use crate::compiled_expr::{cap, Comb::*};
+    match tokens.pop_front() {
+        None => panic!("Expected an expression, but found nothing"),
+        Some(Token::Integer(i)) => CompiledExpr::Int(i),
+        Some(Token::LParen) => {
+            let mut expr = parse_compiled_expr_inner(tokens);
+            while tokens.front() != Some(&Token::RParen) {
+                expr = cap(expr, parse_compiled_expr_inner(tokens));
+            }
+            eat(tokens, Token::RParen);
+            expr
+        }
+        Some(Token::Symbol(s)) => CompiledExpr::Comb(match s.as_str() {
+            "S" => S,
+            "K" => K,
+            "I" => I,
+            "Y" => Y,
+            "U" => U,
+            "P" => P,
+            "B" => B,
+            "C" => C,
+            "Plus" => Plus,
+            "Minus" => Minus,
+            "Times" => Times,
+            "Divide" => Divide,
+            "Cond" => Cond,
+            "Eq" => Eq,
+            "Neq" => Neq,
+            "Gt" => Gt,
+            "Gte" => Gte,
+            "Lt" => Lt,
+            "Lte" => Lte,
+            "And" => And,
+            "Or" => Or,
+            "Not" => Not,
+            "Abort" => Abort,
+            _ => {
+                // Assume a string of combinators
+                return s
+                    .chars()
+                    .map(|c| CompiledExpr::Comb(parse_comb(c)))
+                    .reduce(cap)
+                    .unwrap();
+            }
+        }),
+        Some(Token::RParen) => panic!("Unexpected right paren"),
+    }
+}
+
+fn parse_comb(c: char) -> Comb {
+    use Comb::*;
+    match c {
+        'S' => S,
+        'K' => K,
+        'I' => I,
+        'Y' => Y,
+        'U' => U,
+        'P' => P,
+        'B' => B,
+        'C' => C,
+        _ => panic!("Illegal combinator: '{}'", c),
     }
 }
 

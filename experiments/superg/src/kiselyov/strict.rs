@@ -36,7 +36,7 @@ pub fn compile_strict(e: &BExpr) -> CompiledExpr {
                 CompiledExpr::Comb(Comb::I)
             } else {
                 let comp_inner = compile_strict(&BExpr::Var(i - 1));
-                semantic_strict(0, CompiledExpr::Comb(Comb::K), n - 1, comp_inner)
+                semantic(0, CompiledExpr::Comb(Comb::K), n - 1, comp_inner)
             }
         }
         BExpr::Lam(e) => {
@@ -50,7 +50,7 @@ pub fn compile_strict(e: &BExpr) -> CompiledExpr {
                 compile_strict(e)
             }
         }
-        BExpr::Ap(e1, e2) => semantic_strict(
+        BExpr::Ap(e1, e2) => semantic(
             infer_n(e1),
             compile_strict(e1),
             infer_n(e2),
@@ -65,15 +65,15 @@ pub fn compile_strict(e: &BExpr) -> CompiledExpr {
     c
 }
 
-fn semantic_strict(n1: usize, e1: CompiledExpr, n2: usize, e2: CompiledExpr) -> CompiledExpr {
+fn semantic(n1: usize, e1: CompiledExpr, n2: usize, e2: CompiledExpr) -> CompiledExpr {
     let dbg = format!("semantic({}, {:?}, {}, {:?}) = ", n1, e1, n2, e2);
     let c = match (n1, n2) {
         (0, 0) => cap(e1, e2),
-        (0, n2) => semantic_strict(0, cap(Comb::B, e1), n2 - 1, e2),
-        (n1, 0) => semantic_strict(0, cap(cap(Comb::C, Comb::C), e2), n1 - 1, e1),
-        (n1, n2) => semantic_strict(
+        (0, n2) => semantic(0, cap(Comb::B, e1), n2 - 1, e2),
+        (n1, 0) => semantic(0, cap(cap(Comb::C, Comb::C), e2), n1 - 1, e1),
+        (n1, n2) => semantic(
             n1 - 1,
-            semantic_strict(0, CompiledExpr::Comb(Comb::S), n1 - 1, e1),
+            semantic(0, CompiledExpr::Comb(Comb::S), n1 - 1, e1),
             n2 - 1,
             e2,
         ),
