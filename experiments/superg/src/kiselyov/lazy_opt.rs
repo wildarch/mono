@@ -51,7 +51,7 @@ fn unify_contexts(mut a: Context, mut b: Context) -> Context {
 
 pub fn compile_lazy_opt(e: &BExpr) -> CompiledExpr {
     use ContextElem::*;
-    let compiled = match e {
+    match e {
         BExpr::Var(_) => {
             // Lazy weakening allows us to just reduce to I in all cases.
             // K is inserted in Abs1 case for Lam below.
@@ -79,45 +79,6 @@ pub fn compile_lazy_opt(e: &BExpr) -> CompiledExpr {
             compile_lazy_opt(e2),
         ),
         _ => todo!(),
-    };
-    optimize(compiled)
-}
-
-fn optimize(e: CompiledExpr) -> CompiledExpr {
-    match e {
-        CompiledExpr::Ap(a0, a1) => match *a0 {
-            CompiledExpr::Ap(b0, b1) => match *b0 {
-                CompiledExpr::Ap(c0, c1) => opt_ap4(*c0, *c1, *b1, *a1),
-                _ => opt_ap3(*b0, *b1, *a1),
-            },
-            _ => opt_ap2(*a0, *a1),
-        },
-        _ => e,
-    }
-}
-
-fn opt_ap2(a0: CompiledExpr, a1: CompiledExpr) -> CompiledExpr {
-    match (a0, a1) {
-        (a0, a1) => cap(optimize(a0), optimize(a1)),
-    }
-}
-
-fn opt_ap3(a0: CompiledExpr, a1: CompiledExpr, a2: CompiledExpr) -> CompiledExpr {
-    match (a0, a1, a2) {
-        // B d I = d
-        (CompiledExpr::Comb(Comb::B), d, CompiledExpr::Comb(Comb::I)) => d,
-        // CBI = I
-        (CompiledExpr::Comb(Comb::C), CompiledExpr::Comb(Comb::B), CompiledExpr::Comb(Comb::I)) => {
-            CompiledExpr::Comb(Comb::I)
-        }
-        (a0, a1, a2) => cap(opt_ap2(a0, a1), a2),
-    }
-}
-
-fn opt_ap4(a0: CompiledExpr, a1: CompiledExpr, a2: CompiledExpr, a3: CompiledExpr) -> CompiledExpr {
-    match (a0, a1, a2, a3) {
-        (CompiledExpr::Comb(Comb::C), f, g, x) => opt_ap3(f, x, g),
-        (a0, a1, a2, a3) => cap(opt_ap3(a0, a1, a2), a3),
     }
 }
 
@@ -133,8 +94,22 @@ fn semantic<E1: Into<CompiledExpr>, E2: Into<CompiledExpr>>(
 
     match (c1.pop(), c2.pop()) {
         (None, None) => cap(e1, e2),
-        (None, Some(Used)) => semantic(Context::new(), cap(Comb::B, e1), c2, e2),
-        (Some(Used), None) => semantic(Context::new(), cap(cap(Comb::C, Comb::C), e2), c1, e1),
+        (None, Some(Used)) => {
+            if c2.is_empty() && e2 == CompiledExpr::Comb(Comb::I) {
+                // Eta optimization
+                e1
+            } else {
+                semantic(Context::new(), cap(Comb::B, e1), c2, e2)
+            }
+        }
+        (Some(Used), None) => {
+            if e1 == CompiledExpr::Comb(Comb::I) && c1.is_empty() {
+                // Eta optimization
+                cap(cap(Comb::C, Comb::I), e2)
+            } else {
+                semantic(Context::new(), cap(cap(Comb::C, Comb::C), e2), c1, e1)
+            }
+        }
         (Some(Used), Some(Used)) => semantic(
             c1.clone(),
             semantic(Context::new(), Comb::S, c1, e1),
@@ -143,20 +118,34 @@ fn semantic<E1: Into<CompiledExpr>, E2: Into<CompiledExpr>>(
         ),
         // From fig.8.
         (Some(Ignored), Some(Ignored)) => semantic(c1, e1, c2, e2),
-        (Some(Ignored), Some(Used)) => semantic(
-            // Need to check, maybe used Context::new() instead
-            c1.clone(),
-            semantic(Context::new(), Comb::B, c1, e1),
-            c2,
-            e2,
-        ),
-        (Some(Used), Some(Ignored)) => semantic(
-            // Need to check, maybe used Context::new() instead
-            c1.clone(),
-            semantic(Context::new(), Comb::C, c1, e1),
-            c2,
-            e2,
-        ),
+        (Some(Ignored), Some(Used)) => {
+            if c2.is_empty() && e2 == CompiledExpr::Comb(Comb::I) {
+                // Eta optimization
+                e1
+            } else {
+                semantic(
+                    // Need to check, maybe used Context::new() instead
+                    c1.clone(),
+                    semantic(Context::new(), Comb::B, c1, e1),
+                    c2,
+                    e2,
+                )
+            }
+        }
+        (Some(Used), Some(Ignored)) => {
+            if e1 == CompiledExpr::Comb(Comb::I) && c1.is_empty() {
+                // Eta optimization
+                semantic(Context::new(), cap(Comb::C, Comb::I), c2, e2)
+            } else {
+                semantic(
+                    // Need to check, maybe used Context::new() instead
+                    c1.clone(),
+                    semantic(Context::new(), Comb::C, c1, e1),
+                    c2,
+                    e2,
+                )
+            }
+        }
         // Not clearly described in the paper, but necessary for matching results.
         // This is correct, because we can model a shorter context as one with implicit 'unused' elements.
         (None, Some(Ignored)) => semantic(c1, e1, c2, e2),
@@ -181,8 +170,7 @@ mod tests {
         assert_compiles_to("lam (x) (lam (y) (x y))", "I");
         assert_compiles_to("lam (x) (lam (y) (y x))", "CI");
         assert_compiles_to("lam (x) (lam (y) (lam (z) (z x)))", "BK(CI)");
-        // Note: BK(BKI) in Kiselyov
-        assert_compiles_to("lam (x) (lam (y) (lam (z) ((lam (w) w) x)))", "BKK");
+        assert_compiles_to("lam (x) (lam (y) (lam (z) ((lam (w) w) x)))", "BK(BKI)");
         assert_compiles_to("lam (x) (lam (y) (lam (z) ((x z) (y z))))", "S");
     }
 
