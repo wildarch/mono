@@ -86,16 +86,51 @@ fn semantic(n1: usize, e1: CompiledExpr, n2: usize, e2: CompiledExpr) -> Compile
 mod tests {
     use super::super::to_debruijn;
     use super::*;
-    use crate::{lex, parser::parse_expr};
+    use crate::{
+        lex,
+        parser::{parse_compiled_expr, parse_expr},
+    };
+
+    // Testcases taken from Kiselyov's paper, Table 1.
+    #[test]
+    fn kiselyov_examples() {
+        assert_compiles_to("lam (x) (lam (y) y)", "KI");
+        assert_compiles_to("lam (x) (lam (y) x)", "BKI");
+        assert_compiles_to("lam (x) (lam (y) (x y))", "CCI (BS(BKI))");
+        assert_compiles_to("lam (x) (lam (y) (y x))", "B(SI)(BKI)");
+        assert_compiles_to("lam (x) (lam (y) (lam (z) (z x)))", "B(B(SI)) (B(BK)(BKI))");
+        assert_compiles_to(
+            "lam (x) (lam (y) (lam (z) ((lam (w) w) x)))",
+            "B(B(BI)) (B(BK)(BKI))",
+        );
+        assert_compiles_to(
+            "lam (x) (lam (y) (lam (z) ((x z) (y z))))",
+            "CC(CCI(BS(BKI))) (BS(B(BS)(B(CCI)(B(BS) (B(BK)(BKI))))))",
+        );
+    }
 
     #[test]
-    fn example() {
-        let expr = "lam (x y) (y x)";
+    fn kiselyov_worsecase() {
+        assert_compiles_to("lam (x) (lam (y) (y x))", "B(SI)(BKI)");
+        assert_compiles_to(
+            "lam (x) (lam (y) (lam (z) (z y x)))",
+            "B(S(BS (B(SI)(BKI)))) (B(BK)(BKI))",
+        );
+        assert_compiles_to(
+            "lam (x) (lam (y) (lam (z) (lam (a) (a z y x))))",
+            "B(S(BS(B(BS) (B(S(BS(B(SI)(BKI)))) (B(BK)(BKI)))))) (B(B(BK)) (B(BK)(BKI)))",
+        );
+    }
+
+    fn assert_compiles_to(expr: &str, compiled_expr: &str) {
+        // Compile expr
         let mut tokens = lex(expr);
         let parsed_expr = parse_expr(&mut tokens);
         let bexpr = to_debruijn(&parsed_expr, &mut vec![]);
-        let compiled = compile_strict(&bexpr);
-        use Comb::{B, I, K, S};
-        assert_eq!(compiled, cap(cap(B, cap(S, I)), cap(cap(B, K), I)))
+        let actual_compiled_expr = compile_strict(&bexpr);
+        // Parse expected expr
+        let expected_compiled_expr = parse_compiled_expr(lex(compiled_expr));
+
+        assert_eq!(actual_compiled_expr, expected_compiled_expr);
     }
 }
