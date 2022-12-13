@@ -58,12 +58,23 @@ const ALL_COMBS: &'static [Comb] = &[
     Comb::Abort,
 ];
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum CompiledExpr {
     Comb(Comb),
     Ap(Box<CompiledExpr>, Box<CompiledExpr>),
     Var(String),
     Int(i32),
+}
+
+impl std::fmt::Debug for CompiledExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CompiledExpr::Comb(c) => write!(f, "{:?}", c),
+            CompiledExpr::Ap(a, b) => write!(f, "({:?} {:?})", a, b),
+            CompiledExpr::Var(v) => write!(f, "{}", v),
+            CompiledExpr::Int(i) => write!(f, "{}", i),
+        }
+    }
 }
 
 impl Into<CompiledExpr> for Comb {

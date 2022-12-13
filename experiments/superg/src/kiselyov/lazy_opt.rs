@@ -80,7 +80,18 @@ pub fn compile_lazy_opt(e: &BExpr) -> CompiledExpr {
         ),
         _ => todo!(),
     };
-    optimize(compiled)
+    optimize_exhaustive(compiled)
+}
+
+fn optimize_exhaustive(mut e: CompiledExpr) -> CompiledExpr {
+    loop {
+        let optimized = optimize(e.clone());
+        if optimized == e {
+            return e;
+        }
+        println!("Optimize {:?} to {:?}", e, optimized);
+        e = optimized;
+    }
 }
 
 fn optimize(e: CompiledExpr) -> CompiledExpr {
@@ -110,14 +121,39 @@ fn opt_ap3(a0: CompiledExpr, a1: CompiledExpr, a2: CompiledExpr) -> CompiledExpr
         (CompiledExpr::Comb(Comb::C), CompiledExpr::Comb(Comb::B), CompiledExpr::Comb(Comb::I)) => {
             CompiledExpr::Comb(Comb::I)
         }
-        (a0, a1, a2) => cap(opt_ap2(a0, a1), a2),
+        // C (BBd) I = d
+        (CompiledExpr::Comb(Comb::C), p, CompiledExpr::Comb(Comb::I)) => match p {
+            CompiledExpr::Ap(p0, p1) => {
+                let p0 = *p0;
+                let p1 = *p1;
+                match p0 {
+                    CompiledExpr::Ap(q0, q1) => {
+                        let q0 = *q0;
+                        let q1 = *q1;
+                        // C (q0 q1 p1) I
+                        if q0 == CompiledExpr::Comb(Comb::B) && q1 == CompiledExpr::Comb(Comb::B) {
+                            // C (BBd) I = d
+                            optimize(p1)
+                        } else {
+                            cap(cap(Comb::C, opt_ap3(q0, q1, p1)), Comb::I)
+                        }
+                    }
+                    _ => cap(cap(Comb::C, opt_ap2(p0, p1)), Comb::I),
+                }
+            }
+            _ => cap(cap(Comb::C, optimize(p)), Comb::I),
+        },
+        (a0, a1, a2) => cap(opt_ap2(a0, a1), optimize(a2)),
     }
 }
 
 fn opt_ap4(a0: CompiledExpr, a1: CompiledExpr, a2: CompiledExpr, a3: CompiledExpr) -> CompiledExpr {
     match (a0, a1, a2, a3) {
+        // C f x g = f g x
         (CompiledExpr::Comb(Comb::C), f, g, x) => opt_ap3(f, x, g),
-        (a0, a1, a2, a3) => cap(opt_ap3(a0, a1, a2), a3),
+        // B f x g = f (x g)
+        (CompiledExpr::Comb(Comb::B), f, g, x) => opt_ap2(f, opt_ap2(x, g)),
+        (a0, a1, a2, a3) => cap(opt_ap3(a0, a1, a2), optimize(a3)),
     }
 }
 
@@ -188,11 +224,11 @@ mod tests {
 
     #[test]
     fn kiselyov_worsecase() {
-        assert_compiles_to("lam (x) (lam (y) (y x))", "B(CI)I");
-        assert_compiles_to("lam (x) (lam (y) (lam (z) (z y x)))", "B(C(BC (B(CI)I)))I");
+        assert_compiles_to("lam (x) (lam (y) (y x))", "CI");
+        assert_compiles_to("lam (x) (lam (y) (lam (z) (z y x)))", "C(BC(CI))");
         assert_compiles_to(
             "lam (x) (lam (y) (lam (z) (lam (a) (a z y x))))",
-            "B(C(BC(B(BC) (B(C(BC (B(CI)I)))I))))I",
+            "C(BC(B(BC) (C(BC(CI)))))",
         );
     }
 
