@@ -85,15 +85,48 @@ mod tests {
     use super::*;
     use crate::{lex, parser::parse_expr};
 
+    // Testcases taken from Kiselyov's paper, Table 1.
     #[test]
-    fn example() {
-        let expr = "lam (x y) (y x)";
+    fn kiselyov_examples() {
+        assert_compiles_to("lam (x) (lam (y) y)", "KI");
+        assert_compiles_to("lam (x) (lam (y) x)", "BKI");
+        // Kiselyov' paper contains an error, it states the output is: C(BS(BKI))I
+        assert_compiles_to("lam (x) (lam (y) (x y))", "C(BS(BKI))I");
+        assert_compiles_to("lam (x) (lam (y) (y x))", "B(SI)(BKI)");
+        assert_compiles_to("lam (x) (lam (y) (lam (z) (z x)))", "B2(SI) (B2 K(BKI))");
+        assert_compiles_to(
+            "lam (x) (lam (y) (lam (z) ((lam (w) w) x)))",
+            "B3 I(B2 K(BKI))",
+        );
+        assert_compiles_to(
+            "lam (x) (lam (y) (lam (z) ((x z) (y z))))",
+            "C(B S2(C2 (B2 S(B2 K (BKI)))I)) (C(BS(BKI))I)",
+        );
+    }
+
+    #[test]
+    fn kiselyov_worsecase() {
+        assert_compiles_to("lam (x) (lam (y) (y x))", "B(SI)(BKI)");
+        assert_compiles_to(
+            "lam (x) (lam (y) (lam (z) (z y x)))",
+            "B(S2 (B(SI)(BKI))) (B2 K(BKI))",
+        );
+        assert_compiles_to(
+            "lam (x) (lam (y) (lam (z) (lam (a) (a z y x))))",
+            "B(S3 (B(S2 (B(SI)(BKI))) (B2 K(BKI)))) (B3 K(B2 K (BKI)))",
+        );
+    }
+
+    fn assert_compiles_to(expr: &str, compiled_expr: &str) {
+        // Compile expr
         let mut tokens = lex(expr);
         let parsed_expr = parse_expr(&mut tokens);
         let bexpr = to_debruijn(&parsed_expr, &mut vec![]);
-        let compiled = compile_linear(&bexpr);
-        use Comb::{B, I, K, S};
-        assert_eq!(compiled, cap(cap(B(1), cap(S(1), I)), cap(cap(B(1), K), I)))
+        let actual_compiled_expr = compile_linear(&bexpr);
+        // Parse expected expr
+        let expected_compiled_expr = parse_compiled_expr(lex(compiled_expr));
+
+        assert_eq!(actual_compiled_expr, expected_compiled_expr);
     }
 }
 
@@ -126,12 +159,28 @@ mod compiled_expr {
         Abort,
     }
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Clone, PartialEq)]
     pub enum CompiledExpr {
         Comb(Comb),
         Ap(Box<CompiledExpr>, Box<CompiledExpr>),
         Var(String),
         Int(i32),
+    }
+
+    impl std::fmt::Debug for CompiledExpr {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                CompiledExpr::Comb(c) => match c {
+                    Comb::S(i) => write!(f, "S{}", i),
+                    Comb::B(i) => write!(f, "B{}", i),
+                    Comb::C(i) => write!(f, "C{}", i),
+                    _ => write!(f, "{:?}", c),
+                },
+                CompiledExpr::Ap(a, b) => write!(f, "({:?} {:?})", a, b),
+                CompiledExpr::Var(v) => write!(f, "{}", v),
+                CompiledExpr::Int(i) => write!(f, "{}", i),
+            }
+        }
     }
 
     impl Into<CompiledExpr> for Comb {
@@ -142,5 +191,98 @@ mod compiled_expr {
 
     pub fn cap<A: Into<CompiledExpr>, B: Into<CompiledExpr>>(a: A, b: B) -> CompiledExpr {
         CompiledExpr::Ap(Box::new(a.into()), Box::new(b.into()))
+    }
+
+    use crate::lexer::Token;
+    use std::collections::VecDeque;
+
+    pub fn parse_compiled_expr(mut tokens: VecDeque<Token>) -> CompiledExpr {
+        let mut expr = parse_compiled_expr_inner(&mut tokens);
+        while !tokens.is_empty() {
+            expr = cap(expr, parse_compiled_expr_inner(&mut tokens));
+        }
+        expr
+    }
+
+    fn parse_compiled_expr_inner(tokens: &mut VecDeque<Token>) -> CompiledExpr {
+        use Comb::*;
+        match tokens.pop_front() {
+            None => panic!("Expected an expression, but found nothing"),
+            Some(Token::Integer(i)) => CompiledExpr::Int(i),
+            Some(Token::LParen) => {
+                let mut expr = parse_compiled_expr_inner(tokens);
+                while tokens.front() != Some(&Token::RParen) {
+                    expr = cap(expr, parse_compiled_expr_inner(tokens));
+                }
+                eat(tokens, Token::RParen);
+                expr
+            }
+            Some(Token::Symbol(s)) => CompiledExpr::Comb(match s.as_str() {
+                "S" => S(1),
+                "S2" => S(2),
+                "S3" => S(3),
+                "K" => K,
+                "I" => I,
+                "Y" => Y,
+                "U" => U,
+                "P" => P,
+                "B" => B(1),
+                "B2" => B(2),
+                "B3" => B(3),
+                "C" => C(1),
+                "C2" => C(2),
+                "C3" => C(3),
+                "Plus" => Plus,
+                "Minus" => Minus,
+                "Times" => Times,
+                "Divide" => Divide,
+                "Cond" => Cond,
+                "Eq" => Eq,
+                "Neq" => Neq,
+                "Gt" => Gt,
+                "Gte" => Gte,
+                "Lt" => Lt,
+                "Lte" => Lte,
+                "And" => And,
+                "Or" => Or,
+                "Not" => Not,
+                "Abort" => Abort,
+                _ => {
+                    // Assume a string of combinators
+                    return s
+                        .chars()
+                        .map(|c| CompiledExpr::Comb(parse_comb(c)))
+                        .reduce(cap)
+                        .unwrap();
+                }
+            }),
+            Some(Token::RParen) => panic!("Unexpected right paren"),
+        }
+    }
+
+    fn parse_comb(c: char) -> Comb {
+        use Comb::*;
+        match c {
+            'S' => S(1),
+            'K' => K,
+            'I' => I,
+            'Y' => Y,
+            'U' => U,
+            'P' => P,
+            'B' => B(1),
+            'C' => C(1),
+            _ => panic!("Illegal combinator: '{}'", c),
+        }
+    }
+
+    fn eat(tokens: &mut VecDeque<Token>, expected_token: Token) {
+        match tokens.pop_front() {
+            None => panic!("Expected {:?}, but found nothing to eat", expected_token),
+            Some(t) => {
+                if t != expected_token {
+                    panic!("Expected {:?}, but found {:?}", expected_token, t)
+                }
+            }
+        }
     }
 }
