@@ -10,6 +10,7 @@ pub fn compile_lazy_opt(e: &BExpr) -> CompiledExpr {
     }
 }
 
+// Internal type to store context together with a compiled expression.
 #[derive(Debug, Clone)]
 enum CExpr {
     Closed(CompiledExpr),
@@ -40,42 +41,36 @@ fn compile(e: &BExpr) -> CExpr {
 
 fn semantic(e1: CExpr, e2: CExpr) -> CExpr {
     use CExpr::*;
-    fn weak(e: CExpr) -> CExpr {
-        Weak(Box::new(e))
+    use Comb::*;
+    fn weak<C: Into<Box<CExpr>>>(e: C) -> CExpr {
+        Weak(e.into())
     }
-    fn next(e: CExpr) -> CExpr {
-        Next(Box::new(e))
+    fn next<C: Into<Box<CExpr>>>(e: C) -> CExpr {
+        Next(e.into())
+    }
+    fn closed<C: Into<CompiledExpr>>(e: C) -> CExpr {
+        Closed(e.into())
+    }
+    fn semantic3(e1: CExpr, e2: CExpr, e3: CExpr) -> CExpr {
+        semantic(semantic(e1, e2), e3)
     }
     match (e1, e2) {
         (Weak(e1), Weak(e2)) => weak(semantic(*e1, *e2)),
-        (Weak(e), Closed(d)) => weak(semantic(*e, Closed(d))),
-        (Closed(d), Weak(e)) => weak(semantic(Closed(d), *e)),
-        (Weak(e), Value) => Next(e),
-        (Value, Weak(e)) => next(semantic(Closed(cap(Comb::C, Comb::I)), *e)),
-        (Weak(e1), Next(e2)) => next(semantic(
-            semantic(Closed(CompiledExpr::Comb(Comb::B)), *e1),
-            *e2,
-        )),
-        (Next(e1), Weak(e2)) => next(semantic(
-            semantic(Closed(CompiledExpr::Comb(Comb::C)), *e1),
-            *e2,
-        )),
-        (Next(e1), Next(e2)) => next(semantic(
-            semantic(Closed(CompiledExpr::Comb(Comb::S)), *e1),
-            *e2,
-        )),
-        (Next(e), Value) => next(semantic(
-            semantic(Closed(CompiledExpr::Comb(Comb::S)), *e),
-            Closed(CompiledExpr::Comb(Comb::I)),
-        )),
-        (Value, Next(e)) => next(semantic(Closed(cap(Comb::S, Comb::I)), *e)),
-
-        (Closed(d), Next(e)) => next(semantic(Closed(cap(Comb::B, d)), *e)),
-        (Closed(d), Value) => next(Closed(d)),
-        (Value, Closed(d)) => next(Closed(cap(cap(Comb::C, Comb::I), d))),
+        (Weak(e), Closed(d)) => weak(semantic(*e, closed(d))),
+        (Closed(d), Weak(e)) => weak(semantic(closed(d), *e)),
+        (Weak(e), Value) => next(e),
+        (Value, Weak(e)) => next(semantic(closed(cap(C, I)), *e)),
+        (Weak(e1), Next(e2)) => next(semantic3(closed(B), *e1, *e2)),
+        (Next(e1), Weak(e2)) => next(semantic3(closed(C), *e1, *e2)),
+        (Next(e1), Next(e2)) => next(semantic3(closed(S), *e1, *e2)),
+        (Next(e), Value) => next(semantic3(closed(S), *e, closed(I))),
+        (Value, Next(e)) => next(semantic(closed(cap(S, I)), *e)),
+        (Closed(d), Next(e)) => next(semantic(closed(cap(B, d)), *e)),
+        (Closed(d), Value) => next(closed(d)),
+        (Value, Closed(d)) => next(closed(cap(cap(C, I), d))),
         (Value, Value) => unreachable!("can't happen for simple types"),
-        (Next(e), Closed(d)) => next(semantic(Closed(cap(cap(Comb::C, Comb::C), d)), *e)),
-        (Closed(d1), Closed(d2)) => Closed(cap(d1, d2)),
+        (Next(e), Closed(d)) => next(semantic(closed(cap(cap(C, C), d)), *e)),
+        (Closed(d1), Closed(d2)) => closed(cap(d1, d2)),
     }
 }
 
