@@ -3,200 +3,79 @@ use crate::compiled_expr::{cap, Comb, CompiledExpr};
 
 use super::BExpr;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum ContextElem {
-    Ignored,
-    Used,
+pub fn compile_lazy_opt(e: &BExpr) -> CompiledExpr {
+    match compile(e) {
+        CExpr::Closed(e) => e,
+        _ => unreachable!("expect to reach a closed expression"),
+    }
 }
-type Context = Vec<ContextElem>;
 
-fn infer_context(e: &BExpr) -> Context {
-    use ContextElem::*;
+#[derive(Debug, Clone)]
+enum CExpr {
+    Closed(CompiledExpr),
+    Value,
+    Next(Box<CExpr>),
+    Weak(Box<CExpr>),
+}
+
+fn compile(e: &BExpr) -> CExpr {
     match e {
         BExpr::Var(i) => {
-            let mut v = vec![Used];
+            let mut e = CExpr::Value;
             for _ in 0..*i {
-                v.push(Ignored);
+                e = CExpr::Weak(Box::new(e));
             }
-            v
+            e
         }
-        BExpr::Lam(e) => {
-            let mut ctx = infer_context(e);
-            ctx.pop();
-            ctx
-        }
-        BExpr::Ap(f, a) => unify_contexts(infer_context(f), infer_context(a)),
+        BExpr::Lam(e) => match compile(e) {
+            CExpr::Closed(d) => CExpr::Closed(cap(Comb::K, d)),
+            CExpr::Value => CExpr::Closed(CompiledExpr::Comb(Comb::I)),
+            CExpr::Next(e) => *e,
+            CExpr::Weak(e) => semantic(CExpr::Closed(CompiledExpr::Comb(Comb::K)), *e),
+        },
+        BExpr::Ap(a, b) => semantic(compile(a), compile(b)),
         _ => todo!(),
     }
 }
 
-fn unify_contexts(mut a: Context, mut b: Context) -> Context {
-    use ContextElem::*;
-    let mut ctx = Context::new();
-    loop {
-        let e = match (a.pop(), b.pop()) {
-            (Some(Used), _) | (_, Some(Used)) => Used,
-            (None, Some(Ignored)) | (Some(Ignored), None) | (Some(Ignored), Some(Ignored)) => {
-                Ignored
-            }
-            (None, None) => {
-                // We are building the context in reverse order
-                ctx.reverse();
-                return ctx;
-            }
-        };
-        ctx.push(e);
+fn semantic(e1: CExpr, e2: CExpr) -> CExpr {
+    use CExpr::*;
+    fn weak(e: CExpr) -> CExpr {
+        Weak(Box::new(e))
     }
-}
-
-pub fn compile_lazy_opt(e: &BExpr) -> CompiledExpr {
-    use ContextElem::*;
-    let compiled = match e {
-        BExpr::Var(_) => {
-            // Lazy weakening allows us to just reduce to I in all cases.
-            // K is inserted in Abs1 case for Lam below.
-            CompiledExpr::Comb(Comb::I)
-        }
-        BExpr::Lam(e) => {
-            // Context for the inner expression
-            let mut ctx = infer_context(e);
-            match ctx.last() {
-                // Abs0
-                None => cap(Comb::K, compile_lazy_opt(e)),
-                // Abs1
-                Some(Ignored) => {
-                    ctx.pop().unwrap();
-                    semantic(Context::new(), Comb::K, ctx, compile_lazy_opt(e))
-                }
-                // Abs
-                Some(Used) => compile_lazy_opt(e),
-            }
-        }
-        BExpr::Ap(e1, e2) => semantic(
-            infer_context(e1),
-            compile_lazy_opt(e1),
-            infer_context(e2),
-            compile_lazy_opt(e2),
-        ),
-        _ => todo!(),
-    };
-    optimize_exhaustive(compiled)
-}
-
-fn optimize_exhaustive(mut e: CompiledExpr) -> CompiledExpr {
-    loop {
-        let optimized = optimize(e.clone());
-        if optimized == e {
-            return e;
-        }
-        println!("Optimize {:?} to {:?}", e, optimized);
-        e = optimized;
+    fn next(e: CExpr) -> CExpr {
+        Next(Box::new(e))
     }
-}
+    match (e1, e2) {
+        (Weak(e1), Weak(e2)) => weak(semantic(*e1, *e2)),
+        (Weak(e), Closed(d)) => weak(semantic(*e, Closed(d))),
+        (Closed(d), Weak(e)) => weak(semantic(Closed(d), *e)),
+        (Weak(e), Value) => Next(e),
+        (Value, Weak(e)) => next(semantic(Closed(cap(Comb::C, Comb::I)), *e)),
+        (Weak(e1), Next(e2)) => next(semantic(
+            semantic(Closed(CompiledExpr::Comb(Comb::B)), *e1),
+            *e2,
+        )),
+        (Next(e1), Weak(e2)) => next(semantic(
+            semantic(Closed(CompiledExpr::Comb(Comb::C)), *e1),
+            *e2,
+        )),
+        (Next(e1), Next(e2)) => next(semantic(
+            semantic(Closed(CompiledExpr::Comb(Comb::S)), *e1),
+            *e2,
+        )),
+        (Next(e), Value) => next(semantic(
+            semantic(Closed(CompiledExpr::Comb(Comb::S)), *e),
+            Closed(CompiledExpr::Comb(Comb::I)),
+        )),
+        (Value, Next(e)) => next(semantic(Closed(cap(Comb::S, Comb::I)), *e)),
 
-fn optimize(e: CompiledExpr) -> CompiledExpr {
-    match e {
-        CompiledExpr::Ap(a0, a1) => match *a0 {
-            CompiledExpr::Ap(b0, b1) => match *b0 {
-                CompiledExpr::Ap(c0, c1) => opt_ap4(*c0, *c1, *b1, *a1),
-                _ => opt_ap3(*b0, *b1, *a1),
-            },
-            _ => opt_ap2(*a0, *a1),
-        },
-        _ => e,
-    }
-}
-
-fn opt_ap2(a0: CompiledExpr, a1: CompiledExpr) -> CompiledExpr {
-    match (a0, a1) {
-        (a0, a1) => cap(optimize(a0), optimize(a1)),
-    }
-}
-
-fn opt_ap3(a0: CompiledExpr, a1: CompiledExpr, a2: CompiledExpr) -> CompiledExpr {
-    match (a0, a1, a2) {
-        // B d I = d
-        (CompiledExpr::Comb(Comb::B), d, CompiledExpr::Comb(Comb::I)) => d,
-        // CBI = I
-        (CompiledExpr::Comb(Comb::C), CompiledExpr::Comb(Comb::B), CompiledExpr::Comb(Comb::I)) => {
-            CompiledExpr::Comb(Comb::I)
-        }
-        // C (BBd) I = d
-        (CompiledExpr::Comb(Comb::C), p, CompiledExpr::Comb(Comb::I)) => match p {
-            CompiledExpr::Ap(p0, p1) => {
-                let p0 = *p0;
-                let p1 = *p1;
-                match p0 {
-                    CompiledExpr::Ap(q0, q1) => {
-                        let q0 = *q0;
-                        let q1 = *q1;
-                        // C (q0 q1 p1) I
-                        if q0 == CompiledExpr::Comb(Comb::B) && q1 == CompiledExpr::Comb(Comb::B) {
-                            // C (BBd) I = d
-                            optimize(p1)
-                        } else {
-                            cap(cap(Comb::C, opt_ap3(q0, q1, p1)), Comb::I)
-                        }
-                    }
-                    _ => cap(cap(Comb::C, opt_ap2(p0, p1)), Comb::I),
-                }
-            }
-            _ => cap(cap(Comb::C, optimize(p)), Comb::I),
-        },
-        (a0, a1, a2) => cap(opt_ap2(a0, a1), optimize(a2)),
-    }
-}
-
-fn opt_ap4(a0: CompiledExpr, a1: CompiledExpr, a2: CompiledExpr, a3: CompiledExpr) -> CompiledExpr {
-    match (a0, a1, a2, a3) {
-        // C f x g = f g x
-        (CompiledExpr::Comb(Comb::C), f, g, x) => opt_ap3(f, x, g),
-        // B f x g = f (x g)
-        (CompiledExpr::Comb(Comb::B), f, g, x) => opt_ap2(f, opt_ap2(x, g)),
-        (a0, a1, a2, a3) => cap(opt_ap3(a0, a1, a2), optimize(a3)),
-    }
-}
-
-fn semantic<E1: Into<CompiledExpr>, E2: Into<CompiledExpr>>(
-    mut c1: Context,
-    e1: E1,
-    mut c2: Context,
-    e2: E2,
-) -> CompiledExpr {
-    use ContextElem::*;
-    let e1 = e1.into();
-    let e2 = e2.into();
-
-    match (c1.pop(), c2.pop()) {
-        (None, None) => cap(e1, e2),
-        (None, Some(Used)) => semantic(Context::new(), cap(Comb::B, e1), c2, e2),
-        (Some(Used), None) => semantic(Context::new(), cap(cap(Comb::C, Comb::C), e2), c1, e1),
-        (Some(Used), Some(Used)) => semantic(
-            c1.clone(),
-            semantic(Context::new(), Comb::S, c1, e1),
-            c2,
-            e2,
-        ),
-        // From fig.8.
-        (Some(Ignored), Some(Ignored)) => semantic(c1, e1, c2, e2),
-        (Some(Ignored), Some(Used)) => semantic(
-            // Need to check, maybe used Context::new() instead
-            c1.clone(),
-            semantic(Context::new(), Comb::B, c1, e1),
-            c2,
-            e2,
-        ),
-        (Some(Used), Some(Ignored)) => semantic(
-            // Need to check, maybe used Context::new() instead
-            c1.clone(),
-            semantic(Context::new(), Comb::C, c1, e1),
-            c2,
-            e2,
-        ),
-        // Not clearly described in the paper, but necessary for matching results.
-        // This is correct, because we can model a shorter context as one with implicit 'unused' elements.
-        (None, Some(Ignored)) => semantic(c1, e1, c2, e2),
-        (Some(Ignored), None) => semantic(c1, e1, c2, e2),
+        (Closed(d), Next(e)) => next(semantic(Closed(cap(Comb::B, d)), *e)),
+        (Closed(d), Value) => next(Closed(d)),
+        (Value, Closed(d)) => next(Closed(cap(cap(Comb::C, Comb::I), d))),
+        (Value, Value) => unreachable!("can't happen for simple types"),
+        (Next(e), Closed(d)) => next(semantic(Closed(cap(cap(Comb::C, Comb::C), d)), *e)),
+        (Closed(d1), Closed(d2)) => Closed(cap(d1, d2)),
     }
 }
 
@@ -218,7 +97,7 @@ mod tests {
         assert_compiles_to("lam (x) (lam (y) (y x))", "CI");
         assert_compiles_to("lam (x) (lam (y) (lam (z) (z x)))", "BK(CI)");
         // Note: BK(BKI) in Kiselyov
-        assert_compiles_to("lam (x) (lam (y) (lam (z) ((lam (w) w) x)))", "BKK");
+        assert_compiles_to("lam (x) (lam (y) (lam (z) ((lam (w) w) x)))", "BK(BKI)");
         assert_compiles_to("lam (x) (lam (y) (lam (z) ((x z) (y z))))", "S");
     }
 
