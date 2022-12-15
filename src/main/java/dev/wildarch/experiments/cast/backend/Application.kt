@@ -51,6 +51,10 @@ fun main() {
                         }
                         ul {
                             for (obj in objectsResponse.listObjects.objects) {
+                                if (obj.name.endsWith(".vtt")) {
+                                    // Skip subtitles
+                                    continue
+                                }
                                 li {
                                     a(href = "${prefix}/play/${obj.name}") {
                                         +obj.name
@@ -66,6 +70,18 @@ fun main() {
                 val objectName = call.parameters["object_name"]!!
 
                 val uri = makePublicObjectUri(osClient, namespaceName, bucketName, objectName)
+                val subtitlesName = replaceExtension(objectName, "en.vtt")
+                val subtitlesUri = try {
+                    makePublicObjectUri(osClient, namespaceName, bucketName, subtitlesName)
+                } catch (e: Exception) {
+                    println("Cannot make uri for subtitles: $e")
+                    null
+                }
+                val videoType = when (objectName.substringAfterLast(".")) {
+                    "webm" -> "video/webm"
+                    "mp4" -> "video/mp4"
+                    else -> null
+                }
                 call.respondHtml {
                     head {
                         title {
@@ -82,10 +98,23 @@ fun main() {
                         video {
                             controls = true
                             autoPlay = true
+                            attributes["crossorigin"] = "anonymous"
 
                             source {
                                 src = uri
-                                type = "video/mp4"
+                                if (videoType != null) {
+                                    type = videoType
+                                }
+                            }
+
+                            if (subtitlesUri != null) {
+                                track {
+                                    attributes["label"] = "English"
+                                    attributes["kind"] = "subtitles"
+                                    attributes["srclang"] = "en"
+                                    attributes["src"] = subtitlesUri
+                                    attributes["default"] = ""
+                                }
                             }
 
                             +"Browser does not support the video tag"
@@ -97,9 +126,29 @@ fun main() {
                         }
 
                         script(src = "https://cdnjs.cloudflare.com/ajax/libs/castjs/5.2.0/cast.min.js") {}
-                        script {
-                            unsafe {
-                                +"""
+                        if (subtitlesUri != null) {
+                            script {
+                                unsafe {
+                                    +"""
+                                    const cjs = new Castjs();
+                                    document.getElementById('cast').addEventListener('click', function() {
+                                        if (cjs.available) {
+                                            cjs.cast('${uri}', {
+                                                subtitles: [{
+                                                    active: true,
+                                                    label: 'English',
+                                                    src: '${subtitlesUri}'
+                                                }],
+                                            });
+                                        }
+                                    });
+                                """.trimIndent()
+                                }
+                            }
+                        } else {
+                            script {
+                                unsafe {
+                                    +"""
                                     const cjs = new Castjs();
                                     document.getElementById('cast').addEventListener('click', function() {
                                         if (cjs.available) {
@@ -107,6 +156,7 @@ fun main() {
                                         }
                                     });
                                 """.trimIndent()
+                                }
                             }
                         }
                     }
@@ -114,6 +164,10 @@ fun main() {
             }
         }
     }.start(wait = true)
+}
+
+private fun replaceExtension(objectName: String, extension: String): String {
+    return objectName.substringBeforeLast('.') + '.' + extension
 }
 
 fun makePublicObjectUri(
@@ -153,4 +207,13 @@ private fun getObjectStorageClient(): ObjectStorageClient {
 private fun getNamespaceName(client: ObjectStorageClient): String {
     val namespaceResponse = client.getNamespace(GetNamespaceRequest.builder().build())
     return namespaceResponse.value
+}
+
+class TRACK(consumer: TagConsumer<*>) :
+    HTMLTag("track", consumer, emptyMap(),
+        inlineTag = true,
+        emptyTag = false), HtmlInlineTag {
+}
+fun VIDEO.track(block: TRACK.() -> Unit = {}) {
+    TRACK(consumer).visit(block)
 }
