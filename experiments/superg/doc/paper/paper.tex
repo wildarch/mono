@@ -21,7 +21,9 @@
 
 \urlstyle{same}
 
-    
+\usepackage{amsmath}
+\DeclareMathOperator{\strict}{strict}
+
 \begin{document}
 
 \title{Reviving the Lost Art of Combinator Graph Reduction}
@@ -146,7 +148,31 @@ The compiled program is executed using graph reduction, a technique that is also
 
 \section{Kiselyov's algorithms}
 \label{sec:kiselyov}
-Describes the algorithms as implementable functions. Both recursive and linear semantic functions are covered (the two algorithms).
+Kiselyov's paper~\cite{kiselyov_lambda_2018} describes three iterations of his non-linear semantic translation, and finally the linear algorithm.
+They are presented as a type system accompanied with operational semantics, with the exception of the $\eta$-optimization given as an OCaml code patch.
+OCaml's type system can represent these algorithms very concisely in tagless-final style, but how should we represent them in a more conventional style, possibly in a language that does not have such a strong type system?
+
+\subsection{Strict algorithm}
+This is based on the rules in figure 6 of Kiselyov's paper.
+We call it \textit{strict} it does not have lazy weakening: most notably it lacks the K-optimization required for full laziness.
+
+The most naive implementation is to perform the type checking, then use the built context to apply the elimination rules and the translated program.
+As Kiselyov already notes in his treatment of the linear algorithm further on in the paper, the translation does not actually care what elements are in the context, just that we keep track of the size of the context.
+This lets us express compilation as a recursive function, as shown in figure~\ref{fig:strict}.
+
+\begin{figure*}[h]
+    \begin{equation*}
+        \begin{array}{l l @{}l l}
+            \strict & z         & {}= 1 \models I                                                         &                                                                                  \\
+            \strict & s e       & {}= n+1 \models (0 \models K) \coprod (n \models c)                     & \text{where } (n \models c) := \strict e                                         \\
+            \strict & \lambda e & {}= (0 \models K c)                                                     & \text{where } (0 \models c) := \strict e                                         \\
+            \strict & \lambda e & {}= (n-1 \models K c)                                                   & \text{where } (n \models c) := \strict e                                         \\
+            \strict & e_1 \ e_2 & {}= (\max n_1 n_2 \models ((n_1 \models c_1) \coprod (n_2 \models c_2)) & \text{where } (n_1 \models c_1) := \strict e_1; (n_2 \models c_2) := \strict e_2 \\
+        \end{array}
+    \end{equation*}
+    \caption{Compilation function for the strict algorithm. We have reused $\models$ from the paper. In code one may represent it as a tuple, e.g. $n \models e$ becomes $(n, e)$.}
+    \label{fig:strict}
+\end{figure*}
 
 \section{Engine implementation}
 \label{sec:engine}
