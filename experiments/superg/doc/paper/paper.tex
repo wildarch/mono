@@ -23,6 +23,7 @@
 
 \usepackage{amsmath}
 \DeclareMathOperator{\strict}{strict}
+\DeclareMathOperator{\lazy}{lazy}
 
 \begin{document}
 
@@ -158,21 +159,132 @@ We call it \textit{strict} it does not have lazy weakening: most notably it lack
 
 The most naive implementation is to perform the type checking, then use the built context to apply the elimination rules and the translated program.
 As Kiselyov already notes in his treatment of the linear algorithm further on in the paper, the translation does not actually care what elements are in the context, just that we keep track of the size of the context.
-This lets us express compilation as a recursive function, as shown in figure~\ref{fig:strict}.
+This lets us express compilation as a recursive function:
 
-\begin{figure*}[h]
-    \begin{equation*}
-        \begin{array}{l l @{}l l}
-            \strict & z         & {}= 1 \models I                                                         &                                                                                  \\
-            \strict & s e       & {}= n+1 \models (0 \models K) \coprod (n \models c)                     & \text{where } (n \models c) := \strict e                                         \\
-            \strict & \lambda e & {}= (0 \models K c)                                                     & \text{where } (0 \models c) := \strict e                                         \\
-            \strict & \lambda e & {}= (n-1 \models K c)                                                   & \text{where } (n \models c) := \strict e                                         \\
-            \strict & e_1 \ e_2 & {}= (\max n_1 n_2 \models ((n_1 \models c_1) \coprod (n_2 \models c_2)) & \text{where } (n_1 \models c_1) := \strict e_1; (n_2 \models c_2) := \strict e_2 \\
-        \end{array}
-    \end{equation*}
-    \caption{Compilation function for the strict algorithm. We have reused $\models$ from the paper. In code one may represent it as a tuple, e.g. $n \models e$ becomes $(n, e)$.}
-    \label{fig:strict}
-\end{figure*}
+\begin{equation*}
+    \begin{array}{l l l l}
+        \strict & z         & = & 1 \models I                                              \\
+        \strict & s \ e     & = & n+1 \models (0 \models K) \coprod (n \models c)          \\
+                &           &   & \text{where } (n \models c) := \strict e                 \\
+        \\
+        \strict & \lambda e & = & 0 \models K \; c                                         \\
+                &           &   & \text{where } (0 \models c) := \strict e                 \\
+        \strict & \lambda e & = & (n-1) \models K \; c                                     \\
+                &           &   & \text{where } (n \models c) := \strict e                 \\
+        \\
+        \strict & e_1 \ e_2 & = & (n \models ((n_1 \models c_1) \coprod (n_2 \models c_2)) \\
+                &           &   & \text{where } (n_1 \models c_1) := \strict e_1           \\
+                &           &   & \text{where } (n_2 \models c_2) := \strict e_2           \\
+                &           &   & \text{where } n := \max n_1 \, n_2                       \\
+    \end{array}
+\end{equation*}
+
+There are two cases for $\lambda e$, and this is precisely where the number of elements in the context matters:
+if the context is empty, the first rule applies, otherwise, we use the second one.
+The semantic function may be defined as:
+
+\begin{equation*}
+    \arraycolsep=1.4pt
+    \begin{array}{l l l l l}
+        (0 \models c_1)   & \coprod & (0 \models c_2)   & = & c_1 \ c_2                                         \\
+        \\
+        (0 \models c_1)   & \coprod & (n_2 \models c_2) & = & (0 \models B c_1) \coprod (n_2 - 1 \models c_2)   \\
+        \\
+        (n_1 \models c_1) & \coprod & (0 \models c_2)   & = & (0 \models C C c_2) \coprod (n_1 - 1 \models c_1) \\
+        \\
+        (n_1 \models c_1) & \coprod & (n_2 \models c_2) & = & (n_1 - 1 \models (s \coprod l)) \coprod r)        \\
+                          &         &                   &   & \text{where } s := (0 \models S )                 \\
+                          &         &                   &   & \text{where } l := (n_1-1 \models c_1 )           \\
+                          &         &                   &   & \text{where } r := (n_2-1 \models c_2 )           \\
+    \end{array}
+\end{equation*}
+
+These simplified functions can be implemented directly and efficiently in a conventional programming language.
+
+\subsection{Lazy weakening}
+Adding lazy weakening requires that we track which items in the context are ignored.
+We change our context representation from an integer to a list of boolean values.
+In the new compilation functions below, we use a shorthand $t$ for the value \textit{true} and $f$ for \textit{false}.
+We always match the last element of lists and represent the remainder of the list with $\Gamma$.
+
+\begin{equation*}
+    \begin{array}{l l l l}
+        \lazy & z         & = & t \models I                                                             \\
+        \lazy & s \ e     & = & \Gamma,f \models c                                                      \\
+              &           &   & \text{where } (\Gamma \models c) := \lazy e                             \\
+        \\
+        \lazy & \lambda e & = & \emptyset \models K \; c                                                \\
+              &           &   & \text{where } (\emptyset \models c) := \lazy e                          \\
+        \lazy & \lambda e & = & (\emptyset \models K) \coprod (\Gamma \models c)                        \\
+              &           &   & \text{where } (\Gamma,f \models c) := \lazy e                           \\
+        \lazy & \lambda e & = & \Gamma \models K \; c                                                   \\
+              &           &   & \text{where } (\Gamma,t \models c) := \lazy e                           \\
+        \\
+        \lazy & e_1 \ e_2 & = & (\Gamma \models ((\Gamma_1 \models c_1) \coprod (\Gamma_2 \models c_2)) \\
+              &           &   & \text{where } (\Gamma_1 \models c_1) := \lazy e_1                       \\
+              &           &   & \text{where } (\Gamma_2 \models c_2) := \lazy e_2                       \\
+              &           &   & \text{where } \Gamma := \Gamma_1 \sqcup \Gamma_2                        \\
+    \end{array}
+\end{equation*}
+
+We have introduced yet another case for $\lambda e$, this time to distinguish between $t$ or $f$ as the last element in the context of the inner expression.
+There is also the new function $\sqcup$, which we need to implement:
+
+\begin{equation*}
+    \begin{array}{l l l l l}
+        \Gamma_1    & \sqcup & \emptyset   & = & \Gamma_1                     \\
+        \emptyset   & \sqcup & \Gamma_2    & = & \Gamma_2                     \\
+        \Gamma_1,t  & \sqcup & \Gamma_2,\_ & = & (\Gamma_1 \sqcup \Gamma_2),t \\
+        \Gamma_1,\_ & \sqcup & \Gamma_2,t  & = & (\Gamma_1 \sqcup \Gamma_2),t \\
+        \Gamma_1,f  & \sqcup & \Gamma_2,f  & = & (\Gamma_1 \sqcup \Gamma_2),f \\
+    \end{array}
+\end{equation*}
+
+In our implementation, we unroll the recursion into a while loop, and repeatedly pop elements from the two arrays until both are empty.
+This builds the new context backwards, so as a final step the array is reversed.
+
+Alternatively, an implementation can pad the shorter list (at the start!) with $f$ and zip them.
+This is particularly convenient for languages that provide a zip function with a default value\footnote{such as \href{https://docs.python.org/3/library/itertools.html\#itertools.zip\_longest}{\texttt{ziplongest}} in Python.}.
+
+Our semantic function now has to handle more cases, and thus is somewhat larger:
+
+\begin{equation*}
+    \arraycolsep=1.4pt
+    \begin{array}{l l l l l}
+        (\emptyset \models c_1)  & \coprod & (\emptyset \models c_2)  & = & c_1 \ c_2                                                \\
+        \\
+        (\emptyset \models c_1)  & \coprod & (\Gamma_2,t \models c_2) & = & (\emptyset \models B c_1) \coprod (\Gamma_2 \models c_2) \\
+        \\
+        (\Gamma_1,t \models c_1) & \coprod & (\emptyset \models c_2)  & = & (\emptyset \models C C c_2) \coprod (\Gamma \models c_1) \\
+        \\
+        (\Gamma_1,t \models c_1) & \coprod & (\Gamma_2,t \models c_2) & = & (\Gamma_1 \models (s \coprod l)) \coprod r)              \\
+                                 &         &                          &   & \text{where } s := (\emptyset \models S )                \\
+                                 &         &                          &   & \text{where } l := (\Gamma_1 \models c_1 )               \\
+                                 &         &                          &   & \text{where } r := (\Gamma_2 \models c_2 )               \\
+        \\
+        % The new additions
+        (\Gamma_1,f \models c_1) & \coprod & (\Gamma_2,f \models c_2) & = & (\Gamma_1 \models c_1) \coprod (\Gamma_2 \models c_2)    \\
+        \\
+        (\Gamma_1,f \models c_1) & \coprod & (\Gamma_2,t \models c_2) & = & (\Gamma_1 \models (b \coprod l)) \coprod r)              \\
+                                 &         &                          &   & \text{where } b := (\emptyset \models B )                \\
+                                 &         &                          &   & \text{where } l := (\Gamma_1 \models c_1 )               \\
+                                 &         &                          &   & \text{where } r := (\Gamma_2 \models c_2 )               \\
+        \\
+        (\Gamma_1,t \models c_1) & \coprod & (\Gamma_2,f \models c_2) & = & (\Gamma_1 \models (c \coprod l)) \coprod r)              \\
+                                 &         &                          &   & \text{where } c := (\emptyset \models C )                \\
+                                 &         &                          &   & \text{where } l := (\Gamma_1 \models c_1 )               \\
+                                 &         &                          &   & \text{where } r := (\Gamma_2 \models c_2 )               \\
+        \\
+        (\emptyset \models c_1)  & \coprod & (\Gamma_2,f \models c_2) & = & (\emptyset \models c_1) \coprod (\Gamma_2 \models c_2)   \\
+        \\
+        (\Gamma_1,f \models c_1) & \coprod & (\emptyset \models c_2)  & = & (\Gamma_1 \models c_1) \coprod (\emptyset \models c_2)   \\
+    \end{array}
+\end{equation*}
+
+The first 4 cases are direct translations from the previous definitions, the others are new additions to handle ignored elements.
+The last 2 cases are not included in the original paper, but they are necessary to make the pattern matching exhaustive, and are present in the reference OCaml implementation.
+
+\textbf{TODO:} Eta optimization.
 
 \section{Engine implementation}
 \label{sec:engine}
