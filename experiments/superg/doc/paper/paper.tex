@@ -24,6 +24,7 @@
 \usepackage{amsmath}
 \DeclareMathOperator{\strict}{strict}
 \DeclareMathOperator{\lazy}{lazy}
+\DeclareMathOperator{\lazyeta}{lazy_\eta}
 
 \begin{document}
 
@@ -284,7 +285,87 @@ Our semantic function now has to handle more cases, and thus is somewhat larger:
 The first 4 cases are direct translations from the previous definitions, the others are new additions to handle ignored elements.
 The last 2 cases are not included in the original paper, but they are necessary to make the pattern matching exhaustive, and are present in the reference OCaml implementation.
 
-\textbf{TODO:} Eta optimization.
+\subsection{Eta optimization}
+Kiselyov covers eta optimization as a change to his OCaml code rather than typing rules.
+Our recursive functions are derived from the typing rules, so these changes are not as straightforward to incorporate.
+%Previously Kiselyov's representation consisted of elements $C$, $N$ and $W$, representing closed expressions, a used context element, and an ignored context element respectively.
+The introduction of the $V$ element means that a context may now be associated with either a closed expression or the top variable (we reuse $V$ as a marker for this).
+Our implementation uses a tagged union to define a type that can be either an expression or the top variable.
+For the compilation function, we only need to change the definition of $\lazyeta \ z$ and add an extra case for $\lazyeta \ \lambda e$:
+
+\begin{equation*}
+    \begin{array}{l l l l}
+        \lazyeta & z         & = & \emptyset \models V                                                     \\
+        \lazyeta & s \ e     & = & \Gamma,f \models c                                                      \\
+                 &           &   & \text{where } (\Gamma \models c) := \lazyeta e                          \\
+        \\
+        \lazyeta & \lambda e & = & \emptyset \models I                                                     \\
+                 &           &   & \text{where } (\emptyset \models V) := \lazyeta e                       \\
+        \lazyeta & \lambda e & = & \emptyset \models K \; c                                                \\
+                 &           &   & \text{where } (\emptyset \models c) := \lazyeta e                       \\
+        \lazyeta & \lambda e & = & (\emptyset \models K) \coprod (\Gamma \models c)                        \\
+                 &           &   & \text{where } (\Gamma,f \models c) := \lazyeta e                        \\
+        \lazyeta & \lambda e & = & \Gamma \models K \; c                                                   \\
+                 &           &   & \text{where } (\Gamma,t \models c) := \lazyeta e                        \\
+        \\
+        \lazyeta & e_1 \ e_2 & = & (\Gamma \models ((\Gamma_1 \models c_1) \coprod (\Gamma_2 \models c_2)) \\
+                 &           &   & \text{where } (\Gamma_1 \models c_1) := \lazyeta e_1                    \\
+                 &           &   & \text{where } (\Gamma_2 \models c_2) := \lazyeta e_2                    \\
+                 &           &   & \text{where } \Gamma := \Gamma_1 \sqcup \Gamma_2                        \\
+    \end{array}
+\end{equation*}
+
+\textbf{TODO: } Check this, possibly need to take (C d, V) = N (C d)
+The context merge function $\sqcup$ is unchanged, but we do have some new cases for the semantic function:
+
+\begin{equation*}
+    \arraycolsep=1.4pt
+    \begin{array}{l l l l l}
+        % Added for eta optimization
+        (\Gamma_1,f \models c_1) & \coprod & (\emptyset \models V)    & = & c_1                                                      \\
+        (\emptyset \models V)    & \coprod & (\Gamma_2,f \models c_2) & = & (\emptyset \models CI) \coprod (\Gamma_2 \models c_2)    \\
+
+        (\Gamma_1,t \models c_1) & \coprod & (\emptyset \models V)    & = & (\Gamma_1 \models (s \coprod l)) \coprod i               \\
+                                 &         &                          &   & \text{where } l := (\Gamma_1 \models c_1 )               \\
+                                 &         &                          &   & \text{where } s := (\emptyset \models S )                \\
+                                 &         &                          &   & \text{where } i := (\emptyset \models I )                \\
+        (\emptyset \models V)    & \coprod & (\Gamma_2,t \models c_2) & = & (\emptyset \models SI) \coprod (\Gamma_2 \models c_2)    \\
+        (\emptyset \models c_1)  & \coprod & (\emptyset \models V)    & = & c_1                                                      \\
+        (\emptyset \models V)    & \coprod & (\emptyset \models c_2)  & = & CI c_2                                                   \\
+        \\
+
+        % Original
+        (\emptyset \models c_1)  & \coprod & (\emptyset \models c_2)  & = & c_1 \ c_2                                                \\
+        \\
+        (\emptyset \models c_1)  & \coprod & (\Gamma_2,t \models c_2) & = & (\emptyset \models B c_1) \coprod (\Gamma_2 \models c_2) \\
+        \\
+        (\Gamma_1,t \models c_1) & \coprod & (\emptyset \models c_2)  & = & (\emptyset \models C C c_2) \coprod (\Gamma \models c_1) \\
+        \\
+        (\Gamma_1,t \models c_1) & \coprod & (\Gamma_2,t \models c_2) & = & (\Gamma_1 \models (s \coprod l)) \coprod r)              \\
+                                 &         &                          &   & \text{where } s := (\emptyset \models S )                \\
+                                 &         &                          &   & \text{where } l := (\Gamma_1 \models c_1 )               \\
+                                 &         &                          &   & \text{where } r := (\Gamma_2 \models c_2 )               \\
+        \\
+        % Lazy
+        (\Gamma_1,f \models c_1) & \coprod & (\Gamma_2,f \models c_2) & = & (\Gamma_1 \models c_1) \coprod (\Gamma_2 \models c_2)    \\
+        \\
+        (\Gamma_1,f \models c_1) & \coprod & (\Gamma_2,t \models c_2) & = & (\Gamma_1 \models (b \coprod l)) \coprod r)              \\
+                                 &         &                          &   & \text{where } b := (\emptyset \models B )                \\
+                                 &         &                          &   & \text{where } l := (\Gamma_1 \models c_1 )               \\
+                                 &         &                          &   & \text{where } r := (\Gamma_2 \models c_2 )               \\
+        \\
+        (\Gamma_1,t \models c_1) & \coprod & (\Gamma_2,f \models c_2) & = & (\Gamma_1 \models (c \coprod l)) \coprod r)              \\
+                                 &         &                          &   & \text{where } c := (\emptyset \models C )                \\
+                                 &         &                          &   & \text{where } l := (\Gamma_1 \models c_1 )               \\
+                                 &         &                          &   & \text{where } r := (\Gamma_2 \models c_2 )               \\
+        \\
+        (\emptyset \models c_1)  & \coprod & (\Gamma_2,f \models c_2) & = & (\emptyset \models c_1) \coprod (\Gamma_2 \models c_2)   \\
+        \\
+        (\Gamma_1,f \models c_1) & \coprod & (\emptyset \models c_2)  & = & (\Gamma_1 \models c_1) \coprod (\emptyset \models c_2)   \\
+    \end{array}
+\end{equation*}
+
+
 
 \section{Engine implementation}
 \label{sec:engine}
