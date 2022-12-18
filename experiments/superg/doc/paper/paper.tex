@@ -311,12 +311,31 @@ For the compilation function, we only need to change the definition of $\lazyeta
         \lazyeta & e_1 \ e_2 & = & (\Gamma \models ((\Gamma_1 \models c_1) \coprod_\eta (\Gamma_2 \models c_2)) \\
                  &           &   & \text{where } (\Gamma_1 \models c_1) := \lazyeta e_1                         \\
                  &           &   & \text{where } (\Gamma_2 \models c_2) := \lazyeta e_2                         \\
-                 &           &   & \text{where } \Gamma := \Gamma_1 \sqcup \Gamma_2                             \\
+                 &           &   & \text{where } \Gamma := \Gamma_1 \sqcup_\eta \Gamma_2                        \\
     \end{array}
 \end{equation*}
 
-\textbf{TODO: } Check this, possibly need to take (C d, V) = N (C d)
-The context merge function $\sqcup$ is unchanged, but we do have some new cases for the semantic function:
+Our context merge function $\sqcup$ now also depends on the compiled expression, since we have a special case for $V$:
+
+\begin{equation*}
+    \begin{array}{l l l l l}
+        (\Gamma_1,\_ \models c_1) & \sqcup_\eta & (\emptyset \models V)     & = & \Gamma_1,t                        \\
+        (\emptyset \models V)     & \sqcup_\eta & (\Gamma_2,\_ \models c_2) & = & \Gamma_2,t                        \\
+        (\emptyset \models c_1)   & \sqcup_\eta & (\emptyset \models V)     & = & t                                 \\
+        (\emptyset \models V)     & \sqcup_\eta & (\emptyset \models c_2)   & = & t                                 \\
+        (\emptyset \models V)     & \sqcup_\eta & (\emptyset \models V)     & = & \mathbf{impossible}               \\
+        \\
+        % Original ones
+        (\Gamma_1 \models c_1)    & \sqcup_\eta & (\emptyset \models c_2)   & = & \Gamma_1                          \\
+        (\emptyset \models c_1)   & \sqcup_\eta & (\Gamma_2 \models c_2)    & = & \Gamma_2                          \\
+        (\Gamma_1,t \models c_1)  & \sqcup_\eta & (\Gamma_2,\_ \models c_2) & = & (\Gamma_1 \sqcup_\eta \Gamma_2),t \\
+        (\Gamma_1,\_ \models c_1) & \sqcup_\eta & (\Gamma_2,t \models c_2)  & = & (\Gamma_1 \sqcup_\eta \Gamma_2),t \\
+        (\Gamma_1,f \models c_1)  & \sqcup_\eta & (\Gamma_2,f \models c_2)  & = & (\Gamma_1 \sqcup_\eta \Gamma_2),f \\
+    \end{array}
+\end{equation*}
+
+The $V$ value effectively encodes an additional implicit used element in the context.
+We also have some new cases for the semantic function:
 
 \begin{equation*}
     \arraycolsep=1.4pt
@@ -342,6 +361,8 @@ The context merge function $\sqcup$ is unchanged, but we do have some new cases 
 The case $(\emptyset \models V) \coprod (\emptyset \models V) $ is impossible in this translation, implementations may throw an error or leave it as undefined behavior.
 \textbf{TODO:} Why is this an impossible case?
 
+With the addition of the expression value to $\sqcup_\eta$, the function now takes the same input as $\coprod_\eta$ and has very similar matching patterns.
+Our implementation, therefore, folds context merging into $\coprod_\eta$ to make the code more concise.
 
 \section{Engine implementation}
 \label{sec:engine}
