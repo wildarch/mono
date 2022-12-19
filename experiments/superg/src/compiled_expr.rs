@@ -1,5 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Comb {
     S,
     K,
