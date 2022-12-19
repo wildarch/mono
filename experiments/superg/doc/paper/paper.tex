@@ -412,9 +412,81 @@ below we give the corresponding semantic function, which is no longer recursive,
 \section{Engine implementation}
 \label{sec:engine}
 \subsection*{Miranda}
-Describe the implementation of a SASL/Miranda-style engine.
+For our base implementation, we try to stick to Miranda's design as much as possible.
+While there is published work on Miranda~\cite{turner_miranda_1985}, it does not provide much detail on the reduction engine.
+Fortunately, the source code for Miranda is now freely available~\cite{noauthor_open_2021}, and from the code, we can deduce that its design is very similar to SASL~\cite{turner_new_1979}, an earlier language developed by Turner.
 
-Compare performance with Open Source Miranda.
+Miranda uses a graph reduction engine, so after a program has been converted into combinatory logic using Turner's abstraction algorithm~\cite{turner_another_1979}, it is loaded into a graph structure.
+The graph is binary: every node has exactly two children, and the node itself represents the application of the right node to the left one.
+Let us start with an example program $SKK \ 3$.
+The $S$ combinator takes 3 arguments, but currying lets us write it as $((SK) \; K)\ 3$.
+In this form, it is straightforward to construct the associated binary graph, shown in figure~\ref{fig:skk3}.
+
+\begin{figure}
+    \includegraphics[width=.23\columnwidth]{skk3}
+    \centering
+    \caption{$SKK \ 3$ in graph representation.}
+    \label{fig:skk3}
+\end{figure}
+
+To reduce this graph, we follow the left pointers until we find a combinator to apply.
+As we traverse the graph along what is often called the \textit{spine}, we keep the nodes we have seen on a stack, because their right nodes contain the arguments to the combinator we eventually find.
+
+In this example graph, after following two pointers we find the $S$ combinator, and we apply the definition $S f g x \Rightarrow (f x) (g x)$ to rewrite the graph, as shown in figure~\ref{fig:skk3_sred}.
+
+\begin{figure}
+    \includegraphics[width=.8\columnwidth]{skk3_sred}
+    \centering
+    \caption{
+        First reduction step for $SKK \ 3$.
+        One of the K combinators is underlined to make them easier to distinguish.
+    }
+    \label{fig:skk3_sred}
+\end{figure}
+
+The reduction process continues until the program has been reduced to a constant value, or there are insufficient arguments for the next combinator to reduce.
+The expression is said to be in \textit{weak head normal form}: some inner part of the expression may be reducible, but we only perform outermost reduction, so this is as close as we can get to normal form.
+
+\subsection{Sharing}
+In the reduction in figure~\ref{fig:skk3_sred}, we have copied the value $3$ to two nodes.
+For another reduction where the $x$ value is a pointer to a subgraph, performing the reduction may result in multiple pointers to the same expression.
+Expressions in Miranda are \textit{referentially transparent}: we can safely replace any expression with the value it computes.
+Computing $x$ in both branches would therefore be wasteful.
+Instead, we would like to compute it once (in whatever branch runs first) and have the second branch directly reuse the result.
+It turns out that this is not too difficult to implement: when we make a reduction step, we update the outermost node with the contents of the new outermost node.
+In figure~\ref{fig:skk3_sred}, this would mean we overwrite node 1 with the contents of node 4.
+Now any other pointers to node 1 automatically point to the reduced equivalent.
+If the expression reduces to a single value $v$ (say an integer), we can use the $I$ combinator to make an \textit{indirection node} $I v$.
+
+\subsection{Strict operators}
+\textbf{TODO}
+
+\subsection{Representing the graph}
+Miranda represents the graph using three arrays, \texttt{hd} (for head) stores the left pointer, \texttt{tl} (for tail) stores the right pointer, and \texttt{tag} stores metadata for the cell.
+Owing to its early inception when 64-bit machines were rare, \texttt{hd} and \texttt{tl} are 32 bits wide.
+\texttt{tag} only needs to store a few bit flags and thus is a single byte wide.
+Our implementation stores two flags in \texttt{tag}:
+\begin{itemize}
+    \item \texttt{WANTED}: Set if this cell is currently in use. Cells without this bit set are considered free and may be overwritten to store new nodes in the graph. More on this in the section on Garbage collection.
+    \item \texttt{RHS\_INT}: Set if the right pointer is not a pointer but an integer value. Note that the left pointer can never be an integer because the left pointer is always a function for which the right pointer is the first argument.
+\end{itemize}
+
+It is unclear why a representation with three separate arrays was chosen over a single array where each element contains a 'cell' struct with a head, tail and tag.
+We suspect decomposing the graph into separate arrays leads to poor data locality, as almost any operation will access all three parts of a cell.
+Our base implementation respects this design choice, later implementations do not.
+
+Miranda reserves the lower range of cell pointer values for special purposes:
+\begin{itemize}
+    \item 0..255 represents the Latin 1 character set.
+    \item 256..305 for internal use in the lexer.
+    \item 306..446 to encode combinators.
+\end{itemize}
+
+The first 446 cells in the heap are unused: when the reduction engine encounters their value, they are interpreted as a character, lexer rule or combinator.
+This explains why we have to tag integers but not combinators or character values.
+
+\subsection{Garbage collection}
+\textbf{TODO}
 
 \subsection*{TIGRE}
 Describe changes made to align with TIGRE.
