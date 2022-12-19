@@ -13,12 +13,16 @@ const CELLS: usize = 250_000;
 pub struct CellPtr(i32);
 
 impl CellPtr {
-    pub fn comb(&self, engine: &TurnerEngine) -> Option<Comb> {
+    pub fn comb(&self, engine: &TurnerEngineDebug) -> Option<Comb> {
         engine.comb_inst.get(self.0 as usize).copied()
     }
 
     pub fn is_comb(&self, engine: &TurnerEngine) -> bool {
         (self.0 as usize) < engine.comb_impl.len()
+    }
+
+    pub fn is_i_comb(&self) -> bool {
+        return self.0 == 0;
     }
 }
 
@@ -34,14 +38,28 @@ impl IntoCellPtr for CellPtr {
 
 impl IntoCellPtr for Comb {
     fn into_cell_ptr(self, engine: &TurnerEngine) -> CellPtr {
-        CellPtr(engine.comb_map.get(&self).copied().unwrap() as i32)
+        if let Some(idx) = engine.comb_map.get(&self) {
+            CellPtr(*idx as i32)
+        } else {
+            panic!("Combinator {:?} not found in mapping", self);
+        }
     }
 }
 
 impl Comb {
     fn implementation(&self) -> fn(&mut TurnerEngine) -> Option<CellPtr> {
         match self {
-            _ => TurnerEngine::run_todo_comb,
+            Comb::S => TurnerEngine::run_s_comb,
+            Comb::K => TurnerEngine::run_k_comb,
+            Comb::I => TurnerEngine::run_i_comb,
+            Comb::Plus => TurnerEngine::run_plus_comb,
+            Comb::Minus => TurnerEngine::run_minus_comb,
+            Comb::Times => TurnerEngine::run_times_comb,
+            Comb::Cond => TurnerEngine::run_cond_comb,
+            Comb::Eq => TurnerEngine::run_eq_comb,
+            Comb::Lt => TurnerEngine::run_lt_comb,
+            Comb::Abort => TurnerEngine::run_abort_comb,
+            _ => todo!("No implementation for combinator {:?}", self),
         }
     }
 }
@@ -99,10 +117,13 @@ pub struct TurnerEngine {
 
     // Combinator implementation lookup table
     comb_impl: Vec<fn(&mut TurnerEngine) -> Option<CellPtr>>,
-    // Combinator instance lookup table
-    comb_inst: Vec<Comb>,
-    // Maps combinator to the index in comb_impl/comb_inst
+    // Maps combinator to the index in comb_impl
     comb_map: HashMap<Comb, usize>,
+}
+
+struct CompiledDef {
+    name: String,
+    expr: CompiledExpr,
 }
 
 impl TurnerEngine {
@@ -112,23 +133,35 @@ impl TurnerEngine {
             hd: vec![CellPtr(0i32); CELLS],
             tl: vec![CellPtr(0i32); CELLS],
             // We don't allocate cells when the pointer to it would be ambiguous
-            next_cell: CellPtr(Comb::all().len() as i32),
+            next_cell: CellPtr(0 as i32),
             def_lookup: HashMap::new(),
             stack: Vec::new(),
             comb_impl: Vec::new(),
-            comb_inst: Vec::new(),
             comb_map: HashMap::new(),
         };
 
-        // TODO: populate during graph loading
-        for c in Comb::all() {
-            engine.comb_impl.push(c.implementation());
-            engine.comb_inst.push(*c);
-            engine.comb_map.insert(*c, engine.comb_impl.len() - 1);
+        // Compile all definitions
+        let compiled_defs: Vec<CompiledDef> = program
+            .defs
+            .iter()
+            .map(|def| CompiledDef {
+                name: def.name.clone(),
+                expr: bracket::compile(&def.as_lam()),
+            })
+            .collect();
+
+        // We always need to have I mapped for indirection nodes.
+        engine.add_comb_impl(Comb::I);
+        // This must hold for Comb::is_I_comb to be correct
+        assert_eq!(engine.comb_map.get(&Comb::I), Some(&0));
+        // Populate the combinator lookup table based on the combinators present in the program
+        for def in &compiled_defs {
+            engine.add_comb_impls(&def.expr);
         }
 
         // Reserve a spot for each definition
-        for def in &program.defs {
+        engine.add_comb_impl(Comb::Abort);
+        for def in &compiled_defs {
             let cell_ptr = engine.make_cell(Tag::wanted(), Comb::I, Comb::Abort);
             if let Some(_) = engine.def_lookup.insert(def.name.clone(), cell_ptr) {
                 panic!("Duplicate definition of {}", def.name);
@@ -136,10 +169,34 @@ impl TurnerEngine {
         }
 
         // Compile all definitions
-        for def in &program.defs {
-            engine.compile_def(def);
+        for def in compiled_defs {
+            engine.alloc_def(def);
         }
         engine
+    }
+
+    fn add_comb_impls(&mut self, e: &CompiledExpr) {
+        match e {
+            CompiledExpr::Comb(c) => self.add_comb_impl(*c),
+            CompiledExpr::Ap(f, a) => {
+                self.add_comb_impls(f);
+                self.add_comb_impls(a);
+            }
+            CompiledExpr::Var(_) => {}
+            CompiledExpr::Int(_) => {}
+        }
+    }
+
+    fn add_comb_impl(&mut self, c: Comb) {
+        if self.comb_map.contains_key(&c) {
+            // Already added
+            return;
+        }
+        // Add the combinator implementation
+        self.comb_impl.push(c.implementation());
+        let idx = self.comb_impl.len() - 1;
+        self.comb_map.insert(c, idx);
+        self.next_cell = CellPtr(idx as i32);
     }
 
     pub fn run(&mut self) -> CellPtr {
@@ -155,32 +212,8 @@ impl TurnerEngine {
 
     fn step(&mut self) -> Option<CellPtr> {
         let top = self.stack.last().unwrap();
-        if let Some(comb) = top.comb(self) {
-            match comb {
-                Comb::S => self.run_s_comb(),
-                Comb::K => self.run_k_comb(),
-                Comb::I => self.run_i_comb(),
-                Comb::Y => todo!(),
-                Comb::U => todo!(),
-                Comb::P => todo!(),
-                Comb::B => todo!(),
-                Comb::C => todo!(),
-                Comb::Plus => self.run_plus_comb(),
-                Comb::Minus => self.run_minus_comb(),
-                Comb::Times => self.run_times_comb(),
-                Comb::Divide => todo!(),
-                Comb::Cond => self.run_cond_comb(),
-                Comb::Eq => self.run_eq_comb(),
-                Comb::Neq => todo!(),
-                Comb::Gt => todo!(),
-                Comb::Gte => todo!(),
-                Comb::Lt => self.run_lt_comb(),
-                Comb::Lte => todo!(),
-                Comb::And => todo!(),
-                Comb::Or => todo!(),
-                Comb::Not => todo!(),
-                Comb::Abort => todo!(),
-            }
+        if let Some(comb_impl) = self.comb_impl.get(top.0 as usize) {
+            comb_impl(self)
         } else {
             // An application, so push the left subtree
             self.stack.push(self.hd(*top));
@@ -275,10 +308,8 @@ impl TurnerEngine {
         })
     }
 
-    fn run_todo_comb(&mut self) -> Option<CellPtr> {
-        let top = self.stack.last().unwrap();
-        let comb = top.comb(self).unwrap();
-        todo!("combinator {:?} not implemented", comb)
+    fn run_abort_comb(&mut self) -> Option<CellPtr> {
+        panic!("Abort combinator reduced")
     }
 
     fn run_strict_binop(&mut self, op: fn(i32, i32) -> i32) -> Option<CellPtr> {
@@ -306,7 +337,7 @@ impl TurnerEngine {
             return None;
         }
         // Check to see if RHS happens to point to an indirection node
-        if self.hd(rhs_ptr).comb(self) == Some(Comb::I) {
+        if self.hd(rhs_ptr).is_i_comb() {
             // TODO: Consider making indirection compression a job for I reduction
             // Remove one layer of indirection
             self.set_tag(cell_ptr, self.tag(rhs_ptr));
@@ -316,9 +347,8 @@ impl TurnerEngine {
         None
     }
 
-    fn compile_def(&mut self, def: &ast::Def) {
-        let compiled_expr = bracket::compile(&def.as_lam());
-        let cell_ptr = self.alloc_compiled_expr(compiled_expr);
+    fn alloc_def(&mut self, def: CompiledDef) {
+        let cell_ptr = self.alloc_compiled_expr(def.expr);
         let def_ptr = self.def_lookup.get(&def.name).unwrap();
         // Set up the indirection from the definition to the compiled expression
         self.set_tl(*def_ptr, cell_ptr);
@@ -346,7 +376,7 @@ impl TurnerEngine {
                     vec![hd, tl]
                 };
                 self.garbage_collect(initial_queue);
-                cell_idx = Comb::all().len();
+                cell_idx = self.comb_impl.len();
                 continue;
             }
         }
@@ -361,7 +391,7 @@ impl TurnerEngine {
     // Simple mark and sweep garbage collect
     fn garbage_collect(&mut self, mut queue: Vec<CellPtr>) {
         // Phase 1: Mark everything unwanted
-        for t in self.tag.iter_mut().skip(Comb::all().len()) {
+        for t in self.tag.iter_mut().skip(self.comb_impl.len()) {
             *t = t.set_unwanted();
         }
 
@@ -411,7 +441,7 @@ impl TurnerEngine {
             panic!("Out of memory!")
         }
         // Reset next cell pointer
-        self.next_cell = CellPtr(Comb::all().len() as i32);
+        self.next_cell = CellPtr(self.comb_impl.len() as i32);
     }
 
     fn alloc_compiled_expr(&mut self, expr: CompiledExpr) -> CellPtr {
@@ -494,11 +524,21 @@ impl TurnerEngine {
     }
 
     pub fn with_debug(self) -> TurnerEngineDebug {
+        let mut comb_inst = Vec::new();
+        // Fill with dummies
+        for _ in &self.comb_impl {
+            comb_inst.push(Comb::Abort);
+        }
+        // Put in the correct ones using the map
+        for (c, i) in self.comb_map.iter() {
+            comb_inst[*i] = *c;
+        }
         TurnerEngineDebug {
             engine: self,
             dump_path: None,
             step_counter: 0,
             step_limit: None,
+            comb_inst,
         }
     }
 }
@@ -596,6 +636,8 @@ pub struct TurnerEngineDebug {
     dump_path: Option<PathBuf>,
     step_counter: usize,
     step_limit: Option<usize>,
+    // Combinator instance lookup table
+    comb_inst: Vec<Comb>,
 }
 
 impl TurnerEngineDebug {
@@ -644,14 +686,14 @@ impl TurnerEngineDebug {
         writeln!(w, "digraph {{")?;
         // Nodes
         writeln!(w, "node [shape=record];")?;
-        for c in 0..CELLS {
+        for c in self.comb_inst.len()..CELLS {
             let tag = self.engine.tag[c];
             if !tag.is_wanted() {
                 // unwanted
                 continue;
             }
             let hd = self.engine.hd[c];
-            let hd = if let Some(comb) = hd.comb(&self.engine) {
+            let hd = if let Some(comb) = hd.comb(&self) {
                 format!("{:?}", comb)
             } else {
                 String::new()
@@ -659,7 +701,7 @@ impl TurnerEngineDebug {
             let tl = self.engine.tl[c];
             let tl = if tag.is_rhs_int() {
                 format!("{}", tl.0)
-            } else if let Some(comb) = tl.comb(&self.engine) {
+            } else if let Some(comb) = tl.comb(&self) {
                 format!("{:?}", comb)
             } else {
                 String::new()
@@ -670,7 +712,7 @@ impl TurnerEngineDebug {
         if !self.engine.stack.is_empty() {
             write!(w, "stack [pos=\"0,0!\", label=\"{{")?;
             for (i, c) in self.engine.stack.iter().enumerate() {
-                if let Some(comb) = c.comb(&self.engine) {
+                if let Some(comb) = c.comb(&self) {
                     write!(w, "<s{}> {:?}", i, comb)?;
                 } else {
                     write!(w, "<s{}> ", i)?;
@@ -683,7 +725,7 @@ impl TurnerEngineDebug {
         }
 
         // Edges
-        for c in 0..CELLS {
+        for c in self.comb_inst.len()..CELLS {
             let tag = self.engine.tag[c];
             if !tag.is_wanted() {
                 continue;
@@ -918,7 +960,7 @@ mod tests {
         let parsed = parse(lex(program));
         let mut engine = TurnerEngine::compile(&parsed).with_debug();
         // disabled by default because it slows things down a lot, enable for debugging
-        //engine.set_dump_path(format!("/tmp/{}", _test_name));
+        // engine.set_dump_path(format!("/tmp/{}", _test_name));
         engine.set_step_limit(l.0);
 
         let ptr = engine.run();
