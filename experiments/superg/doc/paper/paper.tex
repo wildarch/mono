@@ -25,6 +25,7 @@
 \DeclareMathOperator{\strict}{strict}
 \DeclareMathOperator{\lazy}{lazy}
 \DeclareMathOperator{\lazyeta}{lazy_\eta}
+\DeclareMathOperator{\linear}{linear}
 
 \begin{document}
 
@@ -363,6 +364,50 @@ The case $(\emptyset \models V) \coprod (\emptyset \models V) $ is impossible in
 
 With the addition of the expression value to $\sqcup_\eta$, the function now takes the same input as $\coprod_\eta$ and has very similar matching patterns.
 Our implementation, therefore, folds context merging into $\coprod_\eta$ to make the code more concise.
+
+\subsection{Linear algorithm}
+The implementation of the linear algorithm is much simpler because it is based on the strict algorithm.
+The compilation function is identical save for a different semantic function $\coprod_{\text{linear}}$:
+
+\begin{equation*}
+    \begin{array}{l l l l}
+        \linear & z         & = & 1 \models I                                                              \\
+        \linear & s \ e     & = & n+1 \models (0 \models K) \coprod (n \models c)                          \\
+                &           &   & \text{where } (n \models c) := \linear e                                 \\
+        \\
+        \linear & \lambda e & = & 0 \models K \; c                                                         \\
+                &           &   & \text{where } (0 \models c) := \linear e                                 \\
+        \linear & \lambda e & = & (n-1) \models K \; c                                                     \\
+                &           &   & \text{where } (n \models c) := \linear e                                 \\
+        \\
+        \linear & e_1 \ e_2 & = & (n \models ((n_1 \models c_1) \coprod_{\text{linear}} (n_2 \models c_2)) \\
+                &           &   & \text{where } (n_1 \models c_1) := \linear e_1                           \\
+                &           &   & \text{where } (n_2 \models c_2) := \linear e_2                           \\
+                &           &   & \text{where } n := \max n_1 \, n_2                                       \\
+    \end{array}
+\end{equation*}
+
+below we give the corresponding semantic function, which is no longer recursive, making this algorithm linear:
+
+\begin{equation*}
+    \arraycolsep=1.4pt
+    \begin{array}{l l l l l}
+        (0 \models c_1)   & \coprod & (0 \models c_2)   & = & c_1 \ c_2                               \\
+        \\
+        (0 \models c_1)   & \coprod & (n \models c_2)   & = & B_n \ c_1 \ c_2                         \\
+        \\
+        (n \models c_1)   & \coprod & (0 \models c_2)   & = & C_n \ c_1 \ c_2                         \\
+        \\
+        (n \models c_1)   & \coprod & (n \models c_2)   & = & S_n \ c_1 \ c_2                         \\
+        \\
+        (n_1 \models c_1) & \coprod & (n_2 \models c_2) & = & B_{n_2-n_1} \ (S_{n_1} \ c_1) \ c_2     \\
+                          &         &                   &   & \text{where } n_1 < n_2                 \\
+        (n_1 \models c_1) & \coprod & (n_2 \models c_2) & = & C_{n_1-n_2} \ (B_{n_1-n_2} \ c_1) \ c_2 \\
+                          &         &                   &   & \text{where } n_1 > n_2                 \\
+    \end{array}
+\end{equation*}
+
+\textbf{TODO: } Can we add lazy weakening and/or eta optimization?
 
 \section{Engine implementation}
 \label{sec:engine}
