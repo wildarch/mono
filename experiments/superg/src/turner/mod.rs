@@ -118,78 +118,24 @@ impl TurnerEngine {
         let top = self.stack.last().unwrap();
         if let Some(comb) = top.comb() {
             match comb {
-                Comb::S => self.run_comb3(|engine, args| {
-                    // S f g x => f x (g x)
-                    let x = engine.tl(args[2]);
-                    let g = engine.tl(args[1]);
-                    let f = engine.tl(args[0]);
-                    // If x is an int, we should transfer that to the new location
-                    let mut tag = Tag::wanted();
-                    if engine.tag(args[2]).is_rhs_int() {
-                        tag = tag.set_rhs_int();
-                    }
-                    // Make lower cells
-                    let left_cell = engine.make_cell(tag, f, x);
-                    let right_cell = engine.make_cell(tag, g, x);
-                    StepResult::CellContents(Tag::wanted(), left_cell, right_cell)
-                }),
-                Comb::K => self.run_comb2(|engine, args| {
-                    // K x y = x
-                    if let Some(v) = engine.int_rhs(args[0]) {
-                        StepResult::Value(v)
-                    } else {
-                        StepResult::Cell(engine.tl(args[0]))
-                    }
-                }),
-                Comb::I => self.run_comb1(|engine, args| {
-                    // I x = x
-                    if let Some(v) = engine.int_rhs(args[0]) {
-                        StepResult::Value(v)
-                    } else {
-                        StepResult::Cell(engine.tl(args[0]))
-                    }
-                }),
-                Comb::Y => todo!("Y not implemented. Stack: {:?}", self.stack),
+                Comb::S => self.run_s_comb(),
+                Comb::K => self.run_k_comb(),
+                Comb::I => self.run_i_comb(),
+                Comb::Y => todo!(),
                 Comb::U => todo!(),
                 Comb::P => todo!(),
                 Comb::B => todo!(),
                 Comb::C => todo!(),
-                Comb::Plus => self.run_strict_binop(|a, b| a + b),
-                Comb::Minus => self.run_strict_binop(|a, b| a - b),
-                Comb::Times => self.run_strict_binop(|a, b| a * b),
-                Comb::Divide => self.run_strict_binop(|a, b| a / b),
-                Comb::Cond => self.run_comb3(|engine, args| {
-                    // COND c t f = if(c) t else f
-                    if let Some(c) = engine.int_rhs(args[0]) {
-                        let branch_ptr = match c {
-                            0 => args[2],
-                            1 => args[1],
-                            v => {
-                                // We expect never to reach this code.
-                                // In debug mode we panic, in release the behaviour is undefined.
-                                debug_assert!(
-                                    v == 0 || v == 1,
-                                    "condition variable should be 0 or 1"
-                                );
-                                unsafe { std::hint::unreachable_unchecked() }
-                            }
-                        };
-                        let branch_tl = engine.tl(branch_ptr);
-                        // Check if tl is int
-                        if engine.tag(branch_ptr).is_rhs_int() {
-                            StepResult::Value(branch_tl.0)
-                        } else {
-                            StepResult::Cell(branch_tl)
-                        }
-                    } else {
-                        StepResult::EvaluateArg(engine.tl(args[0]))
-                    }
-                }),
-                Comb::Eq => self.run_strict_binop(|a, b| if a == b { 1 } else { 0 }),
+                Comb::Plus => self.run_plus_comb(),
+                Comb::Minus => self.run_minus_comb(),
+                Comb::Times => self.run_times_comb(),
+                Comb::Divide => todo!(),
+                Comb::Cond => self.run_cond_comb(),
+                Comb::Eq => self.run_eq_comb(),
                 Comb::Neq => todo!(),
                 Comb::Gt => todo!(),
                 Comb::Gte => todo!(),
-                Comb::Lt => self.run_strict_binop(|a, b| if a < b { 1 } else { 0 }),
+                Comb::Lt => self.run_lt_comb(),
                 Comb::Lte => todo!(),
                 Comb::And => todo!(),
                 Comb::Or => todo!(),
@@ -201,6 +147,93 @@ impl TurnerEngine {
             self.stack.push(self.hd(*top));
             None
         }
+    }
+
+    fn run_s_comb(&mut self) -> Option<CellPtr> {
+        self.run_comb3(|engine, args| {
+            // S f g x => f x (g x)
+            let x = engine.tl(args[2]);
+            let g = engine.tl(args[1]);
+            let f = engine.tl(args[0]);
+            // If x is an int, we should transfer that to the new location
+            let mut tag = Tag::wanted();
+            if engine.tag(args[2]).is_rhs_int() {
+                tag = tag.set_rhs_int();
+            }
+            // Make lower cells
+            let left_cell = engine.make_cell(tag, f, x);
+            let right_cell = engine.make_cell(tag, g, x);
+            StepResult::CellContents(Tag::wanted(), left_cell, right_cell)
+        })
+    }
+
+    fn run_k_comb(&mut self) -> Option<CellPtr> {
+        self.run_comb2(|engine, args| {
+            // K x y = x
+            if let Some(v) = engine.int_rhs(args[0]) {
+                StepResult::Value(v)
+            } else {
+                StepResult::Cell(engine.tl(args[0]))
+            }
+        })
+    }
+
+    fn run_i_comb(&mut self) -> Option<CellPtr> {
+        self.run_comb1(|engine, args| {
+            // I x = x
+            if let Some(v) = engine.int_rhs(args[0]) {
+                StepResult::Value(v)
+            } else {
+                StepResult::Cell(engine.tl(args[0]))
+            }
+        })
+    }
+
+    fn run_plus_comb(&mut self) -> Option<CellPtr> {
+        self.run_strict_binop(|a, b| a + b)
+    }
+
+    fn run_minus_comb(&mut self) -> Option<CellPtr> {
+        self.run_strict_binop(|a, b| a - b)
+    }
+
+    fn run_times_comb(&mut self) -> Option<CellPtr> {
+        self.run_strict_binop(|a, b| a * b)
+    }
+
+    fn run_eq_comb(&mut self) -> Option<CellPtr> {
+        self.run_strict_binop(|a, b| if a == b { 1 } else { 0 })
+    }
+
+    fn run_lt_comb(&mut self) -> Option<CellPtr> {
+        self.run_strict_binop(|a, b| if a < b { 1 } else { 0 })
+    }
+
+    fn run_cond_comb(&mut self) -> Option<CellPtr> {
+        self.run_comb3(|engine, args| {
+            // COND c t f = if(c) t else f
+            if let Some(c) = engine.int_rhs(args[0]) {
+                let branch_ptr = match c {
+                    0 => args[2],
+                    1 => args[1],
+                    v => {
+                        // We expect never to reach this code.
+                        // In debug mode we panic, in release the behaviour is undefined.
+                        debug_assert!(v == 0 || v == 1, "condition variable should be 0 or 1");
+                        unsafe { std::hint::unreachable_unchecked() }
+                    }
+                };
+                let branch_tl = engine.tl(branch_ptr);
+                // Check if tl is int
+                if engine.tag(branch_ptr).is_rhs_int() {
+                    StepResult::Value(branch_tl.0)
+                } else {
+                    StepResult::Cell(branch_tl)
+                }
+            } else {
+                StepResult::EvaluateArg(engine.tl(args[0]))
+            }
+        })
     }
 
     fn run_strict_binop(&mut self, op: fn(i32, i32) -> i32) -> Option<CellPtr> {
