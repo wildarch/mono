@@ -366,7 +366,7 @@ With the addition of the expression value to $\sqcup_\eta$, the function now tak
 Our implementation, therefore, folds context merging into $\coprod_\eta$ to make the code more concise.
 
 \subsection{Linear algorithm}
-The implementation of the linear algorithm is much simpler because it is based on the strict algorithm.
+The implementation of the linear algorithm is much simpler because it is based on the $\strict$ algorithm.
 The compilation function is identical save for a different semantic function $\coprod_{\text{linear}}$:
 
 \begin{equation*}
@@ -484,6 +484,16 @@ Miranda reserves the lower range of cell pointer values for special purposes:
 The first 446 cells in the heap are unused: when the reduction engine encounters their value, they are interpreted as a character, lexer rule or combinator.
 This explains why we have to tag integers but not combinators or character values.
 
+Our implementation does not support character values and needs no reserved number for the lexer, so we can encode the first combinator as $0$.
+The bulk combinators introduced by the $\linear$ algorithm do complicate the encoding somewhat:
+in principle, there is now an infinite amount of possible combinators.
+However, compiled programs only contain a finite subset of those combinators, and the reduction process only creates combinators that were present in the original program.
+We can have an efficient encoding of combinators, but only if we generate it for specific programs.
+Our implementation keeps an array of function pointers, each pointing to the code to reduce a particular combinator.
+The array is populated as the compiled program is loaded into the graph representation:
+when we encounter a combinator we have not seen before, its implementation is added to the array, and the combinator is encoded into the graph as its index into the array.
+At runtime, combinator resolution is done by indexing into the array and calling the associated function.
+
 \subsection{Strict combinators}
 Miranda has special built-in combinators to perform arithmetic operations and compare numbers.
 Where most combinators place no restrictions on their arguments, these combinators require their arguments to be fully reduced to integers (hence call them \textit{strict}), and so require special treatment.
@@ -515,7 +525,7 @@ Figure~\ref{fig:add_step1} shows the state of the graph at this point in the red
     \label{fig:add_step1}
 \end{figure}
 
-Once $K \ 2 \ 3$ has been reduced to $3$, the engines observes that the stack is not yet empty, so it creates an indirection node, and resumes reduction from the top of the stack.
+Once $K \ 2 \ 3$ has been reduced to $3$, the engine observes that the stack is not yet empty, so it creates an indirection node and resumes reduction from the top of the stack.
 Figure~\ref{fig:add_step2} reflects this state.
 
 \begin{figure}
