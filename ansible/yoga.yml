@@ -12,6 +12,7 @@
           - golang.Go
           - james-yu.latex-workshop
           - rust-lang.rust-analyzer
+          - znck.grammarly
         visual_studio_code_settings: {
           "workbench.startupEditor": "none",
           "extensions.ignoreRecommendations": true,
@@ -21,7 +22,7 @@
           }
         }
   - role: gantsign.golang
-    golang_version: '1.19.1'
+    golang_version: '1.19.4'
   - role: hurricanehrndz.rustup
     rustup_user: daan
     rustup_cargo_crates: 
@@ -109,12 +110,12 @@
       regexp: '^HandleLidSwitchExternalPower='
       line: HandleLidSwitchExternalPower=ignore
   
-  - name: Set grub timeout to 0
+  - name: Set grub timeout to 1
     become: true
     ansible.builtin.lineinfile:
       path: /etc/default/grub 
       regexp: '^GRUB_TIMEOUT='
-      line: GRUB_TIMEOUT=0 
+      line: GRUB_TIMEOUT=1 
     notify: update grub
 
   - name: Add go path to $PATH
