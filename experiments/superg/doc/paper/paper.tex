@@ -458,9 +458,6 @@ In figure~\ref{fig:skk3_sred}, this would mean we overwrite node 1 with the cont
 Now any other pointers to node 1 automatically point to the reduced equivalent.
 If the expression reduces to a single value $v$ (say an integer), we can use the $I$ combinator to make an \textit{indirection node} $I v$.
 
-\subsection{Strict operators}
-\textbf{TODO}
-
 \subsection{Representing the graph}
 Miranda represents the graph using three arrays, \texttt{hd} (for head) stores the left pointer, \texttt{tl} (for tail) stores the right pointer, and \texttt{tag} stores metadata for the cell.
 Owing to its early inception when 64-bit machines were rare, \texttt{hd} and \texttt{tl} are 32 bits wide.
@@ -470,6 +467,9 @@ Our implementation stores two flags in \texttt{tag}:
     \item \texttt{WANTED}: Set if this cell is currently in use. Cells without this bit set are considered free and may be overwritten to store new nodes in the graph. More on this in the section on Garbage collection.
     \item \texttt{RHS\_INT}: Set if the right pointer is not a pointer but an integer value. Note that the left pointer can never be an integer because the left pointer is always a function for which the right pointer is the first argument.
 \end{itemize}
+
+Miranda integers have unlimited precision, using GNU MP~\cite{gnump} internally.
+For simplicity (and performance), our implementation instead treats the cell pointer as a 32-bit signed integer.
 
 It is unclear why a representation with three separate arrays was chosen over a single array where each element contains a 'cell' struct with a head, tail and tag.
 We suspect decomposing the graph into separate arrays leads to poor data locality, as almost any operation will access all three parts of a cell.
@@ -485,8 +485,68 @@ Miranda reserves the lower range of cell pointer values for special purposes:
 The first 446 cells in the heap are unused: when the reduction engine encounters their value, they are interpreted as a character, lexer rule or combinator.
 This explains why we have to tag integers but not combinators or character values.
 
+\subsection{Strict combinators}
+Miranda has special built-in combinators to perform arithmetic operations and compare numbers.
+Where most combinators place no restrictions on their arguments, these combinators require their arguments to be fully reduced to integers (hence call them \textit{strict}), and so require special treatment.
+We found Miranda's implementation difficult to follow, the approach we describe here is the one taken for our implementation, and may not fully correspond to Miranda's.
+
+When a \textit{strict} combinator is about to be reduced, the engine inspects the arguments.
+If all arguments are reduced, the combinator reduction is performed as usual.
+If one or more arguments are not yet reduced, we push the pointers to those arguments onto the stack and proceed to reduce from the top of the stack.
+Eventually, the top argument will have been fully reduced, producing an integer value.
+In general, if a reduction results in an integer value, it can mean one of two things:
+\begin{itemize}
+    \item The value is the result of the program.
+    \item The value is one of the arguments for a strict combinator.
+\end{itemize}
+We distinguish between these cases by looking at the size of the stack: if it is empty, we have computed the final result of the program.
+Otherwise, we continue reducing from the top of the stack, which will be either another argument or the original combinator expression.
+The pointer to the original complex argument is replaced with an indirection node to the value, using the update logic described earlier.
+
+As an example, consider the expression $+ \ 1 \ (K \ 2 \ 3)$.
+After we have traversed the spine and encountered the $+$ combinator, the engine notices that the second argument is not yet reduced, and adds it to the stack.
+Figure~\ref{fig:add_step1} shows the state of the graph at this point in the reduction process.
+
+\begin{figure}
+    \includegraphics[width=.8\columnwidth]{add_step1}
+    \centering
+    \caption{
+        Graph of $+ \ 1 \ (K \ 2 \ 3)$ after the second argument has been added to the stack.
+    }
+    \label{fig:add_step1}
+\end{figure}
+
+Once $K \ 2 \ 3$ has been reduced to $3$, the engines observes that the stack is not yet empty, so it creates an indirection node, and resumes reduction from the top of the stack.
+Figure~\ref{fig:add_step2} reflects this state.
+
+\begin{figure}
+    \includegraphics[width=.8\columnwidth]{add_step2}
+    \centering
+    \caption{
+        Graph of $+ \ 1 \ (K \ 2 \ 3)$ after the second argument has been reduced.
+    }
+    \label{fig:add_step2}
+\end{figure}
+
+This example shows that it is not sufficient to check the \texttt{tag} of each argument to see if it is an integer: indirection nodes also count as fully reduced.
+
 \subsection{Garbage collection}
-\textbf{TODO}
+The graph reduction process may lead to some nodes becoming unreachable.
+Coming back to the example in figure~\ref{fig:skk3_sred}, after the reduction step nodes 2 and 3 are no longer used: they are \textit{garbage}.
+In this example, it is easy to conclude which nodes are garbage, but in larger programs, there are often multiple references to the same node, so we cannot mark nodes as garbage during the reduction step.
+Miranda employs a simple mark-and-sweep garbage collector that kicks in when the engine runs out of free cells while allocating a new node.
+In the first phase, it zeroes out the \texttt{WANTED} bit on all tags in the heap.
+Then in the marking phase, starting from the elements currently on the stack\footnote{
+    Miranda keeps its reduction stack on the C stack.
+    This makes it difficult to reliably enumerate all cell pointers on the stack at a given point in time, because the compiler may choose to keep some of the pointers in registers.
+    For this reason, users are instructed not to enable optimizations when compiling Miranda, which hurts performance but is necessary for correctness.
+    When Miranda was developed, compilers were not advanced enough to perform such optimizations, so this was not an issue.
+}, the garbage collector traverses the graph and sets the \texttt{WANTED} bit on all reachable nodes.
+There is no real sweep phase: instead, the allocation routine walks over the tag array until it finds a cell that is not marked as \texttt{WANTED}.
+This also means that there is no list of currently free cells, which we suspect may lead to performance issues in large heaps.
+
+We consider the garbage collector in Miranda to be somewhat simplistic and inefficient, and we suspect there is much to improve in terms of efficiency.
+Our benchmark programs do not use too much heap space, so we choose not to focus our efforts on this, and defer optimizations on this front to future work.
 
 \subsection*{TIGRE}
 Describe changes made to align with TIGRE.
