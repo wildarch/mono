@@ -61,6 +61,9 @@ impl Comb {
             Comb::Eq => TurnerEngine::run_eq_comb,
             Comb::Lt => TurnerEngine::run_lt_comb,
             Comb::Abort => TurnerEngine::run_abort_comb,
+            Comb::Sn(2) => TurnerEngine::run_s2_comb,
+            Comb::Bn(2) => TurnerEngine::run_b2_comb,
+            Comb::Cn(2) => TurnerEngine::run_c2_comb,
             _ => todo!("No implementation for combinator {:?}", self),
         }
     }
@@ -666,6 +669,166 @@ impl TurnerEngine {
     run_comb!(run_comb1, 1);
     run_comb!(run_comb2, 2);
     run_comb!(run_comb3, 3);
+
+    // Runtime dynamic version of run_combn
+    fn run_combn<F: FnOnce(&mut TurnerEngine, &[CellPtr]) -> StepResult>(
+        &mut self,
+        arg_count: usize,
+        handler: F,
+    ) -> Option<CellPtr> {
+        let frame_size = arg_count + 1;
+        debug_assert!(self.stack.len() >= frame_size);
+        // Arguments are in reverse order because the stack is LIFO.
+        let mut args = vec![CellPtr(0); arg_count];
+        for i in 0..arg_count {
+            args[i] = *unsafe { self.stack.get_unchecked(self.stack.len() - 2 - i) };
+        }
+        let frame_start = args[arg_count - 1];
+
+        match handler(self, &args) {
+            StepResult::Value(v) => {
+                // Make an indirection node
+                self.set_tag(frame_start, Tag::wanted().set_rhs_int());
+                self.set_hd(frame_start, Comb::I);
+                self.set_tl(frame_start, CellPtr(v));
+
+                // If nothing is on the stack, return the node
+                if self.stack.len() == frame_size {
+                    return Some(frame_start);
+                }
+                // Remove this frame, returning to the parent expression on the stack
+                unsafe { self.stack.set_len(self.stack.len() - frame_size) };
+                None
+            }
+            StepResult::Cell(c) => {
+                // Make an indirection node
+                self.set_tag(frame_start, Tag::wanted());
+                self.set_hd(frame_start, Comb::I);
+                self.set_tl(frame_start, c);
+
+                // Make the new cell top of the stack
+                let new_len = self.stack.len() - arg_count;
+                unsafe {
+                    *self.stack.get_unchecked_mut(new_len - 1) = c;
+                    self.stack.set_len(new_len);
+                }
+                None
+            }
+            StepResult::CellContents(tag, hd, tl) => {
+                // Create the new cell over the old one
+                self.set_tag(frame_start, tag);
+                self.set_hd(frame_start, hd);
+                self.set_tl(frame_start, tl);
+
+                // Make the new cell top of the stack
+                let new_len = self.stack.len() - arg_count;
+                unsafe {
+                    self.stack.set_len(new_len);
+                }
+                None
+            }
+            StepResult::EvaluateArg(a) => {
+                self.stack.push(a);
+                None
+            }
+            StepResult::EvaluateArg2(a, b) => {
+                self.stack.push(a);
+                self.stack.push(b);
+                None
+            }
+        }
+    }
+}
+
+macro_rules! run_sn_comb {
+    ($name:ident, $run_combn:ident) => {
+        fn $name(&mut self) -> Option<CellPtr> {
+            self.$run_combn(|engine, args| {
+                // S f g x => f x (g x)
+                let f = engine.tl(args[0]);
+                let g = engine.tl(args[1]);
+
+                let mut left_cell = f;
+                let mut right_cell = g;
+                for arg in &args[2..] {
+                    let x = engine.tl(*arg);
+                    // If x is an int, we should transfer that to the new location
+                    let mut tag = Tag::wanted();
+                    if engine.tag(*arg).is_rhs_int() {
+                        tag = tag.set_rhs_int();
+                    }
+
+                    // Add the extra argument to both branches
+                    left_cell = engine.make_cell(tag, left_cell, x);
+                    right_cell = engine.make_cell(tag, right_cell, x);
+                }
+                StepResult::CellContents(Tag::wanted(), left_cell, right_cell)
+            })
+        }
+    };
+}
+macro_rules! run_bn_comb {
+    ($name:ident, $run_combn:ident) => {
+        fn $name(&mut self) -> Option<CellPtr> {
+            self.$run_combn(|engine, args| {
+                // B f g x => f (g x)
+                let f = engine.tl(args[0]);
+                let g = engine.tl(args[1]);
+
+                let mut right_cell = g;
+                for arg in &args[2..] {
+                    let x = engine.tl(*arg);
+                    // If x is an int, we should transfer that to the new location
+                    let mut tag = Tag::wanted();
+                    if engine.tag(*arg).is_rhs_int() {
+                        tag = tag.set_rhs_int();
+                    }
+
+                    // Add the extra argument to the right branch
+                    right_cell = engine.make_cell(tag, right_cell, x);
+                }
+                StepResult::CellContents(Tag::wanted(), f, right_cell)
+            })
+        }
+    };
+}
+macro_rules! run_cn_comb {
+    ($name:ident, $run_combn:ident) => {
+        fn $name(&mut self) -> Option<CellPtr> {
+            self.$run_combn(|engine, args| {
+                // C f g x => f x g
+                let f = engine.tl(args[0]);
+                let g = engine.tl(args[1]);
+
+                let mut left_cell = f;
+                for arg in &args[2..] {
+                    let x = engine.tl(*arg);
+                    // If x is an int, we should transfer that to the new location
+                    let mut tag = Tag::wanted();
+                    if engine.tag(*arg).is_rhs_int() {
+                        tag = tag.set_rhs_int();
+                    }
+
+                    // Add the extra argument to both branches
+                    left_cell = engine.make_cell(tag, left_cell, x);
+                }
+                // If g is an int, we should transfer that to the new location
+                let mut tag = Tag::wanted();
+                if engine.tag(args[1]).is_rhs_int() {
+                    tag = tag.set_rhs_int();
+                }
+                StepResult::CellContents(tag, left_cell, g)
+            })
+        }
+    };
+}
+// Bulk combinators
+impl TurnerEngine {
+    run_comb!(run_comb4, 4);
+
+    run_sn_comb!(run_s2_comb, run_comb4);
+    run_bn_comb!(run_b2_comb, run_comb4);
+    run_cn_comb!(run_c2_comb, run_comb4);
 }
 
 /// To avoid slowing down [`TurnerEngine`] in benchmarks, all debugging related routines are in this wrapper.

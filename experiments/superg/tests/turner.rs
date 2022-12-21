@@ -201,6 +201,8 @@ fn assert_runs_to_int(_test_name: &str, program: &str, v: i32, l: StepLimit) {
     assert_runs_to_int_gen(LazyCompiler, _test_name, program, v, l);
     println!("Lazy opt");
     assert_runs_to_int_gen(LazyOptCompiler, _test_name, program, v, l);
+    println!("Linear");
+    assert_runs_to_int_gen(LinearCompiler, _test_name, program, v, l);
 }
 
 fn assert_runs_to_int_gen<C: ExprCompiler>(

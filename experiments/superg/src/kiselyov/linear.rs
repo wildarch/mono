@@ -55,8 +55,20 @@ pub fn compile_linear(e: &BExpr) -> CompiledExpr {
             compile_linear(e2),
         ),
         BExpr::Int(i) => CompiledExpr::Int(*i),
-        BExpr::SVar(s) => CompiledExpr::Var(s.clone()),
-        BExpr::BinOp(_, _, _) => todo!(),
+        BExpr::SVar(s) => match s.as_str() {
+            "if" => CompiledExpr::Comb(Comb::Cond),
+            _ => CompiledExpr::Var(s.clone()),
+        },
+        BExpr::BinOp(l, o, r) => {
+            let nl = infer_n(l);
+            // l <op> r => ((<op> l) r)
+            semantic(
+                nl,
+                semantic(0, CompiledExpr::Comb(Comb::from(*o)), nl, compile_linear(l)),
+                infer_n(r),
+                compile_linear(r),
+            )
+        }
         BExpr::Not(_) => todo!(),
     }
 }
