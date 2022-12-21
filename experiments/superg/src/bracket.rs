@@ -1,5 +1,13 @@
 use crate::ast;
-use crate::compiled_expr::{cap, Comb, CompiledExpr};
+use crate::compiled_expr::{cap, Comb, CompiledExpr, ExprCompiler};
+
+pub struct BracketCompiler;
+
+impl ExprCompiler for BracketCompiler {
+    fn compile(&mut self, expr: &crate::ast::Expr) -> CompiledExpr {
+        compile(expr)
+    }
+}
 
 pub fn compile(e: &ast::Expr) -> CompiledExpr {
     match e {
@@ -9,24 +17,9 @@ pub fn compile(e: &ast::Expr) -> CompiledExpr {
             s => CompiledExpr::Var(s.to_owned()),
         },
         ast::Expr::BinOp(l, o, r) => {
-            let op_comb = match o {
-                ast::BinOp::Cons => Comb::P,
-                ast::BinOp::Plus => Comb::Plus,
-                ast::BinOp::Minus => Comb::Minus,
-                ast::BinOp::Times => Comb::Times,
-                ast::BinOp::Divide => Comb::Divide,
-                ast::BinOp::Eq => Comb::Eq,
-                ast::BinOp::Neq => Comb::Neq,
-                ast::BinOp::Gt => Comb::Gt,
-                ast::BinOp::Gte => Comb::Gte,
-                ast::BinOp::Lt => Comb::Lt,
-                ast::BinOp::Lte => Comb::Lte,
-                ast::BinOp::And => Comb::And,
-                ast::BinOp::Or => Comb::Or,
-            };
             let l = compile(l);
             let r = compile(r);
-            cap(cap(op_comb, l), r)
+            cap(cap(Comb::from(*o), l), r)
         }
         ast::Expr::Not(e) => cap(Comb::Not, compile(e)),
         ast::Expr::Ap(l, r) => {

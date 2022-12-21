@@ -1,10 +1,9 @@
+use super::BExpr;
 /// The strict compilation algorithm, as given in fig.6
 use crate::compiled_expr::{cap, Comb, CompiledExpr};
 
-use super::BExpr;
-
 fn infer_n(e: &BExpr) -> usize {
-    let n = match e {
+    match e {
         BExpr::Var(i) => i + 1,
         BExpr::Lam(e) => {
             let n = infer_n(e);
@@ -23,13 +22,11 @@ fn infer_n(e: &BExpr) -> usize {
         BExpr::SVar(_) => 0,
         BExpr::BinOp(l, _, r) => std::cmp::max(infer_n(l), infer_n(r)),
         BExpr::Not(e) => infer_n(e),
-    };
-    println!("infer_n({:?}) = {}", e, n);
-    n
+    }
 }
 
 pub fn compile_strict(e: &BExpr) -> CompiledExpr {
-    let c = match e {
+    match e {
         BExpr::Var(i) => {
             let n = infer_n(e);
             if n == 1 {
@@ -57,17 +54,26 @@ pub fn compile_strict(e: &BExpr) -> CompiledExpr {
             compile_strict(e2),
         ),
         BExpr::Int(i) => CompiledExpr::Int(*i),
-        BExpr::SVar(s) => CompiledExpr::Var(s.clone()),
-        BExpr::BinOp(_, _, _) => todo!(),
+        BExpr::SVar(s) => match s.as_str() {
+            "if" => CompiledExpr::Comb(Comb::Cond),
+            _ => CompiledExpr::Var(s.clone()),
+        },
+        BExpr::BinOp(l, o, r) => {
+            let nl = infer_n(l);
+            // l <op> r => ((<op> l) r)
+            semantic(
+                nl,
+                semantic(0, CompiledExpr::Comb(Comb::from(*o)), nl, compile_strict(l)),
+                infer_n(r),
+                compile_strict(r),
+            )
+        }
         BExpr::Not(_) => todo!(),
-    };
-    println!("compile({:?}) = {:#?}", e, c);
-    c
+    }
 }
 
 fn semantic(n1: usize, e1: CompiledExpr, n2: usize, e2: CompiledExpr) -> CompiledExpr {
-    let dbg = format!("semantic({}, {:?}, {}, {:?}) = ", n1, e1, n2, e2);
-    let c = match (n1, n2) {
+    match (n1, n2) {
         (0, 0) => cap(e1, e2),
         (0, n2) => semantic(0, cap(Comb::B, e1), n2 - 1, e2),
         (n1, 0) => semantic(0, cap(cap(Comb::C, Comb::C), e2), n1 - 1, e1),
@@ -77,9 +83,7 @@ fn semantic(n1: usize, e1: CompiledExpr, n2: usize, e2: CompiledExpr) -> Compile
             n2 - 1,
             e2,
         ),
-    };
-    println!("{}{:?}", dbg, c);
-    c
+    }
 }
 
 #[cfg(test)]

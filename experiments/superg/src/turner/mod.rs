@@ -1,8 +1,8 @@
-use crate::compiled_expr::{Comb, CompiledExpr};
+use crate::compiled_expr::{Comb, CompiledExpr, ExprCompiler};
 use std::io::Write;
 use std::{collections::HashMap, fs::File, io::BufWriter, path::PathBuf};
 
-use crate::{ast, bracket};
+use crate::ast;
 
 // TODO: Allow dynamically growing the heap.
 const CELLS: usize = 250_000;
@@ -52,6 +52,8 @@ impl Comb {
             Comb::S => TurnerEngine::run_s_comb,
             Comb::K => TurnerEngine::run_k_comb,
             Comb::I => TurnerEngine::run_i_comb,
+            Comb::B => TurnerEngine::run_b_comb,
+            Comb::C => TurnerEngine::run_c_comb,
             Comb::Plus => TurnerEngine::run_plus_comb,
             Comb::Minus => TurnerEngine::run_minus_comb,
             Comb::Times => TurnerEngine::run_times_comb,
@@ -127,7 +129,7 @@ struct CompiledDef {
 }
 
 impl TurnerEngine {
-    pub fn compile(program: &ast::Program) -> TurnerEngine {
+    pub fn compile<C: ExprCompiler>(compiler: &mut C, program: &ast::Program) -> TurnerEngine {
         let mut engine = TurnerEngine {
             tag: vec![Tag::wanted(); CELLS],
             hd: vec![CellPtr(0i32); CELLS],
@@ -146,7 +148,7 @@ impl TurnerEngine {
             .iter()
             .map(|def| CompiledDef {
                 name: def.name.clone(),
-                expr: bracket::compile(&def.as_lam()),
+                expr: compiler.compile(&def.as_lam()),
             })
             .collect();
 
@@ -258,6 +260,38 @@ impl TurnerEngine {
             } else {
                 StepResult::Cell(engine.tl(args[0]))
             }
+        })
+    }
+
+    fn run_b_comb(&mut self) -> Option<CellPtr> {
+        self.run_comb3(|engine, args| {
+            // B f g x => f (g x)
+            let x = engine.tl(args[2]);
+            let g = engine.tl(args[1]);
+            let f = engine.tl(args[0]);
+            // If x is an int, we should transfer that to the new location
+            let mut tag = Tag::wanted();
+            if engine.tag(args[2]).is_rhs_int() {
+                tag = tag.set_rhs_int();
+            }
+            let gx = engine.make_cell(tag, g, x);
+            StepResult::CellContents(Tag::wanted(), f, gx)
+        })
+    }
+
+    fn run_c_comb(&mut self) -> Option<CellPtr> {
+        self.run_comb3(|engine, args| {
+            // C f g x => (f x) g
+            let x = engine.tl(args[2]);
+            let g = engine.tl(args[1]);
+            let f = engine.tl(args[0]);
+            // If x is an int, we should transfer that to the new location
+            let mut tag = Tag::wanted();
+            if engine.tag(args[2]).is_rhs_int() {
+                tag = tag.set_rhs_int();
+            }
+            let fx = engine.make_cell(tag, f, x);
+            StepResult::CellContents(Tag::wanted(), fx, g)
         })
     }
 
@@ -776,194 +810,5 @@ impl TurnerEngineDebug {
 
     pub fn set_step_limit(&mut self, l: usize) {
         self.step_limit = Some(l);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::lexer::lex;
-    use crate::parser::parse;
-
-    #[test]
-    fn test_id() {
-        assert_runs_to_int(
-            "test_id",
-            r#"
-(defun id (x) x)
-(defun main () (id 42))
-        "#,
-            42,
-            StepLimit(10),
-        );
-    }
-
-    #[test]
-    fn test_k() {
-        assert_runs_to_int(
-            "test_k",
-            r#"
-(defun k (x y) x)
-(defun main () (k 42 84))
-        "#,
-            42,
-            StepLimit(20),
-        );
-    }
-
-    #[test]
-    fn test_s() {
-        assert_runs_to_int(
-            "test_s",
-            r#"
-(defun s (f g x) (f x (g x)))
-(defun k (x y) x)
-(defun main () (s k k 42))
-        "#,
-            42,
-            StepLimit(200),
-        );
-    }
-
-    #[test]
-    fn test_add() {
-        assert_runs_to_int(
-            "test_add",
-            r#"
-(defun main () (+ 2 40))
-        "#,
-            42,
-            StepLimit(10),
-        );
-    }
-
-    #[test]
-    fn test_add_indirect() {
-        assert_runs_to_int(
-            "test_add_indirect",
-            r#"
-(defun id (x) x)
-(defun main () (+ (id 2) (id 40)))
-        "#,
-            42,
-            StepLimit(20),
-        );
-    }
-
-    #[test]
-    fn test_cond() {
-        assert_runs_to_int(
-            "test_cond",
-            r#"
-(defun main () (if 0 1000 (if 1 42 2000)))
-        "#,
-            42,
-            StepLimit(10),
-        )
-    }
-
-    #[test]
-    fn test_cond_add() {
-        assert_runs_to_int(
-            "test_cond_add1",
-            r#"
-(defun main () (+ 2 (if 0 30 40)))
-        "#,
-            42,
-            StepLimit(10),
-        );
-
-        assert_runs_to_int(
-            "test_cond_add2",
-            r#"
-(defun main () (if 0 30 (+ 40 2)))
-        "#,
-            42,
-            StepLimit(10),
-        );
-    }
-
-    #[test]
-    fn test_eq() {
-        assert_runs_to_int(
-            "test_eq",
-            r#"
-    (defun id (x) x)
-    (defun k (x y) x)
-    (defun main () (= (k 1 1000) 0))
-            "#,
-            0,
-            StepLimit(20),
-        );
-    }
-
-    #[test]
-    fn test_cond_eq() {
-        assert_runs_to_int(
-            "test_cond_eq",
-            r#"
-    (defun main () (if (= 2 2) 42 43))
-            "#,
-            42,
-            StepLimit(10),
-        );
-    }
-
-    #[test]
-    fn test_factorial() {
-        assert_runs_to_int(
-            "test_factorial",
-            r#"
-    (defun fac (n)
-      (if (= n 1)
-          1
-          (* n (fac (- n 1)))))
-    (defun main () (fac 5))
-            "#,
-            120,
-            StepLimit(1000),
-        );
-    }
-
-    #[test]
-    fn test_fibonacci() {
-        assert_runs_to_int(
-            "test_fibonacci",
-            r#"
-    (defun fib (n)
-      (if (< n 2) 
-          n
-          (+ (fib (- n 1)) (fib (- n 2)))))
-    (defun main () (fib 5))
-            "#,
-            5,
-            StepLimit(2000),
-        );
-    }
-
-    #[test]
-    fn test_ackermann() {
-        let program = r#"
-(defun ack (x z) (if (= x 0)
-                     (+ z 1)
-                     (if (= z 0)
-                         (ack (- x 1) 1)
-                         (ack (- x 1) (ack x (- z 1))))))
-(defun main () (ack 3 4))
-    "#;
-        assert_runs_to_int("test_ackermann", program, 125, StepLimit(10_000_000));
-    }
-
-    struct StepLimit(usize);
-
-    fn assert_runs_to_int(_test_name: &str, program: &str, v: i32, l: StepLimit) {
-        let parsed = parse(lex(program));
-        let mut engine = TurnerEngine::compile(&parsed).with_debug();
-        // disabled by default because it slows things down a lot, enable for debugging
-        // engine.set_dump_path(format!("/tmp/{}", _test_name));
-        engine.set_step_limit(l.0);
-
-        let ptr = engine.run();
-        assert_eq!(engine.get_int(ptr), Some(v));
     }
 }

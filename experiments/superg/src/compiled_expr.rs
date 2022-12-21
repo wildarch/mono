@@ -1,3 +1,5 @@
+use crate::ast::BinOp;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Comb {
     S,
@@ -27,6 +29,26 @@ pub enum Comb {
     Sn(usize),
     Bn(usize),
     Cn(usize),
+}
+
+impl From<BinOp> for Comb {
+    fn from(o: BinOp) -> Self {
+        match o {
+            BinOp::Cons => Comb::P,
+            BinOp::Plus => Comb::Plus,
+            BinOp::Minus => Comb::Minus,
+            BinOp::Times => Comb::Times,
+            BinOp::Divide => Comb::Divide,
+            BinOp::Eq => Comb::Eq,
+            BinOp::Neq => Comb::Neq,
+            BinOp::Gt => Comb::Gt,
+            BinOp::Gte => Comb::Gte,
+            BinOp::Lt => Comb::Lt,
+            BinOp::Lte => Comb::Lte,
+            BinOp::And => Comb::And,
+            BinOp::Or => Comb::Or,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -61,4 +83,8 @@ impl Into<CompiledExpr> for Comb {
 
 pub fn cap<A: Into<CompiledExpr>, B: Into<CompiledExpr>>(a: A, b: B) -> CompiledExpr {
     CompiledExpr::Ap(Box::new(a.into()), Box::new(b.into()))
+}
+
+pub trait ExprCompiler {
+    fn compile(&mut self, expr: &crate::ast::Expr) -> CompiledExpr;
 }

@@ -1,9 +1,42 @@
 use crate::ast::Expr;
+use crate::compiled_expr::{CompiledExpr, ExprCompiler};
 
 pub mod lazy;
 pub mod lazy_opt;
 pub mod linear;
 pub mod strict;
+
+pub struct StrictCompiler;
+
+impl ExprCompiler for StrictCompiler {
+    fn compile(&mut self, expr: &crate::ast::Expr) -> CompiledExpr {
+        strict::compile_strict(&to_debruijn(expr, &mut Vec::new()))
+    }
+}
+
+pub struct LazyCompiler;
+
+impl ExprCompiler for LazyCompiler {
+    fn compile(&mut self, expr: &crate::ast::Expr) -> CompiledExpr {
+        lazy::compile_lazy(&to_debruijn(expr, &mut Vec::new()))
+    }
+}
+
+pub struct LazyOptCompiler;
+
+impl ExprCompiler for LazyOptCompiler {
+    fn compile(&mut self, expr: &crate::ast::Expr) -> CompiledExpr {
+        lazy_opt::compile_lazy_opt(&to_debruijn(expr, &mut Vec::new()))
+    }
+}
+
+pub struct LinearCompiler;
+
+impl ExprCompiler for LinearCompiler {
+    fn compile(&mut self, expr: &crate::ast::Expr) -> CompiledExpr {
+        linear::compile_linear(&to_debruijn(expr, &mut Vec::new()))
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
@@ -30,7 +63,6 @@ pub fn to_debruijn(e: &Expr, vars: &mut Vec<String>) -> BExpr {
             if let Some(i) = vars.iter().position(|x| x == v) {
                 BExpr::Var(vars.len() - 1 - i)
             } else {
-                println!("Did not find {} in {:?}", v, vars);
                 BExpr::SVar(v.clone())
             }
         }
