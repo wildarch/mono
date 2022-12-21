@@ -47,7 +47,7 @@ impl IntoCellPtr for Comb {
 }
 
 impl Comb {
-    fn implementation(&self) -> fn(&mut TurnerEngine) -> Option<CellPtr> {
+    fn implementation(&self) -> fn(&mut TurnerEngine, n: usize) -> Option<CellPtr> {
         match self {
             Comb::S => TurnerEngine::run_s_comb,
             Comb::K => TurnerEngine::run_k_comb,
@@ -61,9 +61,9 @@ impl Comb {
             Comb::Eq => TurnerEngine::run_eq_comb,
             Comb::Lt => TurnerEngine::run_lt_comb,
             Comb::Abort => TurnerEngine::run_abort_comb,
-            Comb::Sn(2) => TurnerEngine::run_s2_comb,
-            Comb::Bn(2) => TurnerEngine::run_b2_comb,
-            Comb::Cn(2) => TurnerEngine::run_c2_comb,
+            Comb::Sn(_) => TurnerEngine::run_sn_comb,
+            Comb::Bn(_) => TurnerEngine::run_bn_comb,
+            Comb::Cn(_) => TurnerEngine::run_cn_comb,
             _ => todo!("No implementation for combinator {:?}", self),
         }
     }
@@ -121,7 +121,7 @@ pub struct TurnerEngine {
     stack: Vec<CellPtr>,
 
     // Combinator implementation lookup table
-    comb_impl: Vec<fn(&mut TurnerEngine) -> Option<CellPtr>>,
+    comb_impl: Vec<(fn(&mut TurnerEngine, usize) -> Option<CellPtr>, usize)>,
     // Maps combinator to the index in comb_impl
     comb_map: HashMap<Comb, usize>,
 }
@@ -198,7 +198,13 @@ impl TurnerEngine {
             return;
         }
         // Add the combinator implementation
-        self.comb_impl.push(c.implementation());
+        let n = match c {
+            Comb::Sn(n) => n,
+            Comb::Bn(n) => n,
+            Comb::Cn(n) => n,
+            _ => 0,
+        };
+        self.comb_impl.push((c.implementation(), n));
         let idx = self.comb_impl.len() - 1;
         self.comb_map.insert(c, idx);
         self.next_cell = CellPtr(idx as i32);
@@ -217,8 +223,8 @@ impl TurnerEngine {
 
     fn step(&mut self) -> Option<CellPtr> {
         let top = self.stack.last().unwrap();
-        if let Some(comb_impl) = self.comb_impl.get(top.0 as usize) {
-            comb_impl(self)
+        if let Some((comb_impl, n)) = self.comb_impl.get(top.0 as usize) {
+            comb_impl(self, *n)
         } else {
             // An application, so push the left subtree
             self.stack.push(self.hd(*top));
@@ -226,7 +232,7 @@ impl TurnerEngine {
         }
     }
 
-    fn run_s_comb(&mut self) -> Option<CellPtr> {
+    fn run_s_comb(&mut self, _: usize) -> Option<CellPtr> {
         self.run_comb3(|engine, args| {
             // S f g x => f x (g x)
             let x = engine.tl(args[2]);
@@ -244,7 +250,7 @@ impl TurnerEngine {
         })
     }
 
-    fn run_k_comb(&mut self) -> Option<CellPtr> {
+    fn run_k_comb(&mut self, _: usize) -> Option<CellPtr> {
         self.run_comb2(|engine, args| {
             // K x y = x
             if let Some(v) = engine.int_rhs(args[0]) {
@@ -255,7 +261,7 @@ impl TurnerEngine {
         })
     }
 
-    fn run_i_comb(&mut self) -> Option<CellPtr> {
+    fn run_i_comb(&mut self, _: usize) -> Option<CellPtr> {
         self.run_comb1(|engine, args| {
             // I x = x
             if let Some(v) = engine.int_rhs(args[0]) {
@@ -266,7 +272,7 @@ impl TurnerEngine {
         })
     }
 
-    fn run_b_comb(&mut self) -> Option<CellPtr> {
+    fn run_b_comb(&mut self, _: usize) -> Option<CellPtr> {
         self.run_comb3(|engine, args| {
             // B f g x => f (g x)
             let x = engine.tl(args[2]);
@@ -282,7 +288,7 @@ impl TurnerEngine {
         })
     }
 
-    fn run_c_comb(&mut self) -> Option<CellPtr> {
+    fn run_c_comb(&mut self, _: usize) -> Option<CellPtr> {
         self.run_comb3(|engine, args| {
             // C f g x => (f x) g
             let x = engine.tl(args[2]);
@@ -303,27 +309,27 @@ impl TurnerEngine {
         })
     }
 
-    fn run_plus_comb(&mut self) -> Option<CellPtr> {
+    fn run_plus_comb(&mut self, _: usize) -> Option<CellPtr> {
         self.run_strict_binop(|a, b| a + b)
     }
 
-    fn run_minus_comb(&mut self) -> Option<CellPtr> {
+    fn run_minus_comb(&mut self, _: usize) -> Option<CellPtr> {
         self.run_strict_binop(|a, b| a - b)
     }
 
-    fn run_times_comb(&mut self) -> Option<CellPtr> {
+    fn run_times_comb(&mut self, _: usize) -> Option<CellPtr> {
         self.run_strict_binop(|a, b| a * b)
     }
 
-    fn run_eq_comb(&mut self) -> Option<CellPtr> {
+    fn run_eq_comb(&mut self, _: usize) -> Option<CellPtr> {
         self.run_strict_binop(|a, b| if a == b { 1 } else { 0 })
     }
 
-    fn run_lt_comb(&mut self) -> Option<CellPtr> {
+    fn run_lt_comb(&mut self, _: usize) -> Option<CellPtr> {
         self.run_strict_binop(|a, b| if a < b { 1 } else { 0 })
     }
 
-    fn run_cond_comb(&mut self) -> Option<CellPtr> {
+    fn run_cond_comb(&mut self, _: usize) -> Option<CellPtr> {
         self.run_comb3(|engine, args| {
             // COND c t f = if(c) t else f
             if let Some(c) = engine.int_rhs(args[0]) {
@@ -350,7 +356,7 @@ impl TurnerEngine {
         })
     }
 
-    fn run_abort_comb(&mut self) -> Option<CellPtr> {
+    fn run_abort_comb(&mut self, _: usize) -> Option<CellPtr> {
         panic!("Abort combinator reduced")
     }
 
@@ -740,95 +746,83 @@ impl TurnerEngine {
     }
 }
 
-macro_rules! run_sn_comb {
-    ($name:ident, $run_combn:ident) => {
-        fn $name(&mut self) -> Option<CellPtr> {
-            self.$run_combn(|engine, args| {
-                // S f g x => f x (g x)
-                let f = engine.tl(args[0]);
-                let g = engine.tl(args[1]);
-
-                let mut left_cell = f;
-                let mut right_cell = g;
-                for arg in &args[2..] {
-                    let x = engine.tl(*arg);
-                    // If x is an int, we should transfer that to the new location
-                    let mut tag = Tag::wanted();
-                    if engine.tag(*arg).is_rhs_int() {
-                        tag = tag.set_rhs_int();
-                    }
-
-                    // Add the extra argument to both branches
-                    left_cell = engine.make_cell(tag, left_cell, x);
-                    right_cell = engine.make_cell(tag, right_cell, x);
-                }
-                StepResult::CellContents(Tag::wanted(), left_cell, right_cell)
-            })
-        }
-    };
-}
-macro_rules! run_bn_comb {
-    ($name:ident, $run_combn:ident) => {
-        fn $name(&mut self) -> Option<CellPtr> {
-            self.$run_combn(|engine, args| {
-                // B f g x => f (g x)
-                let f = engine.tl(args[0]);
-                let g = engine.tl(args[1]);
-
-                let mut right_cell = g;
-                for arg in &args[2..] {
-                    let x = engine.tl(*arg);
-                    // If x is an int, we should transfer that to the new location
-                    let mut tag = Tag::wanted();
-                    if engine.tag(*arg).is_rhs_int() {
-                        tag = tag.set_rhs_int();
-                    }
-
-                    // Add the extra argument to the right branch
-                    right_cell = engine.make_cell(tag, right_cell, x);
-                }
-                StepResult::CellContents(Tag::wanted(), f, right_cell)
-            })
-        }
-    };
-}
-macro_rules! run_cn_comb {
-    ($name:ident, $run_combn:ident) => {
-        fn $name(&mut self) -> Option<CellPtr> {
-            self.$run_combn(|engine, args| {
-                // C f g x => f x g
-                let f = engine.tl(args[0]);
-                let g = engine.tl(args[1]);
-
-                let mut left_cell = f;
-                for arg in &args[2..] {
-                    let x = engine.tl(*arg);
-                    // If x is an int, we should transfer that to the new location
-                    let mut tag = Tag::wanted();
-                    if engine.tag(*arg).is_rhs_int() {
-                        tag = tag.set_rhs_int();
-                    }
-
-                    // Add the extra argument to both branches
-                    left_cell = engine.make_cell(tag, left_cell, x);
-                }
-                // If g is an int, we should transfer that to the new location
-                let mut tag = Tag::wanted();
-                if engine.tag(args[1]).is_rhs_int() {
-                    tag = tag.set_rhs_int();
-                }
-                StepResult::CellContents(tag, left_cell, g)
-            })
-        }
-    };
-}
 // Bulk combinators
 impl TurnerEngine {
-    run_comb!(run_comb4, 4);
+    fn run_sn_comb(&mut self, n: usize) -> Option<CellPtr> {
+        debug_assert!(n > 1);
+        self.run_combn(n + 2, |engine, args| {
+            // S f g x => f x (g x)
+            let f = engine.tl(args[0]);
+            let g = engine.tl(args[1]);
 
-    run_sn_comb!(run_s2_comb, run_comb4);
-    run_bn_comb!(run_b2_comb, run_comb4);
-    run_cn_comb!(run_c2_comb, run_comb4);
+            let mut left_cell = f;
+            let mut right_cell = g;
+            for arg in &args[2..] {
+                let x = engine.tl(*arg);
+                // If x is an int, we should transfer that to the new location
+                let mut tag = Tag::wanted();
+                if engine.tag(*arg).is_rhs_int() {
+                    tag = tag.set_rhs_int();
+                }
+
+                // Add the extra argument to both branches
+                left_cell = engine.make_cell(tag, left_cell, x);
+                right_cell = engine.make_cell(tag, right_cell, x);
+            }
+            StepResult::CellContents(Tag::wanted(), left_cell, right_cell)
+        })
+    }
+
+    fn run_bn_comb(&mut self, n: usize) -> Option<CellPtr> {
+        debug_assert!(n > 1);
+        self.run_combn(n + 2, |engine, args| {
+            // B f g x => f (g x)
+            let f = engine.tl(args[0]);
+            let g = engine.tl(args[1]);
+
+            let mut right_cell = g;
+            for arg in &args[2..] {
+                let x = engine.tl(*arg);
+                // If x is an int, we should transfer that to the new location
+                let mut tag = Tag::wanted();
+                if engine.tag(*arg).is_rhs_int() {
+                    tag = tag.set_rhs_int();
+                }
+
+                // Add the extra argument to the right branch
+                right_cell = engine.make_cell(tag, right_cell, x);
+            }
+            StepResult::CellContents(Tag::wanted(), f, right_cell)
+        })
+    }
+
+    fn run_cn_comb(&mut self, n: usize) -> Option<CellPtr> {
+        debug_assert!(n > 1);
+        self.run_combn(n, |engine, args| {
+            // C f g x => f x g
+            let f = engine.tl(args[0]);
+            let g = engine.tl(args[1]);
+
+            let mut left_cell = f;
+            for arg in &args[2..] {
+                let x = engine.tl(*arg);
+                // If x is an int, we should transfer that to the new location
+                let mut tag = Tag::wanted();
+                if engine.tag(*arg).is_rhs_int() {
+                    tag = tag.set_rhs_int();
+                }
+
+                // Add the extra argument to both branches
+                left_cell = engine.make_cell(tag, left_cell, x);
+            }
+            // If g is an int, we should transfer that to the new location
+            let mut tag = Tag::wanted();
+            if engine.tag(args[1]).is_rhs_int() {
+                tag = tag.set_rhs_int();
+            }
+            StepResult::CellContents(tag, left_cell, g)
+        })
+    }
 }
 
 /// To avoid slowing down [`TurnerEngine`] in benchmarks, all debugging related routines are in this wrapper.
