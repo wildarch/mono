@@ -35,7 +35,19 @@ fn compile(e: &BExpr) -> CExpr {
             CExpr::Weak(e) => semantic(CExpr::Closed(CompiledExpr::Comb(Comb::K)), *e),
         },
         BExpr::Ap(a, b) => semantic(compile(a), compile(b)),
-        _ => todo!(),
+        BExpr::Int(i) => CExpr::Closed(CompiledExpr::Int(*i)),
+        BExpr::SVar(s) => CExpr::Closed(match s.as_str() {
+            "if" => CompiledExpr::Comb(Comb::Cond),
+            _ => CompiledExpr::Var(s.clone()),
+        }),
+        BExpr::BinOp(l, o, r) => semantic(
+            semantic(
+                CExpr::Closed(CompiledExpr::Comb(Comb::from(*o))),
+                compile(l),
+            ),
+            compile(r),
+        ),
+        BExpr::Not(_) => todo!(),
     }
 }
 
