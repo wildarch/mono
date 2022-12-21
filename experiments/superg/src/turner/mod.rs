@@ -286,12 +286,17 @@ impl TurnerEngine {
             let g = engine.tl(args[1]);
             let f = engine.tl(args[0]);
             // If x is an int, we should transfer that to the new location
-            let mut tag = Tag::wanted();
+            let mut x_tag = Tag::wanted();
             if engine.tag(args[2]).is_rhs_int() {
-                tag = tag.set_rhs_int();
+                x_tag = x_tag.set_rhs_int();
             }
-            let fx = engine.make_cell(tag, f, x);
-            StepResult::CellContents(Tag::wanted(), fx, g)
+            // If g is an int, we should transfer that to the new location
+            let mut g_tag = Tag::wanted();
+            if engine.tag(args[1]).is_rhs_int() {
+                g_tag = g_tag.set_rhs_int();
+            }
+            let fx = engine.make_cell(x_tag, f, x);
+            StepResult::CellContents(g_tag, fx, g)
         })
     }
 

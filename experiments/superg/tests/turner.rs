@@ -146,7 +146,6 @@ fn test_cond_eq() {
 
 #[test]
 fn test_factorial() {
-    // TODO: was 5! = 120
     assert_runs_to_int(
         "test_factorial",
         r#"
@@ -154,9 +153,9 @@ fn test_factorial() {
       (if (= n 1)
           1
           (* n (fac (- n 1)))))
-    (defun main () (fac 2))
+    (defun main () (fac 5))
             "#,
-        2,
+        120,
         StepLimit(1000),
     );
 }
