@@ -137,6 +137,9 @@ fn parse_compiled_expr_inner(tokens: &mut VecDeque<Token>) -> CompiledExpr {
             "Not" => Not,
             "Abort" => Abort,
             _ => {
+                if let Some(bulk_comb) = parse_bulk_comb(s.as_str()) {
+                    return CompiledExpr::Comb(bulk_comb);
+                }
                 // Assume a string of combinators
                 return s
                     .chars()
@@ -147,6 +150,16 @@ fn parse_compiled_expr_inner(tokens: &mut VecDeque<Token>) -> CompiledExpr {
         }),
         Some(Token::RParen) => panic!("Unexpected right paren"),
     }
+}
+
+fn parse_bulk_comb(s: &str) -> Option<Comb> {
+    let comb = match s.chars().nth(0) {
+        Some('S') => Comb::Sn,
+        Some('B') => Comb::Bn,
+        Some('C') => Comb::Cn,
+        _ => return None,
+    };
+    s[1..].parse().ok().map(comb)
 }
 
 fn parse_comb(c: char) -> Comb {

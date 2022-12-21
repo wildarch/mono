@@ -23,39 +23,11 @@ pub enum Comb {
     Or,
     Not,
     Abort,
+    // Kiselyov's bulk combinators
+    Sn(usize),
+    Bn(usize),
+    Cn(usize),
 }
-
-impl Comb {
-    pub fn all() -> &'static [Comb] {
-        return ALL_COMBS;
-    }
-}
-
-const ALL_COMBS: &'static [Comb] = &[
-    Comb::S,
-    Comb::K,
-    Comb::I,
-    Comb::Y,
-    Comb::U,
-    Comb::P,
-    Comb::B,
-    Comb::C,
-    Comb::Plus,
-    Comb::Minus,
-    Comb::Times,
-    Comb::Divide,
-    Comb::Cond,
-    Comb::Eq,
-    Comb::Neq,
-    Comb::Gt,
-    Comb::Gte,
-    Comb::Lt,
-    Comb::Lte,
-    Comb::And,
-    Comb::Or,
-    Comb::Not,
-    Comb::Abort,
-];
 
 #[derive(Clone, PartialEq)]
 pub enum CompiledExpr {
@@ -68,7 +40,12 @@ pub enum CompiledExpr {
 impl std::fmt::Debug for CompiledExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CompiledExpr::Comb(c) => write!(f, "{:?}", c),
+            CompiledExpr::Comb(c) => match c {
+                Comb::Sn(i) => write!(f, "S{}", i),
+                Comb::Bn(i) => write!(f, "B{}", i),
+                Comb::Cn(i) => write!(f, "C{}", i),
+                _ => write!(f, "{:?}", c),
+            },
             CompiledExpr::Ap(a, b) => write!(f, "({:?} {:?})", a, b),
             CompiledExpr::Var(v) => write!(f, "{}", v),
             CompiledExpr::Int(i) => write!(f, "{}", i),
