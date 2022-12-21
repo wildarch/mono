@@ -197,6 +197,8 @@ fn assert_runs_to_int(_test_name: &str, program: &str, v: i32, l: StepLimit) {
     assert_runs_to_int_gen(BracketCompiler, _test_name, program, v, l);
     println!("Strict");
     assert_runs_to_int_gen(StrictCompiler, _test_name, program, v, l);
+    println!("Lazy");
+    assert_runs_to_int_gen(LazyCompiler, _test_name, program, v, l);
 }
 
 fn assert_runs_to_int_gen<C: ExprCompiler>(

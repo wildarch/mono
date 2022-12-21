@@ -26,7 +26,9 @@ fn infer_context(e: &BExpr) -> Context {
             ctx
         }
         BExpr::Ap(f, a) => unify_contexts(infer_context(f), infer_context(a)),
-        _ => todo!(),
+        BExpr::BinOp(l, _, r) => unify_contexts(infer_context(l), infer_context(r)),
+        BExpr::SVar(_) | BExpr::Int(_) => Context::new(),
+        BExpr::Not(e) => infer_context(e),
     }
 }
 
@@ -78,7 +80,27 @@ pub fn compile_lazy(e: &BExpr) -> CompiledExpr {
             infer_context(e2),
             compile_lazy(e2),
         ),
-        _ => todo!(),
+        BExpr::Int(i) => CompiledExpr::Int(*i),
+        BExpr::SVar(s) => match s.as_str() {
+            "if" => CompiledExpr::Comb(Comb::Cond),
+            _ => CompiledExpr::Var(s.clone()),
+        },
+        BExpr::BinOp(l, o, r) => {
+            let cl = infer_context(l);
+            // l <op> r => ((<op> l) r)
+            semantic(
+                cl.clone(),
+                semantic(
+                    Context::new(),
+                    CompiledExpr::Comb(Comb::from(*o)),
+                    cl,
+                    compile_lazy(l),
+                ),
+                infer_context(r),
+                compile_lazy(r),
+            )
+        }
+        BExpr::Not(_) => todo!(),
     }
 }
 
