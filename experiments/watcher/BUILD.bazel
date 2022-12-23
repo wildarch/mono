@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "watcher_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/wildarch/mono/experiments/watcher",
+    visibility = ["//visibility:private"],
+    deps = ["@com_github_fsnotify_fsnotify//:go_default_library"],
+)
+
+go_binary(
+    name = "watcher",
+    embed = [":watcher_lib"],
+    visibility = ["//visibility:public"],
+)
