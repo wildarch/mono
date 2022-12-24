@@ -22,24 +22,68 @@ func main() {
 	target := os.Args[2]
 	log.Printf("Watching target: %s", target)
 
-	deps := queryDeps(workspaceRoot, target)
-	dirs := directories(deps)
-	for _, d := range dirs {
-		log.Printf("Directory to watch: %s", d)
-	}
+	watch(workspaceRoot, target)
+}
 
+func watch(workspaceRoot, target string) {
+	isTest := strings.HasSuffix(target, "_test")
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatalf("error initializing watcher: %s", err.Error())
 	}
 	defer watcher.Close()
 
-	watch(watcher, workspaceRoot, target)
+	for {
+		deps := queryDeps(workspaceRoot, target)
+		setFilesToWatch(watcher, deps)
+		if isTest {
+			testTarget(workspaceRoot, target)
+		} else {
+			buildTarget(workspaceRoot, target)
+		}
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+			log.Println("event:", event)
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+			log.Println("error:", err)
+		}
+	}
 }
 
-func watch(watcher *fsnotify.Watcher, workspaceRoot, target string) {
-	buildTarget(workspaceRoot, target)
-	// watch deps
+func setFilesToWatch(watcher *fsnotify.Watcher, files []string) {
+	// Tracks what directories we need to watch,
+	// and if they have already been added to the watcher.
+	dirsAdded := make(map[string]bool, 0)
+	for _, f := range files {
+		dir := filepath.Dir(f)
+		dirsAdded[dir] = false
+	}
+
+	// Mark directories already watched, and remove stale directories
+	for _, d := range watcher.WatchList() {
+		_, inNewList := dirsAdded[d]
+		if !inNewList {
+			// Stale
+			watcher.Remove(d)
+		} else {
+			// Already added to watcher
+			dirsAdded[d] = true
+		}
+	}
+
+	// Add new directories to watch
+	for dir, alreadyAdded := range dirsAdded {
+		if alreadyAdded {
+			continue
+		}
+		watcher.Add(dir)
+	}
 }
 
 func buildTarget(workspaceRoot, target string) {
@@ -53,6 +97,21 @@ func buildTarget(workspaceRoot, target string) {
 	err := buildCmd.Run()
 	if err != nil {
 		log.Printf("Build failed with error: %s", err.Error())
+	}
+}
+
+func testTarget(workspaceRoot, target string) {
+	testCmd := exec.Command(
+		"bazel",
+		// Use run instead of test to show more output
+		"run",
+		target)
+	testCmd.Dir = workspaceRoot
+	testCmd.Stdout = os.Stdout
+	testCmd.Stderr = os.Stderr
+	err := testCmd.Run()
+	if err != nil {
+		log.Printf("test failed with error: %s", err.Error())
 	}
 }
 
@@ -93,18 +152,4 @@ func queryDeps(workspaceRoot, target string) []string {
 		log.Fatalf("no dependencies found")
 	}
 	return files
-}
-
-func directories(files []string) []string {
-	dirMap := make(map[string]int, 0)
-	for _, f := range files {
-		dir := filepath.Dir(f)
-		dirMap[dir]++
-	}
-
-	dirs := make([]string, 0)
-	for dir := range dirMap {
-		dirs = append(dirs, dir)
-	}
-	return dirs
 }
