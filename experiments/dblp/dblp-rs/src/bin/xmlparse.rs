@@ -21,7 +21,7 @@ fn main() {
 }
 
 fn configure_entities(mut config: ParserConfig) -> ParserConfig {
-    for (name, value) in dblp_rs::dblp_mapping() {
+    for (name, value) in dblp_rs::entities::dblp_mapping() {
         config = config.add_entity(name, value);
     }
     config

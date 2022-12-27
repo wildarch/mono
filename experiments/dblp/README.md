@@ -242,6 +242,7 @@ user    5m43.335s
 sys     0m0.312s
 ```
 
+### A fast parser (attempt 2)
 Maybe another library will be faster, let's so if `quick-xml` lives up to its reputation:
 
 ```rust
