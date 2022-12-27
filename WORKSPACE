@@ -164,3 +164,46 @@ load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_regi
 rules_rust_dependencies()
 
 rust_register_toolchains()
+
+# xmlwrapp
+http_archive(
+    name = "xmlwrapp",
+    build_file_content = """
+cc_library(
+    name = "xmlwrapp",
+    srcs = glob([
+        "src/**/*.cxx",
+        "src/**/*.h",
+    ]),
+    hdrs = glob([
+        "include/**/*.h",
+    ]),
+    copts = ["-I/usr/include/libxml2"],
+    linkopts = ["-lxml2"],
+    strip_include_prefix = "include/",
+    visibility = ["//visibility:public"],
+)
+    """,
+    sha256 = "96c6229ce246edf9e48a8b566addd970a19eb9d4b51688afd104077e72679f75",
+    strip_prefix = "xmlwrapp-0.9.1",
+    urls = ["https://github.com/vslavik/xmlwrapp/releases/download/v0.9.1/xmlwrapp-0.9.1.tar.gz"],
+)
+
+# Boost
+BOOST_COMMIT = "f1065639e6f33741abe2a6a78fa79dd1a07bbf5d"
+
+BOOST_SHA256 = "6ded3e8c064054c92b79aeadde2d78821c889598e634c595133da0ea8f0f0b85"
+
+http_archive(
+    name = "com_github_nelhage_rules_boost",
+    sha256 = BOOST_SHA256,
+    strip_prefix = "rules_boost-%s" % BOOST_COMMIT,
+
+    # Replace the commit hash in both places (below) with the latest, rather than using the stale one here.
+    # Even better, set up Renovate and let it do the work for you (see "Suggestion: Updates" in the README).
+    url = "https://github.com/nelhage/rules_boost/archive/%s.tar.gz" % BOOST_COMMIT,
+)
+
+load("@com_github_nelhage_rules_boost//:boost/boost.bzl", "boost_deps")
+
+boost_deps()

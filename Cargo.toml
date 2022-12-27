@@ -1,4 +1,5 @@
 [workspace]
 members = [
-    "experiments/superg"
+    "experiments/superg",
+    "experiments/dblp/dblp-rs"
 ]
