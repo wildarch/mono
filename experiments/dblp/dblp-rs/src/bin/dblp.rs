@@ -3,6 +3,7 @@ use dblp_rs::record::{Record, RecordType};
 use flate2::bufread;
 use quick_xml::events::Event;
 use quick_xml::Reader;
+use rusqlite::Connection;
 use std::fs::File;
 use std::io::BufReader;
 
@@ -20,7 +21,36 @@ fn main() {
     let mut state = ParseState::Initial;
     let unescaper = DblpUnescaper::new();
 
-    let mut record_count = 0usize;
+    let conn = Connection::open_in_memory().unwrap();
+
+    conn.execute(
+        r#"
+        CREATE TABLE Dblp(
+            record_type TEXT,
+            key TEXT,
+            title TEXT
+        );
+    "#,
+        (),
+    )
+    .unwrap();
+    let mut insert_stmt = conn.prepare("INSERT INTO Dblp VALUES (?, ?, ?)").unwrap();
+
+    let mut do_insert = |record: &Record| {
+        let record_type = match record.record_type {
+            RecordType::InProceedings => "inproceedings",
+            RecordType::Article => "article",
+            RecordType::Book => "book",
+            RecordType::Www => "www",
+            RecordType::Proceedings => "proceedings",
+            RecordType::Incollection => "incollection",
+            RecordType::MastersThesis => "mastersthesis",
+            RecordType::PhdThesis => "phdthesis",
+        };
+        insert_stmt
+            .execute((record_type, &record.key, &record.title))
+            .unwrap();
+    };
 
     loop {
         match reader.read_event_into(&mut buf) {
@@ -124,7 +154,7 @@ fn main() {
                         n => unreachable!("end {:?} from record", std::str::from_utf8(n).unwrap()),
                     };
                     assert!(!record.key.is_empty());
-                    record_count += 1;
+                    do_insert(&record);
                     record.clear();
                     state = ParseState::Dblp;
                 }
@@ -144,7 +174,8 @@ fn main() {
     }
     assert!(state == ParseState::End);
 
-    println!("Record parsed: {}", record_count);
+    std::mem::drop(insert_stmt);
+    conn.close().unwrap();
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
