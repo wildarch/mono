@@ -559,6 +559,36 @@ Our benchmark programs do not use too much heap space, so we choose not to focus
 
 \section{TIGRE}
 \label{sec:tigre}
+\subsection*{Eliminating tags}
+Tags are commonly used to distinguish pointers, combinators and literal values.
+We get rid of the literal value tag by making all literals go through an indirection node, and introducing a special \texttt{LIT} combinator for such indirection nodes.
+To determine if a right-hand side is a literal, we can check for the \texttt{LIT} combinator rather than a tag.
+In the TIGRE paper, there is also a pointer and combinator tag, but with Miranda's design, this is not necessary.
+If we insist, that final tag value can be put as the lowest bit in the pointer value, since a pointer is typically aligned to some boundary.
+We are working with 32-bit (4-byte) wide values, for which on X86 we can assume 4-byte alignment, giving us 2 bits to play with.
+
+\subsection*{Threaded code interpreter}
+We make the nodes themselves executable code.
+For nodes that represent the combinators, a pointer to that node is just a pointer to the subroutine that implements the combinator.
+For application nodes, they are a jump instruction together with the left node as the target (so the left node is the width of one instruction).
+The jump instruction should push the current PC onto the stack, which means the stack now directly represents the spine.
+
+The TIGRE style requires that we make our memory writable and executable, which is problematic in many systems.
+It seems to work okay on Linux though, so we can use it.
+
+The instruction to use on X86 is \texttt{call}.
+It takes one parameter, which is a PC-relative offset.
+When we create a node, we should subtract the target position from the location where we are writing the instruction, and use that as the jump parameter.
+
+The trampolines can be generated or hand-coded ahead of time, so our runtime only needs to assemble \texttt{CALL} instructions.
+
+For combinators, we can generate a trampoline that grabs the arguments from the stack, puts them in registers and calls the rust implementation.
+
+It seems to be a good idea to align nodes at a 16-byte boundary for better jump performance:
+https://groups.google.com/g/golang-nuts/c/dhGbgC1pAmA
+do not put more than 2 branches in a 16-byte block.
+
+Encoding of the call instruction is \texttt{E8} \textit{rel32}, where \textit{rel32} is a 32-bit (little-endian) offset from the \emph{next} instruction.
 \textbf{TODO}
 
 Describe changes made to align with TIGRE.

@@ -9,3 +9,5 @@ pub mod kiselyov;
 
 pub use lexer::lex;
 pub use parser::parse;
+
+pub mod tigre;
