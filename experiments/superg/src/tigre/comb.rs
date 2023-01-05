@@ -5,13 +5,36 @@ global_asm!(
     .global comb_LIT
     comb_LIT:
         pop rax
+        mov rax, [rax]
         ret
-    .global comb_LIT_end
-    comb_LIT_end:
 "#
 );
 extern "C" {
     pub fn comb_LIT() -> usize;
+}
+
+global_asm!(
+    r#"
+    .global comb_I
+    comb_I:
+        mov rcx, [rsp]
+        add rsp, 8
+        jmp [rcx]
+"#
+);
+extern "C" {
+    pub fn comb_I() -> usize;
+}
+
+global_asm!(
+    r#"
+    .global comb_Abort
+    comb_Abort:
+        jmp comb_Abort
+"#
+);
+extern "C" {
+    pub fn comb_Abort() -> usize;
 }
 
 #[cfg(test)]
@@ -28,9 +51,9 @@ mod tests {
         r#"
         .global lit_dispatch_helper
         lit_dispatch_helper:
-            // Emulates a cell with lhs LIT and rhs 42
-            push 42
-            jmp comb_LIT
+        call comb_LIT
+        .long 42
+        .long 0
     "#
     );
     extern "C" {
