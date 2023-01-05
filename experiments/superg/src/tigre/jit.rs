@@ -6,30 +6,73 @@ pub fn assemble_call(off: i32) -> [u8; 5] {
     buf
 }
 
+const PAGE_SIZE: usize = 4096;
+
 pub struct JitMem {
     buf: *mut u8,
     len: usize,
 }
 
 impl JitMem {
-    pub fn new(len: usize) -> JitMem {
+    pub fn new_at(ptr: *mut u8, len: usize) -> std::io::Result<JitMem> {
         // Allow RWX, everything!
         let prot = libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC;
-        let flags = libc::MAP_ANONYMOUS | libc::MAP_PRIVATE;
+        let flags = libc::MAP_ANONYMOUS | libc::MAP_PRIVATE | libc::MAP_FIXED_NOREPLACE;
         // Unused because the mmap is anonymous
         let fd = -1;
         let offset = 0;
-        let buf =
-            unsafe { libc::mmap(std::ptr::null_mut(), len, prot, flags, fd, offset) as *mut u8 };
+        let buf = unsafe {
+            libc::mmap(ptr as *mut libc::c_void, len, prot, flags, fd, offset) as *mut u8
+        };
         if buf == libc::MAP_FAILED as *mut u8 {
-            panic!("mmap failed: {}", std::io::Error::last_os_error());
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(JitMem { buf, len })
         }
+    }
 
-        JitMem { buf, len }
+    pub fn new_in_range(min_ptr: *mut u8, max_ptr: *mut u8, len: usize) -> std::io::Result<JitMem> {
+        // Check inputs
+        assert_eq!(
+            min_ptr as usize % PAGE_SIZE,
+            0,
+            "min_ptr must be aligned to {}",
+            PAGE_SIZE
+        );
+        assert_eq!(
+            max_ptr as usize % PAGE_SIZE,
+            0,
+            "max_ptr must be aligned to {}",
+            PAGE_SIZE
+        );
+        assert!(min_ptr < max_ptr, "min_ptr must be less than max_ptr");
+
+        let mut ptr = min_ptr;
+        loop {
+            match JitMem::new_at(ptr, len) {
+                Ok(jit) => return Ok(jit),
+                Err(e) => {
+                    // Try next page
+                    ptr = ptr.wrapping_add(PAGE_SIZE);
+                    if ptr >= max_ptr {
+                        // Out of pages to try
+                        return Err(e);
+                    }
+                }
+            }
+        }
     }
 
     pub fn slice_mut(&mut self) -> &mut [u8] {
         unsafe { std::slice::from_raw_parts_mut(self.buf, self.len) }
+    }
+
+    pub fn as_fn<R>(&self, offset: usize) -> unsafe extern "C" fn() -> R {
+        unsafe { std::mem::transmute(self.buf.wrapping_add(offset)) }
+    }
+
+    pub fn ptr_at<R>(&self, offset: usize) -> *const R {
+        self.buf.wrapping_add(offset) as *const R
     }
 }
 
@@ -47,6 +90,43 @@ impl core::ops::Drop for JitMem {
     }
 }
 
+pub struct JitPlacer {
+    min_target: usize,
+    max_target: usize,
+}
+
+impl JitPlacer {
+    pub fn new() -> JitPlacer {
+        JitPlacer {
+            min_target: usize::MAX,
+            max_target: usize::MIN,
+        }
+    }
+
+    pub fn add_target(&mut self, target: usize) {
+        self.min_target = std::cmp::min(self.min_target, target);
+        self.max_target = std::cmp::max(self.max_target, target);
+    }
+
+    pub fn place_jit(&self, len: usize) -> std::io::Result<JitMem> {
+        // Must be able to reach min_target from the end of the allocated memory
+        // (the biggest possible backward jump).
+        // We must have: min_target - (ptr + len) > i32::MIN
+        let max_ptr = self.min_target.saturating_add(i32::MAX as usize - len);
+
+        // Must be able to reach max_target from the start of the allocated memory
+        // (the biggest possible forward jump).
+        // We must have: max_target - ptr < i32::MAX
+        let min_ptr = self.max_target.saturating_sub(i32::MAX as usize);
+
+        // Align to page boundary
+        let min_ptr = (min_ptr / PAGE_SIZE) * PAGE_SIZE + PAGE_SIZE;
+        let max_ptr = (max_ptr / PAGE_SIZE) * PAGE_SIZE;
+
+        JitMem::new_in_range(min_ptr as *mut u8, max_ptr as *mut u8, len)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -60,85 +140,14 @@ mod tests {
             0xc9, //    leaveq
             0xc3, //    retq
         ];
+        let jit_placer = JitPlacer::new();
+        let mut jit_mem = jit_placer.place_jit(code.len()).unwrap();
+        jit_mem.slice_mut().copy_from_slice(code);
+        let func = jit_mem.as_fn(0);
 
-        unsafe {
-            let ptr = libc::mmap(
-                std::ptr::null_mut(),
-                code.len(),
-                libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
-                libc::MAP_ANONYMOUS | libc::MAP_PRIVATE,
-                -1,
-                0,
-            );
+        let res: usize = unsafe { func() };
 
-            std::ptr::copy(code.as_ptr(), ptr as *mut u8, code.len());
-
-            let func: unsafe extern "C" fn() -> u32 = std::mem::transmute(ptr);
-            let res = func();
-            assert_eq!(res, 55);
-        }
-    }
-
-    #[test]
-    fn write_exec_subroutine() {
-        unsafe extern "C" fn target_func() -> u32 {
-            42
-        }
-
-        let code = &mut [
-            0xE9, 0x00, 0x00, 0x00, 0x00, // jmp
-        ];
-
-        const PAGE_SIZE: usize = 4096;
-
-        // Possible addresses fall within the range of i32
-        let min_addr = (target_func as usize).saturating_sub(i32::MAX as usize);
-        let max_addr = (target_func as usize) + (i32::MAX as usize);
-        // And are aligned to a page boundary
-        let min_addr = (min_addr / PAGE_SIZE) * PAGE_SIZE + PAGE_SIZE;
-        let max_addr = (max_addr / PAGE_SIZE) * PAGE_SIZE;
-
-        println!("target: {}", target_func as isize);
-        println!("min code addr: {}", min_addr);
-        println!("max code addr: {}", max_addr);
-        println!("allowed range size: {}", max_addr - min_addr);
-
-        unsafe {
-            let mut ptr = std::ptr::null_mut();
-            for addr in (min_addr..max_addr).step_by(PAGE_SIZE) {
-                ptr = libc::mmap(
-                    addr as *mut libc::c_void,
-                    code.len(),
-                    libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
-                    libc::MAP_ANONYMOUS | libc::MAP_PRIVATE,
-                    -1,
-                    0,
-                );
-                if ptr != libc::MAP_FAILED {
-                    break;
-                }
-            }
-            assert!(!ptr.is_null());
-            assert_ne!(ptr, libc::MAP_FAILED);
-
-            // Setup jump address
-            let base_addr = ptr.add(code.len()) as *const u8;
-            println!("base at {:?}", base_addr);
-            let target_addr = target_func as *const u8;
-            println!("target at {:?}", target_addr);
-
-            let offset = target_addr.offset_from(base_addr);
-            println!("offset: {} (min: {}, max: {})", offset, i32::MIN, i32::MAX);
-
-            // Encode the jump target
-            let offset: i32 = offset.try_into().unwrap();
-            code[1..5].copy_from_slice(&offset.to_le_bytes()[0..4]);
-            std::ptr::copy(code.as_ptr(), ptr as *mut u8, code.len());
-
-            let func: unsafe extern "C" fn() -> u32 = std::mem::transmute(ptr);
-            let res = func();
-            assert_eq!(res, 42);
-        }
+        assert_eq!(res, 55);
     }
 
     #[test]
@@ -147,63 +156,29 @@ mod tests {
             42
         }
 
-        let code = &mut [
-            0xE8, 0x00, 0x00, 0x00, 0x00, // call
-            RET,
-        ];
+        let mut jit_placer = JitPlacer::new();
+        jit_placer.add_target(target_func as usize);
+        let mut jit_mem = jit_placer.place_jit(6).unwrap();
 
-        const PAGE_SIZE: usize = 4096;
+        const CALL_LEN: usize = 5;
+        // Setup jump address
+        let base_addr = jit_mem.ptr_at(CALL_LEN);
+        println!("base at {:?}", base_addr);
+        let target_addr = target_func as *const u8;
+        println!("target at {:?}", target_addr);
 
-        // Possible addresses fall within the range of i32
-        let min_addr = (target_func as usize).saturating_sub(i32::MAX as usize);
-        let max_addr = (target_func as usize) + (i32::MAX as usize);
-        // And are aligned to a page boundary
-        let min_addr = (min_addr / PAGE_SIZE) * PAGE_SIZE + PAGE_SIZE;
-        let max_addr = (max_addr / PAGE_SIZE) * PAGE_SIZE;
+        let offset = unsafe { target_addr.offset_from(base_addr) };
+        println!("offset: {} (min: {}, max: {})", offset, i32::MIN, i32::MAX);
 
-        println!("target: {}", target_func as isize);
-        println!("min code addr: {}", min_addr);
-        println!("max code addr: {}", max_addr);
-        println!("allowed range size: {}", max_addr - min_addr);
+        // Encode the jump target
+        let offset: i32 = offset.try_into().unwrap();
+        jit_mem.slice_mut()[0..5].copy_from_slice(&assemble_call(offset));
+        jit_mem.slice_mut()[5] = RET;
 
-        unsafe {
-            let mut ptr = std::ptr::null_mut();
-            for addr in (min_addr..max_addr).step_by(PAGE_SIZE) {
-                ptr = libc::mmap(
-                    addr as *mut libc::c_void,
-                    code.len(),
-                    libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
-                    libc::MAP_ANONYMOUS | libc::MAP_PRIVATE,
-                    -1,
-                    0,
-                );
-                if ptr != libc::MAP_FAILED {
-                    break;
-                }
-            }
-            assert!(!ptr.is_null());
-            assert_ne!(ptr, libc::MAP_FAILED);
+        let func = jit_mem.as_fn(0);
 
-            const CALL_LEN: usize = 5;
-            // Setup jump address
-            let base_addr = ptr.add(CALL_LEN) as *const u8;
-            println!("base at {:?}", base_addr);
-            let target_addr = target_func as *const u8;
-            println!("target at {:?}", target_addr);
-
-            let offset = target_addr.offset_from(base_addr);
-            println!("offset: {} (min: {}, max: {})", offset, i32::MIN, i32::MAX);
-
-            // Encode the jump target
-            let offset: i32 = offset.try_into().unwrap();
-            code[0..5].copy_from_slice(&assemble_call(offset));
-            code[5] = RET;
-            std::ptr::copy(code.as_ptr(), ptr as *mut u8, code.len());
-
-            let func: unsafe extern "C" fn() -> u32 = std::mem::transmute(ptr);
-            let res = func();
-            assert_eq!(res, 42);
-        }
+        let res: usize = unsafe { func() };
+        assert_eq!(res, 42);
     }
 
     // Opcode for return

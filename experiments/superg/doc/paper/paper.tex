@@ -584,6 +584,13 @@ The trampolines can be generated or hand-coded ahead of time, so our runtime onl
 
 For combinators, we can generate a trampoline that grabs the arguments from the stack, puts them in registers and calls the rust implementation.
 
+The \texttt{call} instruction pushes the \texttt{EIP} register onto the stack, which contains the address of the 'instruction' after the \texttt{call}.
+In our calling convention, this means the stack consists of pointers to the right-hand sides, very convenient.
+
+A \texttt{push} instruction first decrements the stack pointer \texttt{rsp}, then writes the new value to the address of  \texttt{rsp}.
+Assembly to load the value of the top of the stack is therefore: \texttt{mov rax, [rsp]}.
+To load the second value: \texttt{mov rax, [rsp+8]}.
+
 It seems to be a good idea to align nodes at a 16-byte boundary for better jump performance:
 https://groups.google.com/g/golang-nuts/c/dhGbgC1pAmA
 do not put more than 2 branches in a 16-byte block.
@@ -618,6 +625,9 @@ Evaluate performance of:
     \item Kiselyov
     \item GHC
 \end{itemize}
+
+Suggestion from \textit{Common Benchmarking Pitfalls}: Always look at your distribution.
+When you have run benchmarks, take a look at the times for each sample.
 
 \section{Conclusion}
 % Repeat the main question / objective of your research
