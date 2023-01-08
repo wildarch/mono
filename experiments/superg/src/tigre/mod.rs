@@ -113,21 +113,16 @@ impl TigreEngine {
     }
 
     pub fn run(&mut self) -> i64 {
-        /*
-        ENGINE.with(|e| {
-            e.set(self as *mut TigreEngine);
-        });
-        */
-        unsafe { ENGINE = self as *mut TigreEngine };
         let main_ptr = self.def_lookup.get("main").expect("No main function");
         let func: fn() -> i64 = unsafe { std::mem::transmute(main_ptr.0) };
+
+        // Configure the global engine reference
+        unsafe { ENGINE = self as *mut TigreEngine };
+
         let res = func();
-        /*
-        ENGINE.with(|e| {
-            e.set(std::ptr::null_mut());
-        });
-        */
-        //unsafe { ENGINE = std::ptr::null_mut() };
+
+        // Deregister global engine reference
+        unsafe { ENGINE = std::ptr::null_mut() };
         res
     }
 
@@ -194,21 +189,9 @@ impl TigreEngine {
     pub fn with_current<R, F: FnOnce(&mut TigreEngine) -> R>(f: F) -> R {
         let engine = unsafe { &mut *ENGINE };
         f(engine)
-        /*
-        ENGINE.with(|e| {
-            let e = e.get();
-            assert!(
-                !e.is_null(),
-                "with_current must be called within a call to run"
-            );
-            let engine = unsafe { &mut *e };
-            f(engine)
-        })
-        */
     }
 }
 
-//thread_local!(static ENGINE: std::cell::Cell<*mut TigreEngine> = std::cell::Cell::new(std::ptr::null_mut()));
 static mut ENGINE: *mut TigreEngine = std::ptr::null_mut();
 
 #[cfg(test)]
@@ -244,6 +227,18 @@ mod tests {
             r#"
 (defun k (x y) x)
 (defun main () (k 42 84))
+        "#,
+            42,
+        );
+    }
+
+    #[test]
+    fn test_s() {
+        assert_runs_to_int(
+            r#"
+(defun s (f g x) (f x (g x)))
+(defun k (x y) x)
+(defun main () (s k k 42))
         "#,
             42,
         );

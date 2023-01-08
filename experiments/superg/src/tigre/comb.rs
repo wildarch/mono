@@ -69,9 +69,9 @@ unsafe extern "C" fn make_s(f: *const CellPtr, g: *const CellPtr, x: *const Cell
         let gx = engine.make_cell(*g, *x);
         // Pointers on the stack are to the right pointer of a cell, after the call instruction.
         // To get a pointer to the full cell, we subtract the length of a call instruction.
-        let top_cell_ptr = CellPtr(x.offset(-CALL_LEN) as *mut Cell);
+        let top_cell_ptr = CellPtr((x as *mut u8).offset(-CALL_LEN) as *mut Cell);
         let top_cell = engine.cell_mut(top_cell_ptr);
-        top_cell.call_opcode = CALL_OPCODE;
+        debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
         top_cell.set_call_addr(fx.0 as usize);
         top_cell.arg = gx.0 as i64;
         top_cell_ptr
