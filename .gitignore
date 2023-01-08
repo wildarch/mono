@@ -27,3 +27,6 @@ user.bazelrc
 
 # Rustc
 /target
+
+# gdb
+.gdb_history
