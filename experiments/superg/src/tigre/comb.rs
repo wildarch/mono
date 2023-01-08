@@ -16,6 +16,12 @@ extern "C" {
     pub fn comb_LIT() -> usize;
 }
 
+// Abort combinator
+#[allow(non_snake_case)]
+pub extern "C" fn comb_Abort() -> usize {
+    panic!("Abort called")
+}
+
 // I combinator
 global_asm!(
     r#"
@@ -78,9 +84,41 @@ unsafe extern "C" fn make_s(f: *const CellPtr, g: *const CellPtr, x: *const Cell
     })
 }
 
-#[allow(non_snake_case)]
-pub extern "C" fn comb_Abort() -> usize {
-    panic!("Abort called")
+// Plus combinator
+global_asm!(
+    r#"
+    .global comb_plus
+    comb_plus:
+        // Load argument pointers as arguments
+        mov rdi, [rsp]
+        mov rsi, [rsp+8]
+        call apply_plus
+        // Pop arguments
+        add rsp, 16
+        // Return the computed value
+        ret
+"#
+);
+extern "C" {
+    pub fn comb_plus() -> usize;
+}
+// A pointer to a function that evaluates an argument to a strict operator.
+type ArgFn = unsafe extern "C" fn() -> i64;
+#[no_mangle]
+unsafe extern "C" fn apply_plus(a0: *const ArgFn, a1: *const ArgFn) -> i64 {
+    let res = (*a0)() + (*a1)();
+
+    TigreEngine::with_current(|engine| {
+        // Update the top cell with the new number.
+        // See `make_s` for details.
+        let top_cell_ptr = CellPtr((a1 as *mut u8).offset(-CALL_LEN) as *mut Cell);
+        let top_cell = engine.cell_mut(top_cell_ptr);
+        debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
+        top_cell.set_call_addr(comb_LIT as usize);
+        top_cell.arg = res;
+    });
+
+    res
 }
 
 #[cfg(test)]
