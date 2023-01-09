@@ -3,4 +3,7 @@
 # Watches for changes in files that the given target depends on, 
 # and rebuilds or tests given target as necessary.
 
-bazel run //experiments/watcher -- $(pwd) $1
+WATCHER_BIN="bazel-bin/experiments/watcher/watcher_/watcher"
+
+bazel build //experiments/watcher
+"$WATCHER_BIN" --root="$(pwd)" $@

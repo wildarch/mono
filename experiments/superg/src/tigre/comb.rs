@@ -58,9 +58,24 @@ global_asm!(
         mov rdi, [rsp]
         mov rsi, [rsp+8]
         mov rdx, [rsp+16]
+
+        // Align stack to 16 bytes if needed
+        mov rax, rsp
+        and rax, 8
+        cmp rax, 0
+        jne comb_S_need_align
+
+    comb_S_no_align:
         call make_s
         // Pop arguments and jump to the updated node 
         add rsp, 24
+        jmp rax
+
+    comb_S_need_align:
+        sub rsp, 8
+        call make_s
+        // Pop arguments and jump to the updated node 
+        add rsp, 32
         jmp rax
     "#
 );
@@ -80,6 +95,7 @@ unsafe extern "C" fn make_s(f: *const CellPtr, g: *const CellPtr, x: *const Cell
         debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
         top_cell.set_call_addr(fx.0 as usize);
         top_cell.arg = gx.0 as i64;
+
         top_cell_ptr
     })
 }
@@ -95,11 +111,29 @@ macro_rules! comb_bin_op {
                 // Load argument pointers as arguments
                 mov rdi, [rsp]
                 mov rsi, [rsp+8]
+
+                // Align stack to 16 bytes if needed
+                mov rax, rsp
+                and rax, 8
+                cmp rax, 0
             "#,
+            concat!("jne ", $name_str, "_need_align"),
+            // No alignment needed
+            concat!($name_str, "_no_align:"),
             concat!("call ", $helper_func_str),
             r#"
                 // Pop arguments
                 add rsp, 16
+                // Return the computed value
+                ret
+            "#,
+            // Alignment needed
+            concat!($name_str, "_need_align:"),
+            "sub rsp, 8",
+            concat!("call ", $helper_func_str),
+            r#"
+                // Pop arguments
+                add rsp, 24
                 // Return the computed value
                 ret
             "#,
@@ -109,10 +143,12 @@ macro_rules! comb_bin_op {
         }
         #[no_mangle]
         unsafe extern "C" fn $helper_func(a0: *const ArgFn, a1: *const ArgFn) -> i64 {
-            let op: fn(i64, i64) -> i64 = $op;
-            let res = op((*a0)(), (*a1)());
-
+            // Place all code within `TigreEngine::with_current` since that also takes
+            // care of catching unwinds before they escape Rust code.
             TigreEngine::with_current(|engine| {
+                let op: fn(i64, i64) -> i64 = $op;
+                let res = op((*a0)(), (*a1)());
+
                 // Update the top cell with the new number.
                 // See `make_s` for details.
                 let top_cell_ptr = CellPtr((a1 as *mut u8).offset(-CALL_LEN) as *mut Cell);
@@ -120,16 +156,32 @@ macro_rules! comb_bin_op {
                 debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
                 top_cell.set_call_addr(comb_LIT as usize);
                 top_cell.arg = res;
-            });
 
-            res
+                res
+            })
         }
     };
 }
-
 comb_bin_op!(comb_plus, "comb_plus", apply_plus, "apply_plus", |a, b| a
     + b);
 comb_bin_op!(comb_min, "comb_min", apply_min, "apply_min", |a, b| a - b);
+comb_bin_op!(comb_eq, "comb_eq", apply_eq, "apply_eq", |a, b| if a == b {
+    1
+} else {
+    0
+});
+comb_bin_op!(comb_lt, "comb_lt", apply_lt, "apply_lt", |a, b| if a < b {
+    1
+} else {
+    0
+});
+comb_bin_op!(
+    comb_times,
+    "comb_times",
+    apply_times,
+    "apply_times",
+    |a, b| a * b
+);
 
 // Cond combinator
 global_asm!(
@@ -140,9 +192,24 @@ global_asm!(
         mov rdi, [rsp]
         mov rsi, [rsp+8]
         mov rdx, [rsp+16]
+
+        // Align stack to 16 bytes if needed
+        mov rax, rsp
+        and rax, 8
+        cmp rax, 0
+        jne comb_cond_need_align
+
+    comb_cond_no_align:
         call apply_cond
         // Pop arguments and jump to the updated node 
         add rsp, 24
+        jmp rax
+
+    comb_cond_need_align:
+        sub rsp, 8
+        call apply_cond
+        // Pop arguments and jump to the updated node 
+        add rsp, 32
         jmp rax
 "#
 );
@@ -151,20 +218,20 @@ extern "C" {
 }
 #[no_mangle]
 unsafe extern "C" fn apply_cond(c: *const ArgFn, t: *const CellPtr, f: *const CellPtr) -> CellPtr {
-    // TODO: avoid loading pointers to both branches in the assembly
-    let c_res = (*c)();
-    let branch_ptr = match c_res {
-        0 => f,
-        1 => t,
-        v => {
-            // We expect never to reach this code.
-            // In debug mode we panic, in release the behaviour is undefined.
-            debug_assert!(v == 0 || v == 1, "condition variable should be 0 or 1");
-            unsafe { std::hint::unreachable_unchecked() }
-        }
-    };
-
     TigreEngine::with_current(|engine| {
+        // TODO: avoid loading pointers to both branches in the assembly
+        let c_res = (*c)();
+        let branch_ptr = match c_res {
+            0 => f,
+            1 => t,
+            v => {
+                // We expect never to reach this code.
+                // In debug mode we panic, in release the behaviour is undefined.
+                debug_assert!(v == 0 || v == 1, "condition variable should be 0 or 1");
+                unsafe { std::hint::unreachable_unchecked() }
+            }
+        };
+
         // Update the top cell with an indirection to the taken branch.
         // See `make_s` for details.
         let top_cell_ptr = CellPtr((f as *mut u8).offset(-CALL_LEN) as *mut Cell);
@@ -172,8 +239,9 @@ unsafe extern "C" fn apply_cond(c: *const ArgFn, t: *const CellPtr, f: *const Ce
         debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
         top_cell.set_call_addr(comb_I as usize);
         top_cell.arg = (*branch_ptr).0 as i64;
-    });
-    *branch_ptr
+
+        *branch_ptr
+    })
 }
 
 #[cfg(test)]

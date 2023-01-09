@@ -1,7 +1,7 @@
 pub mod comb;
 pub mod jit;
 
-use std::collections::HashMap;
+use std::{cell::UnsafeCell, collections::HashMap, panic::UnwindSafe};
 
 use jit::JitMem;
 
@@ -60,7 +60,11 @@ impl IntoCellPtr for Comb {
             Comb::S => CellPtr(comb::comb_S as *mut Cell),
             Comb::K => CellPtr(comb::comb_K as *mut Cell),
             Comb::Plus => CellPtr(comb::comb_plus as *mut Cell),
+            Comb::Minus => CellPtr(comb::comb_min as *mut Cell),
             Comb::Cond => CellPtr(comb::comb_cond as *mut Cell),
+            Comb::Eq => CellPtr(comb::comb_eq as *mut Cell),
+            Comb::Times => CellPtr(comb::comb_times as *mut Cell),
+            Comb::Lt => CellPtr(comb::comb_lt as *mut Cell),
             _ => unimplemented!("into_cell_ptr {:?}", self),
         }
     }
@@ -92,6 +96,16 @@ impl TigreEngine {
     pub fn compile<C: ExprCompiler>(compiler: &mut C, program: &ast::Program) -> TigreEngine {
         let mut jit_placer = JitPlacer::new();
         jit_placer.add_target(comb::comb_LIT as usize);
+        jit_placer.add_target(comb::comb_Abort as usize);
+        jit_placer.add_target(comb::comb_I as usize);
+        jit_placer.add_target(comb::comb_K as usize);
+        jit_placer.add_target(comb::comb_S as usize);
+        jit_placer.add_target(comb::comb_plus as usize);
+        jit_placer.add_target(comb::comb_min as usize);
+        jit_placer.add_target(comb::comb_eq as usize);
+        jit_placer.add_target(comb::comb_times as usize);
+        jit_placer.add_target(comb::comb_cond as usize);
+        jit_placer.add_target(comb::comb_lt as usize);
         let mut engine = TigreEngine {
             mem: jit_placer
                 .place_jit(JIT_MEM_LEN)
@@ -115,16 +129,23 @@ impl TigreEngine {
     }
 
     pub fn run(&mut self) -> i64 {
+        eprintln!("Test124");
         let main_ptr = self.def_lookup.get("main").expect("No main function");
         let func: fn() -> i64 = unsafe { std::mem::transmute(main_ptr.0) };
 
         // Configure the global engine reference
-        unsafe { ENGINE = self as *mut TigreEngine };
+        ENGINE.with(|engine_cell| {
+            let engine_cell = UnsafeCell::raw_get(engine_cell as *const UnsafeCell<_>);
+            unsafe { *engine_cell = self as *mut TigreEngine };
+        });
 
         let res = func();
 
         // Deregister global engine reference
-        unsafe { ENGINE = std::ptr::null_mut() };
+        ENGINE.with(|engine_cell| {
+            let engine_cell = UnsafeCell::raw_get(engine_cell as *const UnsafeCell<_>);
+            unsafe { *engine_cell = std::ptr::null_mut() };
+        });
         res
     }
 
@@ -188,13 +209,31 @@ impl TigreEngine {
         }
     }
 
-    pub fn with_current<R, F: FnOnce(&mut TigreEngine) -> R>(f: F) -> R {
-        let engine = unsafe { &mut *ENGINE };
-        f(engine)
+    pub fn with_current<R, F: FnOnce(&mut TigreEngine) -> R + UnwindSafe>(f: F) -> R {
+        let maybe_panic = std::panic::catch_unwind(|| {
+            let engine_ptr = ENGINE.with(|engine_cell| unsafe { *engine_cell.get() });
+            let engine = unsafe {
+                debug_assert!(!engine_ptr.is_null());
+                &mut *engine_ptr
+            };
+            f(engine)
+        });
+
+        match maybe_panic {
+            Ok(res) => res,
+            Err(e) => {
+                if let Some(msg) = e.downcast_ref::<&str>() {
+                    eprintln!("panic within TigreEngine::run: {}", msg);
+                } else {
+                    eprintln!("panic within TigreEngine::run");
+                }
+                std::process::abort();
+            }
+        }
     }
 }
 
-static mut ENGINE: *mut TigreEngine = std::ptr::null_mut();
+thread_local!(static ENGINE: UnsafeCell<*mut TigreEngine> = UnsafeCell::new(std::ptr::null_mut()));
 
 #[cfg(test)]
 mod tests {
@@ -304,6 +343,71 @@ mod tests {
             42,
         );
     }
+
+    #[test]
+    fn test_eq() {
+        assert_runs_to_int(
+            r#"
+    (defun id (x) x)
+    (defun k (x y) x)
+    (defun main () (= (k 1 1000) 0))
+            "#,
+            0,
+        );
+    }
+
+    #[test]
+    fn test_cond_eq() {
+        assert_runs_to_int(
+            r#"
+    (defun main () (if (= 2 2) 42 43))
+            "#,
+            42,
+        );
+    }
+
+    #[test]
+    fn test_factorial() {
+        assert_runs_to_int(
+            r#"
+    (defun fac (n)
+      (if (= n 1)
+          1
+          (* n (fac (- n 1)))))
+    (defun main () (fac 5))
+            "#,
+            120,
+        );
+    }
+
+    #[test]
+    fn test_fibonacci() {
+        assert_runs_to_int(
+            r#"
+        (defun fib (n)
+          (if (< n 2)
+              n
+              (+ (fib (- n 1)) (fib (- n 2)))))
+        (defun main () (fib 5))
+                "#,
+            5,
+        );
+    }
+
+    /*
+        #[test]
+        fn test_ackermann() {
+            let program = r#"
+    (defun ack (x z) (if (= x 0)
+                         (+ z 1)
+                         (if (= z 0)
+                             (ack (- x 1) 1)
+                             (ack (- x 1) (ack x (- z 1))))))
+    (defun main () (ack 3 4))
+        "#;
+            assert_runs_to_int(program, 125);
+        }
+        */
 
     fn assert_runs_to_int(program: &str, v: i64) {
         let parsed = parse(lex(program));
