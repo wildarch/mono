@@ -19,6 +19,8 @@ rust_test(
 rust_test_suite(
     name = "integration_test",
     srcs = glob(["tests/**"]),
+    edition = "2021",
+    deps = [":superg"],
 )
 
 cargo_build_script(
