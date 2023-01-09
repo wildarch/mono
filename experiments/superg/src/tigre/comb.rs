@@ -84,42 +84,52 @@ unsafe extern "C" fn make_s(f: *const CellPtr, g: *const CellPtr, x: *const Cell
     })
 }
 
-// Plus combinator
-global_asm!(
-    r#"
-    .global comb_plus
-    comb_plus:
-        // Load argument pointers as arguments
-        mov rdi, [rsp]
-        mov rsi, [rsp+8]
-        call apply_plus
-        // Pop arguments
-        add rsp, 16
-        // Return the computed value
-        ret
-"#
-);
-extern "C" {
-    pub fn comb_plus() -> usize;
-}
 // A pointer to a function that evaluates an argument to a strict operator.
 type ArgFn = unsafe extern "C" fn() -> i64;
-#[no_mangle]
-unsafe extern "C" fn apply_plus(a0: *const ArgFn, a1: *const ArgFn) -> i64 {
-    let res = (*a0)() + (*a1)();
+macro_rules! comb_bin_op {
+    ($name:ident, $name_str:literal, $helper_func:ident, $helper_func_str:literal, $op:expr) => {
+        global_asm!(
+            concat!(".global ", $name_str),
+            concat!($name_str, ":"),
+            r#"
+                // Load argument pointers as arguments
+                mov rdi, [rsp]
+                mov rsi, [rsp+8]
+            "#,
+            concat!("call ", $helper_func_str),
+            r#"
+                // Pop arguments
+                add rsp, 16
+                // Return the computed value
+                ret
+            "#,
+        );
+        extern "C" {
+            pub fn $name() -> usize;
+        }
+        #[no_mangle]
+        unsafe extern "C" fn $helper_func(a0: *const ArgFn, a1: *const ArgFn) -> i64 {
+            let op: fn(i64, i64) -> i64 = $op;
+            let res = op((*a0)(), (*a1)());
 
-    TigreEngine::with_current(|engine| {
-        // Update the top cell with the new number.
-        // See `make_s` for details.
-        let top_cell_ptr = CellPtr((a1 as *mut u8).offset(-CALL_LEN) as *mut Cell);
-        let top_cell = engine.cell_mut(top_cell_ptr);
-        debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
-        top_cell.set_call_addr(comb_LIT as usize);
-        top_cell.arg = res;
-    });
+            TigreEngine::with_current(|engine| {
+                // Update the top cell with the new number.
+                // See `make_s` for details.
+                let top_cell_ptr = CellPtr((a1 as *mut u8).offset(-CALL_LEN) as *mut Cell);
+                let top_cell = engine.cell_mut(top_cell_ptr);
+                debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
+                top_cell.set_call_addr(comb_LIT as usize);
+                top_cell.arg = res;
+            });
 
-    res
+            res
+        }
+    };
 }
+
+comb_bin_op!(comb_plus, "comb_plus", apply_plus, "apply_plus", |a, b| a
+    + b);
+comb_bin_op!(comb_min, "comb_min", apply_min, "apply_min", |a, b| a - b);
 
 // Cond combinator
 global_asm!(
