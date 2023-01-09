@@ -60,6 +60,7 @@ impl IntoCellPtr for Comb {
             Comb::S => CellPtr(comb::comb_S as *mut Cell),
             Comb::K => CellPtr(comb::comb_K as *mut Cell),
             Comb::Plus => CellPtr(comb::comb_plus as *mut Cell),
+            Comb::Cond => CellPtr(comb::comb_cond as *mut Cell),
             _ => unimplemented!("into_cell_ptr {:?}", self),
         }
     }
@@ -272,6 +273,33 @@ mod tests {
             r#"
 (defun f (x) (+ x x))
 (defun main() (f (+ 20 1)))
+        "#,
+            42,
+        );
+    }
+
+    #[test]
+    fn test_cond() {
+        assert_runs_to_int(
+            r#"
+(defun main () (if 0 1000 (if 1 42 2000)))
+        "#,
+            42,
+        )
+    }
+
+    #[test]
+    fn test_cond_add() {
+        assert_runs_to_int(
+            r#"
+(defun main () (+ 2 (if 0 30 40)))
+        "#,
+            42,
+        );
+
+        assert_runs_to_int(
+            r#"
+(defun main () (if 0 30 (+ 40 2)))
         "#,
             42,
         );

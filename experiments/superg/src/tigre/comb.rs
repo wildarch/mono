@@ -121,6 +121,51 @@ unsafe extern "C" fn apply_plus(a0: *const ArgFn, a1: *const ArgFn) -> i64 {
     res
 }
 
+// Cond combinator
+global_asm!(
+    r#"
+    .global comb_cond
+    comb_cond:
+        // Load c, t, f pointers as arguments to apply_cond
+        mov rdi, [rsp]
+        mov rsi, [rsp+8]
+        mov rdx, [rsp+16]
+        call apply_cond
+        // Pop arguments and jump to the updated node 
+        add rsp, 24
+        jmp rax
+"#
+);
+extern "C" {
+    pub fn comb_cond() -> usize;
+}
+#[no_mangle]
+unsafe extern "C" fn apply_cond(c: *const ArgFn, t: *const CellPtr, f: *const CellPtr) -> CellPtr {
+    // TODO: avoid loading pointers to both branches in the assembly
+    let c_res = (*c)();
+    let branch_ptr = match c_res {
+        0 => f,
+        1 => t,
+        v => {
+            // We expect never to reach this code.
+            // In debug mode we panic, in release the behaviour is undefined.
+            debug_assert!(v == 0 || v == 1, "condition variable should be 0 or 1");
+            unsafe { std::hint::unreachable_unchecked() }
+        }
+    };
+
+    TigreEngine::with_current(|engine| {
+        // Update the top cell with an indirection to the taken branch.
+        // See `make_s` for details.
+        let top_cell_ptr = CellPtr((f as *mut u8).offset(-CALL_LEN) as *mut Cell);
+        let top_cell = engine.cell_mut(top_cell_ptr);
+        debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
+        top_cell.set_call_addr(comb_I as usize);
+        top_cell.arg = (*branch_ptr).0 as i64;
+    });
+    *branch_ptr
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

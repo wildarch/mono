@@ -1,4 +1,4 @@
-load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test", "rust_test_suite")
 load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
 load("@crate_index//:defs.bzl", "crate_deps")
 
@@ -12,15 +12,13 @@ rust_library(
 )
 
 rust_test(
-    name = "superg_test",
+    name = "unit_test",
     crate = ":superg",
 )
 
-rust_test(
-    name = "turner_test",
-    srcs = ["tests/turner.rs"],
-    edition = "2021",
-    deps = [":superg"],
+rust_test_suite(
+    name = "integration_test",
+    srcs = glob(["tests/**"]),
 )
 
 cargo_build_script(
