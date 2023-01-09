@@ -83,7 +83,7 @@ impl IntoCellPtr for i32 {
     }
 }
 
-const JIT_MEM_LEN: usize = std::mem::size_of::<Cell>() * 10_000;
+const JIT_MEM_LEN: usize = std::mem::size_of::<Cell>() * 1_000_000;
 
 pub struct TigreEngine {
     mem: JitMem,
@@ -394,10 +394,9 @@ mod tests {
         );
     }
 
-    /*
-        #[test]
-        fn test_ackermann() {
-            let program = r#"
+    #[test]
+    fn test_ackermann() {
+        let program = r#"
     (defun ack (x z) (if (= x 0)
                          (+ z 1)
                          (if (= z 0)
@@ -405,9 +404,8 @@ mod tests {
                              (ack (- x 1) (ack x (- z 1))))))
     (defun main () (ack 3 4))
         "#;
-            assert_runs_to_int(program, 125);
-        }
-        */
+        assert_runs_to_int(program, 125);
+    }
 
     fn assert_runs_to_int(program: &str, v: i64) {
         let parsed = parse(lex(program));
