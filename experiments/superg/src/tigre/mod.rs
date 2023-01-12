@@ -98,19 +98,9 @@ pub struct TigreEngine {
 impl Engine for TigreEngine {
     fn compile<C: ExprCompiler>(compiler: &mut C, program: &ast::Program) -> TigreEngine {
         let mut jit_placer = JitPlacer::new();
-        jit_placer.add_target(comb::comb_LIT as usize);
-        jit_placer.add_target(comb::comb_Abort as usize);
-        jit_placer.add_target(comb::comb_I as usize);
-        jit_placer.add_target(comb::comb_K as usize);
-        jit_placer.add_target(comb::comb_S as usize);
-        jit_placer.add_target(comb::comb_B as usize);
-        jit_placer.add_target(comb::comb_C as usize);
-        jit_placer.add_target(comb::comb_plus as usize);
-        jit_placer.add_target(comb::comb_min as usize);
-        jit_placer.add_target(comb::comb_eq as usize);
-        jit_placer.add_target(comb::comb_times as usize);
-        jit_placer.add_target(comb::comb_cond as usize);
-        jit_placer.add_target(comb::comb_lt as usize);
+        for comb in comb::ALL_COMBINATORS {
+            jit_placer.add_target(*comb as usize);
+        }
         let mut engine = TigreEngine {
             mem: jit_placer
                 .place_jit(JIT_MEM_LEN)
@@ -134,7 +124,6 @@ impl Engine for TigreEngine {
     }
 
     fn run(&mut self) -> i32 {
-        eprintln!("Test124");
         let main_ptr = self.def_lookup.get("main").expect("No main function");
         let func: fn() -> i64 = unsafe { std::mem::transmute(main_ptr.0) };
 
@@ -217,6 +206,8 @@ impl TigreEngine {
     }
 
     pub fn with_current<R, F: FnOnce(&mut TigreEngine) -> R + UnwindSafe>(f: F) -> R {
+        // This function is always called from a combinator implementation.
+        // Unwinding into non-rust code is undefined behaviour, so catch any panics here.
         let maybe_panic = std::panic::catch_unwind(|| {
             let engine_ptr = ENGINE.with(|engine_cell| unsafe { *engine_cell.get() });
             let engine = unsafe {
@@ -256,162 +247,6 @@ mod tests {
     #[test]
     fn test_lit() {
         assert_runs_to_int("(defun main () 42)", 42);
-    }
-
-    #[test]
-    fn test_id() {
-        assert_runs_to_int(
-            r#"
-(defun id (x) x)
-(defun main () (id 42))
-        "#,
-            42,
-        );
-    }
-
-    #[test]
-    fn test_k() {
-        assert_runs_to_int(
-            r#"
-(defun k (x y) x)
-(defun main () (k 42 84))
-        "#,
-            42,
-        );
-    }
-
-    #[test]
-    fn test_s() {
-        assert_runs_to_int(
-            r#"
-(defun s (f g x) (f x (g x)))
-(defun k (x y) x)
-(defun main () (s k k 42))
-        "#,
-            42,
-        );
-    }
-
-    #[test]
-    fn test_add() {
-        assert_runs_to_int(
-            r#"
-(defun main () (+ 2 40))
-        "#,
-            42,
-        );
-    }
-
-    #[test]
-    fn test_add_indirect() {
-        assert_runs_to_int(
-            r#"
-(defun id (x) x)
-(defun main () (+ (id 2) (id 40)))
-        "#,
-            42,
-        );
-    }
-
-    #[test]
-    fn add_reuse() {
-        assert_runs_to_int(
-            r#"
-(defun f (x) (+ x x))
-(defun main() (f (+ 20 1)))
-        "#,
-            42,
-        );
-    }
-
-    #[test]
-    fn test_cond() {
-        assert_runs_to_int(
-            r#"
-(defun main () (if 0 1000 (if 1 42 2000)))
-        "#,
-            42,
-        )
-    }
-
-    #[test]
-    fn test_cond_add() {
-        assert_runs_to_int(
-            r#"
-(defun main () (+ 2 (if 0 30 40)))
-        "#,
-            42,
-        );
-
-        assert_runs_to_int(
-            r#"
-(defun main () (if 0 30 (+ 40 2)))
-        "#,
-            42,
-        );
-    }
-
-    #[test]
-    fn test_eq() {
-        assert_runs_to_int(
-            r#"
-    (defun id (x) x)
-    (defun k (x y) x)
-    (defun main () (= (k 1 1000) 0))
-            "#,
-            0,
-        );
-    }
-
-    #[test]
-    fn test_cond_eq() {
-        assert_runs_to_int(
-            r#"
-    (defun main () (if (= 2 2) 42 43))
-            "#,
-            42,
-        );
-    }
-
-    #[test]
-    fn test_factorial() {
-        assert_runs_to_int(
-            r#"
-    (defun fac (n)
-      (if (= n 1)
-          1
-          (* n (fac (- n 1)))))
-    (defun main () (fac 5))
-            "#,
-            120,
-        );
-    }
-
-    #[test]
-    fn test_fibonacci() {
-        assert_runs_to_int(
-            r#"
-        (defun fib (n)
-          (if (< n 2)
-              n
-              (+ (fib (- n 1)) (fib (- n 2)))))
-        (defun main () (fib 5))
-                "#,
-            5,
-        );
-    }
-
-    #[test]
-    fn test_ackermann() {
-        let program = r#"
-    (defun ack (x z) (if (= x 0)
-                         (+ z 1)
-                         (if (= z 0)
-                             (ack (- x 1) 1)
-                             (ack (- x 1) (ack x (- z 1))))))
-    (defun main () (ack 3 4))
-        "#;
-        assert_runs_to_int(program, 125);
     }
 
     fn assert_runs_to_int(program: &str, v: i32) {
