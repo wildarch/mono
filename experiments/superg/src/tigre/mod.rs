@@ -8,6 +8,7 @@ use jit::JitMem;
 use crate::{
     ast,
     compiled_expr::{Comb, CompiledExpr, ExprCompiler},
+    Engine,
 };
 
 use self::jit::JitPlacer;
@@ -92,8 +93,8 @@ pub struct TigreEngine {
     def_lookup: HashMap<String, CellPtr>,
 }
 
-impl TigreEngine {
-    pub fn compile<C: ExprCompiler>(compiler: &mut C, program: &ast::Program) -> TigreEngine {
+impl Engine for TigreEngine {
+    fn compile<C: ExprCompiler>(compiler: &mut C, program: &ast::Program) -> TigreEngine {
         let mut jit_placer = JitPlacer::new();
         jit_placer.add_target(comb::comb_LIT as usize);
         jit_placer.add_target(comb::comb_Abort as usize);
@@ -128,7 +129,7 @@ impl TigreEngine {
         engine
     }
 
-    pub fn run(&mut self) -> i64 {
+    fn run(&mut self) -> i32 {
         eprintln!("Test124");
         let main_ptr = self.def_lookup.get("main").expect("No main function");
         let func: fn() -> i64 = unsafe { std::mem::transmute(main_ptr.0) };
@@ -146,9 +147,11 @@ impl TigreEngine {
             let engine_cell = UnsafeCell::raw_get(engine_cell as *const UnsafeCell<_>);
             unsafe { *engine_cell = std::ptr::null_mut() };
         });
-        res
+        res.try_into().expect("result does not fit into i32")
     }
+}
 
+impl TigreEngine {
     fn make_cell<CP0: IntoCellPtr, CP1: IntoCellPtr>(&mut self, lhs: CP0, rhs: CP1) -> CellPtr {
         let cell_ptr = self.alloc_cell();
 
@@ -407,7 +410,7 @@ mod tests {
         assert_runs_to_int(program, 125);
     }
 
-    fn assert_runs_to_int(program: &str, v: i64) {
+    fn assert_runs_to_int(program: &str, v: i32) {
         let parsed = parse(lex(program));
         let mut engine = TigreEngine::compile(&mut BracketCompiler, &parsed);
 

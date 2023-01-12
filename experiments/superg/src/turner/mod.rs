@@ -115,8 +115,8 @@ struct CompiledDef {
     expr: CompiledExpr,
 }
 
-impl TurnerEngine {
-    pub fn compile<C: ExprCompiler>(compiler: &mut C, program: &ast::Program) -> TurnerEngine {
+impl crate::Engine for TurnerEngine {
+    fn compile<C: ExprCompiler>(compiler: &mut C, program: &ast::Program) -> TurnerEngine {
         let mut engine = TurnerEngine {
             tag: vec![Tag::wanted(); CELLS],
             hd: vec![CellPtr(0i32); CELLS],
@@ -164,6 +164,19 @@ impl TurnerEngine {
         engine
     }
 
+    fn run(&mut self) -> i32 {
+        self.stack.clear();
+        self.stack
+            .push(*self.def_lookup.get("main").expect("no main function found"));
+        loop {
+            if let Some(cell_ptr) = self.step() {
+                return self.get_int(cell_ptr).expect("did not evaluate to int");
+            }
+        }
+    }
+}
+
+impl TurnerEngine {
     fn add_comb_impls(&mut self, e: &CompiledExpr) {
         match e {
             CompiledExpr::Comb(c) => self.add_comb_impl(*c),
@@ -188,13 +201,13 @@ impl TurnerEngine {
         self.next_cell = CellPtr(idx as i32);
     }
 
-    pub fn run(&mut self) -> CellPtr {
+    pub fn run(&mut self) -> i32 {
         self.stack.clear();
         self.stack
             .push(*self.def_lookup.get("main").expect("no main function found"));
         loop {
             if let Some(cell_ptr) = self.step() {
-                return cell_ptr;
+                return self.get_int(cell_ptr).expect("did not evaluate to int");
             }
         }
     }
@@ -600,7 +613,7 @@ impl TurnerEngineDebug {
         self.engine.step()
     }
 
-    pub fn run(&mut self) -> CellPtr {
+    pub fn run(&mut self) -> i32 {
         // This is a copy of run under TurnerEngine.
         // TODO: deduplicate?
         self.engine.stack.clear();
@@ -613,13 +626,12 @@ impl TurnerEngineDebug {
         );
         loop {
             if let Some(cell_ptr) = self.step() {
-                return cell_ptr;
+                return self
+                    .engine
+                    .get_int(cell_ptr)
+                    .expect("did not evaluate to int");
             }
         }
-    }
-
-    pub fn get_int(&self, cell_ptr: CellPtr) -> Option<i32> {
-        self.engine.get_int(cell_ptr)
     }
 
     pub fn dump_dot(&mut self) -> std::io::Result<()> {
