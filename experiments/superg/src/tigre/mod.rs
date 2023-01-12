@@ -58,8 +58,10 @@ impl IntoCellPtr for Comb {
         match self {
             Comb::I => CellPtr(comb::comb_I as *mut Cell),
             Comb::Abort => CellPtr(comb::comb_Abort as *mut Cell),
-            Comb::S => CellPtr(comb::comb_S as *mut Cell),
             Comb::K => CellPtr(comb::comb_K as *mut Cell),
+            Comb::S => CellPtr(comb::comb_S as *mut Cell),
+            Comb::B => CellPtr(comb::comb_B as *mut Cell),
+            Comb::C => CellPtr(comb::comb_C as *mut Cell),
             Comb::Plus => CellPtr(comb::comb_plus as *mut Cell),
             Comb::Minus => CellPtr(comb::comb_min as *mut Cell),
             Comb::Cond => CellPtr(comb::comb_cond as *mut Cell),
@@ -101,6 +103,8 @@ impl Engine for TigreEngine {
         jit_placer.add_target(comb::comb_I as usize);
         jit_placer.add_target(comb::comb_K as usize);
         jit_placer.add_target(comb::comb_S as usize);
+        jit_placer.add_target(comb::comb_B as usize);
+        jit_placer.add_target(comb::comb_C as usize);
         jit_placer.add_target(comb::comb_plus as usize);
         jit_placer.add_target(comb::comb_min as usize);
         jit_placer.add_target(comb::comb_eq as usize);

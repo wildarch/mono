@@ -100,6 +100,106 @@ unsafe extern "C" fn make_s(f: *const CellPtr, g: *const CellPtr, x: *const Cell
     })
 }
 
+// B combinator
+global_asm!(
+    r#"
+    .global comb_B
+    comb_B:
+        // Load f, g, x pointers as arguments to make_b
+        mov rdi, [rsp]
+        mov rsi, [rsp+8]
+        mov rdx, [rsp+16]
+
+        // Align stack to 16 bytes if needed
+        mov rax, rsp
+        and rax, 8
+        cmp rax, 0
+        jne comb_B_need_align
+
+    comb_B_no_align:
+        call make_b
+        // Pop arguments and jump to the updated node 
+        add rsp, 24
+        jmp rax
+
+    comb_B_need_align:
+        sub rsp, 8
+        call make_b
+        // Pop arguments and jump to the updated node 
+        add rsp, 32
+        jmp rax
+    "#
+);
+extern "C" {
+    pub fn comb_B() -> usize;
+}
+#[no_mangle]
+unsafe extern "C" fn make_b(f: *const CellPtr, g: *const CellPtr, x: *const CellPtr) -> CellPtr {
+    TigreEngine::with_current(|engine| {
+        // Make new cell for (g x)
+        let gx = engine.make_cell(*g, *x);
+        // Pointers on the stack are to the right pointer of a cell, after the call instruction.
+        // To get a pointer to the full cell, we subtract the length of a call instruction.
+        let top_cell_ptr = CellPtr((x as *mut u8).offset(-CALL_LEN) as *mut Cell);
+        let top_cell = engine.cell_mut(top_cell_ptr);
+        debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
+        top_cell.set_call_addr((*f).0 as usize);
+        top_cell.arg = gx.0 as i64;
+
+        top_cell_ptr
+    })
+}
+
+// C combinator
+global_asm!(
+    r#"
+    .global comb_C
+    comb_C:
+        // Load f, g, x pointers as arguments to make_c
+        mov rdi, [rsp]
+        mov rsi, [rsp+8]
+        mov rdx, [rsp+16]
+
+        // Align stack to 16 bytes if needed
+        mov rax, rsp
+        and rax, 8
+        cmp rax, 0
+        jne comb_C_need_align
+
+    comb_C_no_align:
+        call make_c
+        // Pop arguments and jump to the updated node 
+        add rsp, 24
+        jmp rax
+
+    comb_C_need_align:
+        sub rsp, 8
+        call make_c
+        // Pop arguments and jump to the updated node 
+        add rsp, 32
+        jmp rax
+    "#
+);
+extern "C" {
+    pub fn comb_C() -> usize;
+}
+#[no_mangle]
+unsafe extern "C" fn make_c(f: *const CellPtr, g: *const CellPtr, x: *const CellPtr) -> CellPtr {
+    TigreEngine::with_current(|engine| {
+        // Make new cell for (f x)
+        let fx = engine.make_cell(*f, *x);
+        // Pointers on the stack are to the right pointer of a cell, after the call instruction.
+        // To get a pointer to the full cell, we subtract the length of a call instruction.
+        let top_cell_ptr = CellPtr((x as *mut u8).offset(-CALL_LEN) as *mut Cell);
+        let top_cell = engine.cell_mut(top_cell_ptr);
+        debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
+        top_cell.set_call_addr(fx.0 as usize);
+        top_cell.arg = (*g).0 as i64;
+
+        top_cell_ptr
+    })
+}
+
 // A pointer to a function that evaluates an argument to a strict operator.
 type ArgFn = unsafe extern "C" fn() -> i64;
 macro_rules! comb_bin_op {
