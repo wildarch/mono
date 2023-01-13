@@ -58,6 +58,7 @@ macro_rules! test_suite {
 }
 
 test_suite!(
+    (test_lit, "(defun main () 42)", 42),
     (
         test_id,
         r#"

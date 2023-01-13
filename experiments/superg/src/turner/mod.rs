@@ -110,6 +110,7 @@ pub struct TurnerEngine {
     comb_map: HashMap<Comb, usize>,
 }
 
+#[derive(Debug)]
 struct CompiledDef {
     name: String,
     expr: CompiledExpr,
@@ -387,10 +388,15 @@ impl TurnerEngine {
     }
 
     fn alloc_def(&mut self, def: CompiledDef) {
+        let mut tag = Tag::wanted();
+        if let CompiledExpr::Int(_) = def.expr {
+            tag = tag.set_rhs_int();
+        }
         let cell_ptr = self.alloc_compiled_expr(def.expr);
-        let def_ptr = self.def_lookup.get(&def.name).unwrap();
+        let def_ptr = *self.def_lookup.get(&def.name).unwrap();
         // Set up the indirection from the definition to the compiled expression
-        self.set_tl(*def_ptr, cell_ptr);
+        self.set_tag(def_ptr, tag);
+        self.set_tl(def_ptr, cell_ptr);
     }
 
     fn make_cell<CP0: IntoCellPtr, CP1: IntoCellPtr>(
@@ -603,13 +609,13 @@ pub struct TurnerEngineDebug {
 
 impl TurnerEngineDebug {
     fn step(&mut self) -> Option<CellPtr> {
+        self.dump_dot().expect("Dump failed");
         self.step_counter += 1;
         if let Some(limit) = self.step_limit {
             if self.step_counter > limit {
                 panic!("Max cycle reached");
             }
         }
-        self.dump_dot().expect("Dump failed");
         self.engine.step()
     }
 
