@@ -57,7 +57,7 @@ extern "C" {
     pub fn comb_K() -> usize;
 }
 
-macros::comb3!(comb_S, "comb_S", make_s, "make_s", |engine, f, g, x| {
+macros::comb3!(comb_S, make_s, |engine, f, g, x| {
     // Make new cells for (f x), (g x)
     let fx = engine.make_cell(*f, *x);
     let gx = engine.make_cell(*g, *x);
@@ -72,7 +72,7 @@ macros::comb3!(comb_S, "comb_S", make_s, "make_s", |engine, f, g, x| {
     top_cell_ptr
 });
 
-macros::comb3!(comb_B, "comb_B", make_b, "make_b", |engine, f, g, x| {
+macros::comb3!(comb_B, make_b, |engine, f, g, x| {
     // Make new cell for (g x)
     let gx = engine.make_cell(*g, *x);
     // Pointers on the stack are to the right pointer of a cell, after the call instruction.
@@ -86,7 +86,7 @@ macros::comb3!(comb_B, "comb_B", make_b, "make_b", |engine, f, g, x| {
     top_cell_ptr
 });
 
-macros::comb3!(comb_C, "comb_C", make_c, "make_c", |engine, f, g, x| {
+macros::comb3!(comb_C, make_c, |engine, f, g, x| {
     // Make new cell for (f x)
     let fx = engine.make_cell(*f, *x);
     // Pointers on the stack are to the right pointer of a cell, after the call instruction.
@@ -102,59 +102,38 @@ macros::comb3!(comb_C, "comb_C", make_c, "make_c", |engine, f, g, x| {
 
 // A pointer to a function that evaluates an argument to a strict operator.
 type ArgFn = unsafe extern "C" fn() -> i64;
-macros::comb_bin_op!(comb_plus, "comb_plus", apply_plus, "apply_plus", |a, b| a
-    + b);
-macros::comb_bin_op!(comb_min, "comb_min", apply_min, "apply_min", |a, b| a - b);
-macros::comb_bin_op!(comb_eq, "comb_eq", apply_eq, "apply_eq", |a, b| if a == b {
-    1
-} else {
-    0
+macros::comb_bin_op!(comb_plus, apply_plus, |a, b| a + b);
+macros::comb_bin_op!(comb_min, apply_min, |a, b| a - b);
+macros::comb_bin_op!(comb_eq, apply_eq, |a, b| if a == b { 1 } else { 0 });
+macros::comb_bin_op!(comb_lt, apply_lt, |a, b| if a < b { 1 } else { 0 });
+macros::comb_bin_op!(comb_times, apply_times, |a, b| a * b);
+
+macros::comb3!(comb_cond, apply_cond, |engine, c, t, f| {
+    // Evaluate the c cell as a strict argument
+    let c = c as *const ArgFn;
+    // TODO: avoid loading pointers to both branches in the assembly
+    let c_res = (*c)();
+    let branch_ptr = match c_res {
+        0 => f,
+        1 => t,
+        v => {
+            // We expect never to reach this code.
+            // In debug mode we panic, in release the behaviour is undefined.
+            debug_assert!(v == 0 || v == 1, "condition variable should be 0 or 1");
+            unsafe { std::hint::unreachable_unchecked() }
+        }
+    };
+
+    // Update the top cell with an indirection to the taken branch.
+    // See `make_s` for details.
+    let top_cell_ptr = CellPtr((f as *mut u8).offset(-CALL_LEN) as *mut Cell);
+    let top_cell = engine.cell_mut(top_cell_ptr);
+    debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
+    top_cell.set_call_addr(comb_I as usize);
+    top_cell.arg = (*branch_ptr).0 as i64;
+
+    *branch_ptr
 });
-macros::comb_bin_op!(comb_lt, "comb_lt", apply_lt, "apply_lt", |a, b| if a < b {
-    1
-} else {
-    0
-});
-macros::comb_bin_op!(
-    comb_times,
-    "comb_times",
-    apply_times,
-    "apply_times",
-    |a, b| a * b
-);
-
-macros::comb3!(
-    comb_cond,
-    "comb_cond",
-    apply_cond,
-    "apply_cond",
-    |engine, c, t, f| {
-        // Evaluate the c cell as a strict argument
-        let c = c as *const ArgFn;
-        // TODO: avoid loading pointers to both branches in the assembly
-        let c_res = (*c)();
-        let branch_ptr = match c_res {
-            0 => f,
-            1 => t,
-            v => {
-                // We expect never to reach this code.
-                // In debug mode we panic, in release the behaviour is undefined.
-                debug_assert!(v == 0 || v == 1, "condition variable should be 0 or 1");
-                unsafe { std::hint::unreachable_unchecked() }
-            }
-        };
-
-        // Update the top cell with an indirection to the taken branch.
-        // See `make_s` for details.
-        let top_cell_ptr = CellPtr((f as *mut u8).offset(-CALL_LEN) as *mut Cell);
-        let top_cell = engine.cell_mut(top_cell_ptr);
-        debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
-        top_cell.set_call_addr(comb_I as usize);
-        top_cell.arg = (*branch_ptr).0 as i64;
-
-        *branch_ptr
-    }
-);
 
 #[cfg(test)]
 mod tests {

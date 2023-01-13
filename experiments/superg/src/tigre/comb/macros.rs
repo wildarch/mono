@@ -1,9 +1,9 @@
 // Generate an assembly target and helper function for a combinator that takes three arguments.
 macro_rules! comb3 {
-    ($name:ident, $name_str:literal, $helper_func:ident, $helper_func_str:literal, $impl:expr) => {
+    ($name:ident, $helper_func:ident, $impl:expr) => {
         global_asm!(
-            concat!(".global ", $name_str),
-            concat!($name_str, ":"),
+            concat!(".global ", stringify!($name)),
+            concat!(stringify!($name), ":"),
             r#"
                 // Load f, g, x pointers as arguments
                 mov rdi, [rsp]
@@ -15,19 +15,19 @@ macro_rules! comb3 {
                 and rax, 8
                 cmp rax, 0
             "#,
-            concat!("jne ", $name_str, "_need_align"),
+            concat!("jne ", stringify!($name), "_need_align"),
             // No alignment needed
-            concat!($name_str, "_no_align:"),
-            concat!("call ", $helper_func_str),
+            concat!(stringify!($name), "_no_align:"),
+            concat!("call ", stringify!($helper_func)),
             r#"
                 // Pop arguments
                 add rsp, 24
                 jmp rax
             "#,
             // Alignment needed
-            concat!($name_str, "_need_align:"),
+            concat!(stringify!($name), "_need_align:"),
             "sub rsp, 8",
-            concat!("call ", $helper_func_str),
+            concat!("call ", stringify!($helper_func)),
             r#"
                 // Pop arguments
                 add rsp, 32
@@ -61,10 +61,10 @@ pub(crate) use comb3;
 
 // Generate an assembly target and helper function for a binary operator.
 macro_rules! comb_bin_op {
-    ($name:ident, $name_str:literal, $helper_func:ident, $helper_func_str:literal, $op:expr) => {
+    ($name:ident, $helper_func:ident, $op:expr) => {
         global_asm!(
-            concat!(".global ", $name_str),
-            concat!($name_str, ":"),
+            concat!(".global ", stringify!($name)),
+            concat!(stringify!($name), ":"),
             r#"
                 // Load argument pointers as arguments
                 mov rdi, [rsp]
@@ -75,10 +75,10 @@ macro_rules! comb_bin_op {
                 and rax, 8
                 cmp rax, 0
             "#,
-            concat!("jne ", $name_str, "_need_align"),
+            concat!("jne ", stringify!($name), "_need_align"),
             // No alignment needed
-            concat!($name_str, "_no_align:"),
-            concat!("call ", $helper_func_str),
+            concat!(stringify!($name), "_no_align:"),
+            concat!("call ", stringify!($helper_func)),
             r#"
                 // Pop arguments
                 add rsp, 16
@@ -86,9 +86,9 @@ macro_rules! comb_bin_op {
                 ret
             "#,
             // Alignment needed
-            concat!($name_str, "_need_align:"),
+            concat!(stringify!($name), "_need_align:"),
             "sub rsp, 8",
-            concat!("call ", $helper_func_str),
+            concat!("call ", stringify!($helper_func)),
             r#"
                 // Pop arguments
                 add rsp, 24
