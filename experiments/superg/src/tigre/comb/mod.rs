@@ -7,7 +7,7 @@ mod macros;
 
 pub const ALL_COMBINATORS: &[unsafe extern "C" fn() -> usize] = &[
     comb_LIT, comb_Abort, comb_I, comb_K, comb_S, comb_B, comb_C, comb_plus, comb_min, comb_eq,
-    comb_lt, comb_times, comb_cond,
+    comb_lt, comb_times, comb_cond, comb_S2, comb_B2, comb_C2,
 ];
 
 // LIT combinator
@@ -135,7 +135,33 @@ macros::comb3!(comb_cond, apply_cond, |engine, c, t, f| {
     *branch_ptr
 });
 
-macros::bulk_comb!(comb_S2, 4, 32, 40, make_s2, |engine, args| { todo!() });
+/*
+macros::bulk_comb!(comb_S2, 4, 32, 40, make_s2, |engine, args| {
+    let f = *args[0];
+    let g = *args[1];
+
+    let mut left_cell = f;
+    let mut right_cell = g;
+    for arg in &args[2..] {
+        left_cell = engine.make_cell(left_cell, **arg);
+        right_cell = engine.make_cell(right_cell, **arg);
+    }
+
+    // Update the top cell to point to the new left_cell and right_cell
+    // See `make_s` for details.
+    let top_arg_ptr = *args.last().unwrap() as *const CellPtr;
+    let top_cell_ptr = CellPtr((top_arg_ptr as *mut u8).offset(-CALL_LEN) as *mut Cell);
+    let top_cell = engine.cell_mut(top_cell_ptr);
+    debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
+    top_cell.set_call_addr(left_cell.0 as usize);
+    top_cell.arg = right_cell.0 as i64;
+
+    top_cell_ptr
+});
+*/
+macros::bulk_comb_s!(comb_S2, 4, 32, 40, make_s2);
+macros::bulk_comb_b!(comb_B2, 4, 32, 40, make_b2);
+macros::bulk_comb_c!(comb_C2, 4, 32, 40, make_c2);
 
 #[cfg(test)]
 mod tests {

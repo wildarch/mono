@@ -169,4 +169,104 @@ macro_rules! bulk_comb {
         }
     };
 }
-pub(crate) use bulk_comb;
+
+macro_rules! bulk_comb_s {
+    ($name:ident, $arg_count:literal, $stack_off_no_align:literal, $stack_off_need_align:literal, $helper_func:ident) => {
+        bulk_comb!(
+            $name,
+            $arg_count,
+            $stack_off_no_align,
+            $stack_off_need_align,
+            $helper_func,
+            |engine, args| {
+                let f = *args[0];
+                let g = *args[1];
+
+                let mut left_cell = f;
+                let mut right_cell = g;
+                for arg in &args[2..] {
+                    left_cell = engine.make_cell(left_cell, **arg);
+                    right_cell = engine.make_cell(right_cell, **arg);
+                }
+
+                // Update the top cell to point to the new left_cell and right_cell
+                // See `make_s` for details.
+                let top_arg_ptr = *args.last().unwrap() as *const CellPtr;
+                let top_cell_ptr = CellPtr((top_arg_ptr as *mut u8).offset(-CALL_LEN) as *mut Cell);
+                let top_cell = engine.cell_mut(top_cell_ptr);
+                debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
+                top_cell.set_call_addr(left_cell.0 as usize);
+                top_cell.arg = right_cell.0 as i64;
+
+                top_cell_ptr
+            }
+        );
+    };
+}
+pub(crate) use bulk_comb_s;
+
+macro_rules! bulk_comb_b {
+    ($name:ident, $arg_count:literal, $stack_off_no_align:literal, $stack_off_need_align:literal, $helper_func:ident) => {
+        bulk_comb!(
+            $name,
+            $arg_count,
+            $stack_off_no_align,
+            $stack_off_need_align,
+            $helper_func,
+            |engine, args| {
+                let f = *args[0];
+                let g = *args[1];
+
+                let mut right_cell = g;
+                for arg in &args[2..] {
+                    right_cell = engine.make_cell(right_cell, **arg);
+                }
+
+                // Update the top cell to point to the new left_cell and right_cell
+                // See `make_s` for details.
+                let top_arg_ptr = *args.last().unwrap() as *const CellPtr;
+                let top_cell_ptr = CellPtr((top_arg_ptr as *mut u8).offset(-CALL_LEN) as *mut Cell);
+                let top_cell = engine.cell_mut(top_cell_ptr);
+                debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
+                top_cell.set_call_addr(f.0 as usize);
+                top_cell.arg = right_cell.0 as i64;
+
+                top_cell_ptr
+            }
+        );
+    };
+}
+pub(crate) use bulk_comb_b;
+
+macro_rules! bulk_comb_c {
+    ($name:ident, $arg_count:literal, $stack_off_no_align:literal, $stack_off_need_align:literal, $helper_func:ident) => {
+        bulk_comb!(
+            $name,
+            $arg_count,
+            $stack_off_no_align,
+            $stack_off_need_align,
+            $helper_func,
+            |engine, args| {
+                let f = *args[0];
+                let g = *args[1];
+
+                let mut left_cell = f;
+                for arg in &args[2..] {
+                    left_cell = engine.make_cell(left_cell, **arg);
+                }
+
+                // Update the top cell to point to the new left_cell and right_cell
+                // See `make_s` for details.
+                let top_arg_ptr = *args.last().unwrap() as *const CellPtr;
+                let top_cell_ptr = CellPtr((top_arg_ptr as *mut u8).offset(-CALL_LEN) as *mut Cell);
+                let top_cell = engine.cell_mut(top_cell_ptr);
+                debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
+                top_cell.set_call_addr(left_cell.0 as usize);
+                top_cell.arg = g.0 as i64;
+
+                top_cell_ptr
+            }
+        );
+    };
+}
+pub(crate) use bulk_comb_c;
