@@ -135,6 +135,8 @@ macros::comb3!(comb_cond, apply_cond, |engine, c, t, f| {
     *branch_ptr
 });
 
+macros::bulk_comb!(comb_S2, 4, 32, 40, make_s2, |engine, args| { todo!() });
+
 #[cfg(test)]
 mod tests {
     use super::*;
