@@ -1,13 +1,16 @@
 use std::arch::global_asm;
 
-use super::{Cell, CellPtr, TigreEngine, CALL_LEN, CALL_OPCODE};
+use crate::compiled_expr::Comb;
+
+use super::{Cell, CellPtr, IntoCellPtr, TigreEngine, CALL_LEN, CALL_OPCODE};
 
 #[macro_use]
-mod macros;
+pub mod macros;
 
+/// Implementations of bulk combinators.
 // Bulk combinators are automatically generated using a build script.
-mod generated;
-pub use generated::*;
+pub mod bulk;
+pub use bulk::ALL_COMBINATORS;
 
 // LIT combinator
 global_asm!(
@@ -21,6 +24,14 @@ global_asm!(
 );
 extern "C" {
     pub fn comb_LIT() -> usize;
+}
+// The LIT combinator is an implementation detail of Tigre, and therefore not added to the `Comb` enum.
+// Instead we define a struct type for it, so it can be used as an argument in functions generic over [`IntoCellPtr`]
+pub struct Lit;
+impl IntoCellPtr for Lit {
+    fn into_cell_ptr(&self, _: &TigreEngine) -> CellPtr {
+        CellPtr(comb_LIT as *mut Cell)
+    }
 }
 
 // Abort combinator
@@ -56,47 +67,45 @@ extern "C" {
     pub fn comb_K() -> usize;
 }
 
+impl TigreEngine {
+    // Updates the left and right values of the cell for which `top_arg_ptr` points to the right (argument) value.
+    unsafe fn update_top_cell<CP0: IntoCellPtr, CP1: IntoCellPtr>(
+        &mut self,
+        left: CP0,
+        right: CP1,
+        top_arg_ptr: *const CellPtr,
+    ) -> CellPtr {
+        let left = left.into_cell_ptr(self);
+        let right = right.into_cell_ptr(self);
+        // Pointers on the stack are to the right pointer of a cell, after the call instruction.
+        // To get a pointer to the full cell, we subtract the length of a call instruction.
+        let top_cell_ptr = CellPtr((top_arg_ptr as *mut u8).offset(-CALL_LEN) as *mut Cell);
+        let top_cell = self.cell_mut(top_cell_ptr);
+        debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
+        top_cell.set_call_addr(left.0 as usize);
+        top_cell.arg = right.0 as i64;
+
+        top_cell_ptr
+    }
+}
+
 macros::comb3!(comb_S, make_s, |engine, f, g, x| {
     // Make new cells for (f x), (g x)
     let fx = engine.make_cell(*f, *x);
     let gx = engine.make_cell(*g, *x);
-    // Pointers on the stack are to the right pointer of a cell, after the call instruction.
-    // To get a pointer to the full cell, we subtract the length of a call instruction.
-    let top_cell_ptr = CellPtr((x as *mut u8).offset(-CALL_LEN) as *mut Cell);
-    let top_cell = engine.cell_mut(top_cell_ptr);
-    debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
-    top_cell.set_call_addr(fx.0 as usize);
-    top_cell.arg = gx.0 as i64;
-
-    top_cell_ptr
+    engine.update_top_cell(fx, gx, x)
 });
 
 macros::comb3!(comb_B, make_b, |engine, f, g, x| {
     // Make new cell for (g x)
     let gx = engine.make_cell(*g, *x);
-    // Pointers on the stack are to the right pointer of a cell, after the call instruction.
-    // To get a pointer to the full cell, we subtract the length of a call instruction.
-    let top_cell_ptr = CellPtr((x as *mut u8).offset(-CALL_LEN) as *mut Cell);
-    let top_cell = engine.cell_mut(top_cell_ptr);
-    debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
-    top_cell.set_call_addr((*f).0 as usize);
-    top_cell.arg = gx.0 as i64;
-
-    top_cell_ptr
+    engine.update_top_cell(*f, gx, x)
 });
 
 macros::comb3!(comb_C, make_c, |engine, f, g, x| {
     // Make new cell for (f x)
     let fx = engine.make_cell(*f, *x);
-    // Pointers on the stack are to the right pointer of a cell, after the call instruction.
-    // To get a pointer to the full cell, we subtract the length of a call instruction.
-    let top_cell_ptr = CellPtr((x as *mut u8).offset(-CALL_LEN) as *mut Cell);
-    let top_cell = engine.cell_mut(top_cell_ptr);
-    debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
-    top_cell.set_call_addr(fx.0 as usize);
-    top_cell.arg = (*g).0 as i64;
-
-    top_cell_ptr
+    engine.update_top_cell(fx, *g, x)
 });
 
 // A pointer to a function that evaluates an argument to a strict operator.
@@ -124,13 +133,7 @@ macros::comb3!(comb_cond, apply_cond, |engine, c, t, f| {
     };
 
     // Update the top cell with an indirection to the taken branch.
-    // See `make_s` for details.
-    let top_cell_ptr = CellPtr((f as *mut u8).offset(-CALL_LEN) as *mut Cell);
-    let top_cell = engine.cell_mut(top_cell_ptr);
-    debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
-    top_cell.set_call_addr(comb_I as usize);
-    top_cell.arg = (*branch_ptr).0 as i64;
-
+    engine.update_top_cell(Comb::I, *branch_ptr, f);
     *branch_ptr
 });
 

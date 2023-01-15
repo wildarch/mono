@@ -14,6 +14,7 @@ use crate::{
 use self::jit::JitPlacer;
 
 // Cells are 16 bytes for optimal alignment.
+// A unit test at the end of this file verifies the size of this type.
 // See https://groups.google.com/g/golang-nuts/c/dhGbgC1pAmA/m/Rcqwcd5mGmoJ.
 #[repr(packed)]
 pub struct Cell {
@@ -68,22 +69,21 @@ impl IntoCellPtr for Comb {
             Comb::Eq => CellPtr(comb::comb_eq as *mut Cell),
             Comb::Times => CellPtr(comb::comb_times as *mut Cell),
             Comb::Lt => CellPtr(comb::comb_lt as *mut Cell),
-            Comb::Sn(n) => CellPtr(comb::COMB_SN_IMPLS[*n] as *mut Cell),
-            Comb::Bn(n) => CellPtr(comb::COMB_BN_IMPLS[*n] as *mut Cell),
-            Comb::Cn(n) => CellPtr(comb::COMB_CN_IMPLS[*n] as *mut Cell),
+            Comb::Sn(n) => CellPtr(comb::bulk::COMB_SN_IMPLS[*n] as *mut Cell),
+            Comb::Bn(n) => CellPtr(comb::bulk::COMB_BN_IMPLS[*n] as *mut Cell),
+            Comb::Cn(n) => CellPtr(comb::bulk::COMB_CN_IMPLS[*n] as *mut Cell),
             _ => unimplemented!("into_cell_ptr {:?}", self),
         }
     }
 }
 
-struct Lit;
-impl IntoCellPtr for Lit {
+impl IntoCellPtr for i32 {
     fn into_cell_ptr(&self, _: &TigreEngine) -> CellPtr {
-        CellPtr(comb::comb_LIT as *mut Cell)
+        CellPtr(*self as *mut Cell)
     }
 }
 
-impl IntoCellPtr for i32 {
+impl IntoCellPtr for i64 {
     fn into_cell_ptr(&self, _: &TigreEngine) -> CellPtr {
         CellPtr(*self as *mut Cell)
     }
@@ -194,7 +194,7 @@ impl TigreEngine {
 
     fn alloc_expr(&mut self, expr: CompiledExpr) -> CellPtr {
         match expr {
-            CompiledExpr::Int(i) => self.make_cell(Lit, i),
+            CompiledExpr::Int(i) => self.make_cell(comb::Lit, i),
             CompiledExpr::Comb(c) => c.into_cell_ptr(self),
             CompiledExpr::Ap(l, r) => {
                 let l = self.alloc_expr(*l);

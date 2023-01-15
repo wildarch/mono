@@ -1,3 +1,17 @@
+//! Macros to generate implementations of combinators that require calls to Rust code.
+//!
+//! # Alignment
+//! The System V ABI that Rust uses on x86-64 Linux (at least for an extern "C" `fn`) mandates that before a `call` instruction, the stack is aligned to 16 bytes (as documented [here](https://c9x.me/compile/doc/abi.html)).
+//! In particular it seems that SIMD instructions require this alignment, without it I have observed crashes in Rust library code that uses such instructions.
+//!
+//! We regularly chain `call` instructions until a combinator a reached, so we cannot guarantee that the stack is aligned properly.
+//! What we do know for sure is that the stack is aligned to 8 bytes, because we always push 64-bit values on the stack.
+//! So, before we can jump to a helper function in Rust, we must check if the stack is aligned to 16 bytes.
+//! If it is not, we jump to a `*_need_align` label and substract 8 bytes from the stack pointer.
+//! Since the stack pointer is always aligned to at least 8 bytes, this must result in alignment to 16 bytes.
+//! If the stack is already properly aligned, we can simply jump to the function.
+//! After the call returns, we pop the argument off the stack, and if extra alignment was needed, add an extra 8 bytes offset to the stack pointer.
+
 // Generate an assembly target and helper function for a combinator that takes three arguments.
 macro_rules! comb3 {
     ($name:ident, $helper_func:ident, $impl:expr) => {
@@ -107,14 +121,8 @@ macro_rules! comb_bin_op {
                 let op: fn(i64, i64) -> i64 = $op;
                 let res = op((*a0)(), (*a1)());
 
-                // Update the top cell with the new number.
-                // See `make_s` for details.
-                let top_cell_ptr = CellPtr((a1 as *mut u8).offset(-CALL_LEN) as *mut Cell);
-                let top_cell = engine.cell_mut(top_cell_ptr);
-                debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
-                top_cell.set_call_addr(comb_LIT as usize);
-                top_cell.arg = res;
-
+                // Update the top cell to the literal value
+                engine.update_top_cell(Lit, res, a1 as *const CellPtr);
                 res
             })
         }
@@ -122,6 +130,7 @@ macro_rules! comb_bin_op {
 }
 pub(crate) use comb_bin_op;
 
+// Instantiates a generic bulk combinator with no specific implementation.
 macro_rules! bulk_comb {
     ($name:ident, $arg_count:literal, $stack_off_no_align:literal, $stack_off_need_align:literal, $helper_func:ident, $impl:expr) => {
         global_asm!(
@@ -160,6 +169,7 @@ macro_rules! bulk_comb {
             // care of catching unwinds before they escape Rust code.
             TigreEngine::with_current(|engine| {
                 let fimpl: fn(&mut TigreEngine, &[&CellPtr]) -> CellPtr = $impl;
+                // Check that the stack size arguments to the macro were valid
                 debug_assert_eq!($arg_count * 8, $stack_off_no_align);
                 debug_assert_eq!($arg_count * 8 + 8, $stack_off_need_align);
                 let args = args as *const &CellPtr;
@@ -170,6 +180,7 @@ macro_rules! bulk_comb {
     };
 }
 
+// Instantiates a bulk S combinator
 macro_rules! bulk_comb_s {
     ($name:ident, $arg_count:literal, $stack_off_no_align:literal, $stack_off_need_align:literal, $helper_func:ident) => {
         bulk_comb!(
@@ -190,21 +201,15 @@ macro_rules! bulk_comb_s {
                 }
 
                 // Update the top cell to point to the new left_cell and right_cell
-                // See `make_s` for details.
                 let top_arg_ptr = *args.last().unwrap() as *const CellPtr;
-                let top_cell_ptr = CellPtr((top_arg_ptr as *mut u8).offset(-CALL_LEN) as *mut Cell);
-                let top_cell = engine.cell_mut(top_cell_ptr);
-                debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
-                top_cell.set_call_addr(left_cell.0 as usize);
-                top_cell.arg = right_cell.0 as i64;
-
-                top_cell_ptr
+                engine.update_top_cell(left_cell, right_cell, top_arg_ptr)
             }
         );
     };
 }
 pub(crate) use bulk_comb_s;
 
+// Instantiates a bulk B combinator
 macro_rules! bulk_comb_b {
     ($name:ident, $arg_count:literal, $stack_off_no_align:literal, $stack_off_need_align:literal, $helper_func:ident) => {
         bulk_comb!(
@@ -223,21 +228,15 @@ macro_rules! bulk_comb_b {
                 }
 
                 // Update the top cell to point to the new left_cell and right_cell
-                // See `make_s` for details.
                 let top_arg_ptr = *args.last().unwrap() as *const CellPtr;
-                let top_cell_ptr = CellPtr((top_arg_ptr as *mut u8).offset(-CALL_LEN) as *mut Cell);
-                let top_cell = engine.cell_mut(top_cell_ptr);
-                debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
-                top_cell.set_call_addr(f.0 as usize);
-                top_cell.arg = right_cell.0 as i64;
-
-                top_cell_ptr
+                engine.update_top_cell(f, right_cell, top_arg_ptr)
             }
         );
     };
 }
 pub(crate) use bulk_comb_b;
 
+// Instantiates a bulk C combinator
 macro_rules! bulk_comb_c {
     ($name:ident, $arg_count:literal, $stack_off_no_align:literal, $stack_off_need_align:literal, $helper_func:ident) => {
         bulk_comb!(
@@ -256,15 +255,8 @@ macro_rules! bulk_comb_c {
                 }
 
                 // Update the top cell to point to the new left_cell and right_cell
-                // See `make_s` for details.
                 let top_arg_ptr = *args.last().unwrap() as *const CellPtr;
-                let top_cell_ptr = CellPtr((top_arg_ptr as *mut u8).offset(-CALL_LEN) as *mut Cell);
-                let top_cell = engine.cell_mut(top_cell_ptr);
-                debug_assert_eq!(top_cell.call_opcode, CALL_OPCODE);
-                top_cell.set_call_addr(left_cell.0 as usize);
-                top_cell.arg = g.0 as i64;
-
-                top_cell_ptr
+                engine.update_top_cell(left_cell, g, top_arg_ptr)
             }
         );
     };
