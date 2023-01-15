@@ -68,9 +68,9 @@ impl IntoCellPtr for Comb {
             Comb::Eq => CellPtr(comb::comb_eq as *mut Cell),
             Comb::Times => CellPtr(comb::comb_times as *mut Cell),
             Comb::Lt => CellPtr(comb::comb_lt as *mut Cell),
-            Comb::Sn(2) => CellPtr(comb::comb_S2 as *mut Cell),
-            Comb::Bn(2) => CellPtr(comb::comb_B2 as *mut Cell),
-            Comb::Cn(2) => CellPtr(comb::comb_C2 as *mut Cell),
+            Comb::Sn(n) => CellPtr(comb::COMB_SN_IMPLS[*n] as *mut Cell),
+            Comb::Bn(n) => CellPtr(comb::COMB_BN_IMPLS[*n] as *mut Cell),
+            Comb::Cn(n) => CellPtr(comb::COMB_CN_IMPLS[*n] as *mut Cell),
             _ => unimplemented!("into_cell_ptr {:?}", self),
         }
     }

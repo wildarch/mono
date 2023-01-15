@@ -8,7 +8,7 @@ use crate::ast;
 mod macros;
 // Bulk combinators are automatically generated using a build script.
 mod combgen {
-    include!(concat!(env!("OUT_DIR"), "/combgen.rs"));
+    include!(concat!(env!("OUT_DIR"), "/turner_combinators.rs"));
 }
 
 // TODO: Allow dynamically growing the heap.

@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Write;
 
-// Generate bulk combinators Sn,Bn and Cn up to this n
+// Generate bulk combinators Sn, Bn and Cn up to this n
 const BULK_COMB_MAX_N: usize = 10;
 
 fn main() -> std::io::Result<()> {
@@ -10,13 +10,16 @@ fn main() -> std::io::Result<()> {
     // This script depends only on itself
     println!("cargo:rerun-if-changed=build.rs");
 
-    let combgen = std::fs::File::create(&format!("{}/combgen.rs", out_dir))?;
-    generate_combgen(combgen)?;
+    let turner_combinators = std::fs::File::create(&format!("{}/turner_combinators.rs", out_dir))?;
+    generate_turner_combinators(turner_combinators)?;
+
+    let tigre_combinators = std::fs::File::create(&format!("{}/tigre_combinators.rs", out_dir))?;
+    generate_tigre_combinators(tigre_combinators)?;
 
     Ok(())
 }
 
-fn generate_combgen(mut f: File) -> std::io::Result<()> {
+fn generate_turner_combinators(mut f: File) -> std::io::Result<()> {
     let max_combn = std::cmp::max(
         // Regular combinators use up to 3 arguments.
         3,
@@ -94,5 +97,74 @@ impl Comb {{
     )?;
     writeln!(f, "    }}")?;
     writeln!(f, "}}")?;
+    Ok(())
+}
+
+fn generate_tigre_combinators(mut f: File) -> std::io::Result<()> {
+    writeln!(f, "use super::*;")?;
+
+    for i in 2..=BULK_COMB_MAX_N {
+        for (k, k_upper) in [('s', 'S'), ('b', 'B'), ('c', 'C')] {
+            writeln!(
+                f,
+                "macros::bulk_comb_{k}!(comb_{k_upper}{}, {}, {}, {}, make_{k}{});",
+                // Number of arguments to distribute
+                i,
+                // Number of values on the stack (f, g and xs)
+                i + 2,
+                // Size of the values on the stack, in bytes
+                (i + 2) * 8,
+                // Size of the values on the stack, plus an extra 8 bytes for alignment to a 16 byte boundary.
+                (i + 3) * 8,
+                i
+            )?;
+        }
+    }
+
+    // all combinators
+    write!(
+        f,
+        r#"
+pub const ALL_COMBINATORS: &[unsafe extern "C" fn() -> usize] = &[
+    comb_LIT, 
+    comb_Abort, 
+    comb_I, 
+    comb_K, 
+    comb_S, 
+    comb_B, 
+    comb_C, 
+    comb_plus, 
+    comb_min, 
+    comb_eq,
+    comb_lt, 
+    comb_times, 
+    comb_cond, 
+    "#
+    )?;
+
+    for i in 2..BULK_COMB_MAX_N {
+        writeln!(f, "    comb_S{},", i)?;
+        writeln!(f, "    comb_B{},", i)?;
+        writeln!(f, "    comb_C{},", i)?;
+    }
+
+    writeln!(f, "];")?;
+
+    // Impls
+    for k in ['S', 'B', 'C'] {
+        write!(
+            f,
+            r#"
+pub const COMB_{k}N_IMPLS: &[unsafe extern "C" fn() -> usize] = &[
+    comb_Abort,
+    comb_{k},
+        "#
+        )?;
+        for i in 2..BULK_COMB_MAX_N {
+            writeln!(f, "    comb_{k}{i},")?;
+        }
+        writeln!(f, "];")?;
+    }
+
     Ok(())
 }
