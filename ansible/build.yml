@@ -12,3 +12,5 @@
       pkg:
       - rclone
       - shellcheck
+      - bazel
+      - default-jdk
