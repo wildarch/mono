@@ -1,5 +1,5 @@
 {
-  "checksum": "645b3491237b41e3ccd494e98f6239ee71daada22a68154bc8acf40200b0a6f4",
+  "checksum": "e9c812601a8c09f92126386ca1e5190a86c66d7108333068050c62d42514de80",
   "crates": {
     "adler 1.0.2": {
       "name": "adler",
@@ -648,7 +648,7 @@
               "target": "rayon"
             },
             {
-              "id": "regex 1.7.0",
+              "id": "regex 1.7.1",
               "target": "regex"
             },
             {
@@ -2904,13 +2904,13 @@
       },
       "license": "MIT OR Apache-2.0"
     },
-    "regex 1.7.0": {
+    "regex 1.7.1": {
       "name": "regex",
-      "version": "1.7.0",
+      "version": "1.7.1",
       "repository": {
         "Http": {
-          "url": "https://crates.io/api/v1/crates/regex/1.7.0/download",
-          "sha256": "e076559ef8e241f2ae3479e36f97bd5741c0330689e217ad51ce2c76808b868a"
+          "url": "https://crates.io/api/v1/crates/regex/1.7.1/download",
+          "sha256": "48aaa5748ba571fb95cd2c85c09f629215d3a6ece942baa100950af03a34f733"
         }
       },
       "targets": [
@@ -2945,7 +2945,7 @@
           "selects": {}
         },
         "edition": "2018",
-        "version": "1.7.0"
+        "version": "1.7.1"
       },
       "license": "MIT OR Apache-2.0"
     },
