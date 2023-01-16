@@ -27,6 +27,8 @@
 \DeclareMathOperator{\lazyeta}{lazy_\eta}
 \DeclareMathOperator{\linear}{linear}
 
+\usepackage{listings}
+
 \begin{document}
 
 \title{Reviving the Lost Art of Combinator Graph Reduction}
@@ -428,7 +430,7 @@ In this form, it is straightforward to construct the associated binary graph, sh
     \label{fig:skk3}
 \end{figure}
 
-To reduce this graph, we follow the left pointers until we find a combinator to apply.
+To reduce this graph, we follow the left pointer until we find a combinator to apply.
 As we traverse the graph along what is often called the \textit{spine}, we keep the nodes we have seen on a stack, because their right nodes contain the arguments to the combinator we eventually find.
 
 In this example graph, after following two pointers we find the $S$ combinator, and we apply the definition $S f g x \Rightarrow (f x) (g x)$ to rewrite the graph, as shown in figure~\ref{fig:skk3_sred}.
@@ -559,55 +561,176 @@ Our benchmark programs do not use too much heap space, so we choose not to focus
 
 \section{TIGRE}
 \label{sec:tigre}
-\subsection*{Eliminating tags}
-Tags are commonly used to distinguish pointers, combinators and literal values.
-We get rid of the literal value tag by making all literals go through an indirection node, and introducing a special \texttt{LIT} combinator for such indirection nodes.
-To determine if a right-hand side is a literal, we can check for the \texttt{LIT} combinator rather than a tag.
-In the TIGRE paper, there is also a pointer and combinator tag, but with Miranda's design, this is not necessary.
-If we insist, that final tag value can be put as the lowest bit in the pointer value, since a pointer is typically aligned to some boundary.
-We are working with 32-bit (4-byte) wide values, for which on X86 we can assume 4-byte alignment, giving us 2 bits to play with.
+The TIGRE engine, first presented in~\cite{koopman_fresh_1989}, is a combinator graph reduction engine like Miranda.
+Originally designed for the VAX instruction set, our implementation targets the x86-64 instruction set but mirrors the TIGRE design otherwise.
+The TIGRE paper focuses on key differences from Miranda, the elimination of tags and directly executable graph nodes, so where the paper omits implementation details we take the same approach as our reference implementation based on Miranda.
 
-\subsection*{Threaded code interpreter}
-We make the nodes themselves executable code.
-For nodes that represent the combinators, a pointer to that node is just a pointer to the subroutine that implements the combinator.
-For application nodes, they are a jump instruction together with the left node as the target (so the left node is the width of one instruction).
-The jump instruction should push the current PC onto the stack, which means the stack now directly represents the spine.
+\subsection{Eliminating tags}
+The TIGRE authors point to tags as a major source of inefficiency in graph reduction engines.
+At evaluation time Miranda must check the tag of nodes to see if their right-hand side is a value or a pointer to a node.
+TIGRE does away with this by adding a special \texttt{LIT} combinator.
+The \texttt{LIT} combinator takes one argument guaranteed to be a literal value and returns it, like an \texttt{I} combinator specialized for constants.
+An apparent downside of this is that simple expressions require more indirection, and therefore a larger graph to reduce.
+Take for example the expression $1+2$, which in the Miranda-style engine can be represented with just two nodes, shown in figure~\ref{fig:1_plus_2_miranda}.
 
-The TIGRE style requires that we make our memory writable and executable, which is problematic in many systems.
-It seems to work okay on Linux though, so we can use it.
+\begin{figure}
+    \includegraphics[width=.2\columnwidth]{1_plus_2_miranda}
+    \centering
+    \caption{
+        Graph of $1 + 2$ in the Miranda-style engine.
+        Tags omitted for brevity.
+    }
+    \label{fig:1_plus_2_miranda}
+\end{figure}
 
-The instruction to use on X86 is \texttt{call}.
-It takes one parameter, which is a PC-relative offset.
-When we create a node, we should subtract the target position from the location where we are writing the instruction, and use that as the jump parameter.
+The TIGRE version of this program, shown in figure~\ref{fig:1_plus_2_tigre}, is larger, occupying four nodes.
 
-The trampolines can be generated or hand-coded ahead of time, so our runtime only needs to assemble \texttt{CALL} instructions.
+\begin{figure}
+    \includegraphics[width=.46\columnwidth]{1_plus_2_tigre}
+    \centering
+    \caption{
+        Graph of $1 + 2$ in the TIGRE-style engine.
+    }
+    \label{fig:1_plus_2_tigre}
+\end{figure}
 
-For combinators, we can generate a trampoline that grabs the arguments from the stack, puts them in registers and calls the rust implementation.
+In this example, the TIGRE graph may indeed be slower to evaluate, but the same does not hold for the programs in general.
+If the values $1$ and $2$ were the results of a previous computation, they would also be behind an indirection node in the Miranda engine.
+The TIGRE approach is only slower when performing operations on values that are constant in the source program, in other cases the reduced branching on tag values is expected to speed up execution.
 
-The \texttt{call} instruction pushes the \texttt{EIP} register onto the stack, which contains the address of the 'instruction' after the \texttt{call}.
-In our calling convention, this means the stack consists of pointers to the right-hand sides, very convenient.
+The TIGRE authors report that some engines also use the tag to distinguish between combinators and cell pointers.
+In Miranda the lowest cell pointers are reserved for combinators, so this does not need to be encoded in the tag, but the engine still needs to do a case distinction for low values of the pointer.
+TIGRE also eliminates this overhead by encoding nodes as executable machine instructions.
+We discuss this encoding in more detail in the next section.
+With this change any pointer in the graph points to executable code: nodes are directly executable, and for combinators, we can insert a pointer to their implementation function.
+The overhead of interpreting tags is thus fully eliminated.
 
-A \texttt{push} instruction first decrements the stack pointer \texttt{rsp}, then writes the new value to the address of  \texttt{rsp}.
-Assembly to load the value of the top of the stack is therefore: \texttt{mov rax, [rsp]}.
-To load the second value: \texttt{mov rax, [rsp+8]}.
+Our implementation still has a tag byte in each cell, but it is exclusively used by the garbage collector to keep track of free and occupied cells.
+The TIGRE paper provides no details on garbage collection, so we adopt the same mark-and-sweep collection approach as Miranda.
 
-It seems to be a good idea to align nodes at a 16-byte boundary for better jump performance:
-https://groups.google.com/g/golang-nuts/c/dhGbgC1pAmA
-do not put more than 2 branches in a 16-byte block.
+\subsection{Executable graph nodes}
+Due to the elimination of tags, graph nodes must be executable x86-64 machine instructions.
+Executing a node is expected to \emph{unwind the spine}: a pointer to the current node should be pushed onto the stack, after which we proceed to evaluate the cell to the left.
+It turns out that this can be neatly encoded as a subroutine call in both the VAX and x86-64 instruction sets.
 
-Encoding of the call instruction is \texttt{E8} \textit{rel32}, where \textit{rel32} is a 32-bit (little-endian) offset from the \emph{next} instruction.
-\textbf{TODO}
+The x86-64 \texttt{CALL} \textit{rel32} instruction\footnote{\url{https://c9x.me/x86/html/file_module_x86_id_26.html}} modifies the processor state as follows:
+\begin{enumerate}
+    \item Pushes onto the stack a pointer to the instruction directly after the \texttt{CALL}.
+          In a regular program, this is the \emph{return address}, the address the program should jump to after the subroutine finishes.
+    \item Adds \textit{rel32} to the program counter register \texttt{\%rip}.
+          \textit{rel32} encodes the address of the subroutine as a signed 32-bit offset from the location of the \texttt{CALL}.
+\end{enumerate}
 
-Describe changes made to align with TIGRE.
+We exploit this by encoding nodes as a \texttt{CALL} instruction to the left pointer, followed by the right pointer as a raw value.
+The memory layout of a node is illustrated in figure~\ref{fig:tigre_layout}.
 
-Compare performance with Miranda-style engine.
+\begin{figure*}
+    \includegraphics[width=2\columnwidth]{tigre_layout}
+    \centering
+    \caption{
+        Memory layout of a node in the TIGRE-style engine.
+        Each square represents a byte of memory.
+    }
+    \label{fig:tigre_layout}
+\end{figure*}
 
-TODO:
-\begin{itemize}
-    \item Garbage collection
-    \item Bulk combinators
-    \item Integration tests
-\end{itemize}
+When execution jumps to a node, the \texttt{CALL} instruction executes.
+The address of the right pointer is pushed to the stack.
+This is convenient because when later a combinator executes, it only needs to read the value of the right pointer (the left is only needed to unwind the stack).
+Execution then jumps to the address of the left cell pointer, which is either another node or the code for a combinator.
+The \texttt{CALL} instruction and 64-bit right pointer take up 13 bytes.
+We add an extra byte to store the tag (only one bit is currently used) and 2 bytes of padding so the full node is 16 bytes wide.
+Having 16-byte wide nodes is convenient because Intel processors can execute jumps faster if the target is aligned to a 16-byte boundary\footnote{\url{https://groups.google.com/g/golang-nuts/c/dhGbgC1pAmA/m/Rcqwcd5mGmoJ}}.
+
+The simpler combinators are easily expressed as a short sequence of assembly instructions.
+Figure~\ref{fig:combI} shows the implementation of the I combinator.
+
+\begin{figure}
+    \begin{lstlisting}[
+        language={[x86masm]Assembler},
+    ]
+    comb_I:
+        ; Pop pointer to argument
+        ; into rax
+        pop rax
+        ; Dereference and jump
+        jmp [rax]
+    \end{lstlisting}
+    \centering
+    \caption{I combinator in x86-64 assembly.}
+    \label{fig:combI}
+\end{figure}
+
+Combinators that return a value (\texttt{LIT} or strict combinators) can be implemented by computing the value and returning it with \texttt{RET}.
+See for example the implementation of \texttt{LIT} in figure~\ref{fig:combLIT}.
+
+\begin{figure}
+    \begin{lstlisting}[
+        language={[x86masm]Assembler},
+    ]
+    comb_LIT:
+        ; Pop pointer to argument
+        ; into rax
+        pop rax
+        ; Dereference and store 
+        ; in return value register
+        mov rax, [rax]
+        ; Return to caller
+        ret
+    \end{lstlisting}
+    \centering
+    \caption{LIT combinator in x86-64 assembly.}
+    \label{fig:combLIT}
+\end{figure}
+
+A strict combinator that needs to evaluate its arguments is easier to implement in a TIGRE-style engine compared to Miranda: the implementation can strictly evaluate arguments by jumping to the argument node with a \texttt{CALL} instruction, and control will return to the combinator implementation after the argument has been evaluated and the \texttt{RET} instruction executes.
+The fully evaluated argument is then available in the \texttt{\%rax} register.
+This even works from Rust code: a pointer to a node can be cast to a function pointer with an integer as a return value and invoked normally.
+
+\textbf{TODO: Maybe add a step-by-step reduction example?}
+
+To our surprise, we did not find the TIGRE-style engine more difficult to implement than the Miranda version, mainly because the reduction process happens to map rather naturally to subroutine calls.
+We discuss the main challenges encountered during the implementation in the next section.
+
+\subsection{Implementation issues}
+\subsubsection{Writeable and executable memory}
+For our reduction engine to work, nodes must be stored in executable memory.
+Modern x86-64 CPUs support the NX-bit~\cite{paulson_new_2004}, which allows the operating system to mark regions of the memory as non-executable, triggering an exception if a program jumps to a page with the NX-bit set.
+The NX-bit is typically enabled by default on dynamically allocated heap memory.
+To allocate memory without the NX-bit set on Linux, we allocate memory for the graph using \texttt{mmap}\footnote{\url{https://man7.org/linux/man-pages/man2/mmap.2.html}} with the \texttt{PROT\_EXEC} (to allow execution) and \texttt{PROT\_WRITE} (to allow writing) flags.
+Some operating systems do not allow unprivileged programs to set \texttt{PROT\_EXEC} and \texttt{PROT\_WRITE} at the same time.
+One solution to this is to flip the memory protection settings from executable to writeable, make the changes, and flip back to executable and continue execution~\cite{de_mooij_wx_2015}.
+We anticipate this would be prohibitively expensive for our engine: After a combinator executes, it updates the graph with the new value, so that if the same value is used in a different subgraph, it is only evaluated once (just as Miranda does).
+The engine would have to issue two \texttt{mprotect} system calls at every reduction step, a heavy performance penalty.
+Luckily, the author's Linux distribution does not enforce a W \^{} X policy and allows the allocation of memory that is both writeable and executable.
+
+\subsubsection{Relative jumps}
+The \texttt{CALL} instruction takes as argument a 32-bit offset relative to the instruction pointer (the address of the \texttt{CALL} instruction), rather than a full 64-bit address.
+Therefore, some pointer arithmetic is required to calculate the value of this offset.
+More importantly, a 32-bit offset is too small to reach any target within the 64-bit address space.
+This is problematic for large programs where nodes may be very far apart.
+The programs we have used to evaluate the engine are relatively small, so we did not encounter such an issue.
+However, the offset may also point to an implementation of a combinator.
+The location of this code is determined by the linker when the engine itself is compiled, so it is difficult to influence its location in memory.
+To get around this, our engine registers the addresses of all combinators.
+Given this set of addresses, the engine can compute the \emph{safe range}: a region of the address space from which a 32-bit offset would be sufficient to reach any combinator.
+When allocating memory to store the graph nodes, it finds an unmapped page within the safe range and allocates it.
+As an additional safeguard, all offsets are initially computed as 64-bit values, after which the engine verifies that the offset indeed fits in 32 bits.
+
+The technique is not without its problems: for large programs (or a large set of combinators), allocation of large enough block of memory may be unsuccessful.
+A more robust solution would be to use trampolines: locations in memory close to nodes that contain assembly instructions to jump to locations far away in memory.
+This requires more bookkeeping and is therefore left as future work.
+
+\subsection{Stack alignment}
+The System-V ABI that is used on x86-64-Linux mandates that before a \texttt{CALL} instruction the stack is aligned to 16 bytes\footnote{https://c9x.me/compile/doc/abi.html}.
+Our engine regularly chains \texttt{CALL} instructions (pushing an 8-byte return address onto the stack) until a combinator is reached, so it is impossible to guarantee statically the alignment of the stack upon a call to a combinator implementation.
+The entry point of each combinator that needs to call into Rust code checks the alignment of the stack right before the \texttt{CALL} instruction and adjusts it if necessary.
+
+\subsection{Panicking inside combinators}
+Rust has the concept of \emph{panic}: an exceptional situation that indicates a bug in the program, for example, an index out-of-bounds error.
+If a panic occurs, the program collects a stack trace and terminates with an error code.
+A panic inside of a combinator implementation may cause the program to unwind into the node graph, which is undesirable because it is undefined behaviour\footnote{\url{https://doc.rust-lang.org/nomicon/ffi.html\#ffi-and-unwinding}}.
+To prevent this, all combinator implementations are wrapped in a call to \emph{catch\_unwind}\footnote{\url{https://doc.rust-lang.org/std/panic/fn.catch_unwind.html}}, so we catch panics before they leave Rust code, log them and abort the program.
 
 \section{Performance evaluation}
 \label{sec:eval}
