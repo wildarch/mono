@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -13,20 +14,23 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+var workspaceRoot = flag.String("root", "", "path to the workspace root folder")
+var forceTest = flag.Bool("test", false, "always run bazel 'test' rather than bazel 'build', even if the target does not have a '_test' suffix")
+
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Printf("usage: %s ROOT TARGET", os.Args[0])
+	flag.Parse()
+	if len(flag.Args()) != 1 {
+		fmt.Printf("usage: watch --root=PATH TARGET")
 		os.Exit(1)
 	}
-	workspaceRoot := os.Args[1]
-	target := os.Args[2]
+	target := flag.Args()[0]
 	log.Printf("Watching target: %s", target)
 
-	watch(workspaceRoot, target)
+	watch(*workspaceRoot, target)
 }
 
 func watch(workspaceRoot, target string) {
-	isTest := strings.HasSuffix(target, "_test")
+	isTest := strings.HasSuffix(target, "_test") || *forceTest
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatalf("error initializing watcher: %s", err.Error())
@@ -103,8 +107,8 @@ func buildTarget(workspaceRoot, target string) {
 func testTarget(workspaceRoot, target string) {
 	testCmd := exec.Command(
 		"bazel",
-		// Use run instead of test to show more output
-		"run",
+		"test",
+		"--test_output=errors",
 		target)
 	testCmd.Dir = workspaceRoot
 	testCmd.Stdout = os.Stdout

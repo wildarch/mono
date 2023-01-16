@@ -8,7 +8,7 @@ use crate::ast;
 mod macros;
 // Bulk combinators are automatically generated using a build script.
 mod combgen {
-    include!(concat!(env!("OUT_DIR"), "/combgen.rs"));
+    include!(concat!(env!("OUT_DIR"), "/turner_combinators.rs"));
 }
 
 // TODO: Allow dynamically growing the heap.
@@ -110,13 +110,14 @@ pub struct TurnerEngine {
     comb_map: HashMap<Comb, usize>,
 }
 
+#[derive(Debug)]
 struct CompiledDef {
     name: String,
     expr: CompiledExpr,
 }
 
-impl TurnerEngine {
-    pub fn compile<C: ExprCompiler>(compiler: &mut C, program: &ast::Program) -> TurnerEngine {
+impl crate::Engine for TurnerEngine {
+    fn compile<C: ExprCompiler>(compiler: &mut C, program: &ast::Program) -> TurnerEngine {
         let mut engine = TurnerEngine {
             tag: vec![Tag::wanted(); CELLS],
             hd: vec![CellPtr(0i32); CELLS],
@@ -164,6 +165,19 @@ impl TurnerEngine {
         engine
     }
 
+    fn run(&mut self) -> i32 {
+        self.stack.clear();
+        self.stack
+            .push(*self.def_lookup.get("main").expect("no main function found"));
+        loop {
+            if let Some(cell_ptr) = self.step() {
+                return self.get_int(cell_ptr).expect("did not evaluate to int");
+            }
+        }
+    }
+}
+
+impl TurnerEngine {
     fn add_comb_impls(&mut self, e: &CompiledExpr) {
         match e {
             CompiledExpr::Comb(c) => self.add_comb_impl(*c),
@@ -188,13 +202,13 @@ impl TurnerEngine {
         self.next_cell = CellPtr(idx as i32);
     }
 
-    pub fn run(&mut self) -> CellPtr {
+    pub fn run(&mut self) -> i32 {
         self.stack.clear();
         self.stack
             .push(*self.def_lookup.get("main").expect("no main function found"));
         loop {
             if let Some(cell_ptr) = self.step() {
-                return cell_ptr;
+                return self.get_int(cell_ptr).expect("did not evaluate to int");
             }
         }
     }
@@ -374,10 +388,15 @@ impl TurnerEngine {
     }
 
     fn alloc_def(&mut self, def: CompiledDef) {
+        let mut tag = Tag::wanted();
+        if let CompiledExpr::Int(_) = def.expr {
+            tag = tag.set_rhs_int();
+        }
         let cell_ptr = self.alloc_compiled_expr(def.expr);
-        let def_ptr = self.def_lookup.get(&def.name).unwrap();
+        let def_ptr = *self.def_lookup.get(&def.name).unwrap();
         // Set up the indirection from the definition to the compiled expression
-        self.set_tl(*def_ptr, cell_ptr);
+        self.set_tag(def_ptr, tag);
+        self.set_tl(def_ptr, cell_ptr);
     }
 
     fn make_cell<CP0: IntoCellPtr, CP1: IntoCellPtr>(
@@ -590,17 +609,17 @@ pub struct TurnerEngineDebug {
 
 impl TurnerEngineDebug {
     fn step(&mut self) -> Option<CellPtr> {
+        self.dump_dot().expect("Dump failed");
         self.step_counter += 1;
         if let Some(limit) = self.step_limit {
             if self.step_counter > limit {
                 panic!("Max cycle reached");
             }
         }
-        self.dump_dot().expect("Dump failed");
         self.engine.step()
     }
 
-    pub fn run(&mut self) -> CellPtr {
+    pub fn run(&mut self) -> i32 {
         // This is a copy of run under TurnerEngine.
         // TODO: deduplicate?
         self.engine.stack.clear();
@@ -613,13 +632,12 @@ impl TurnerEngineDebug {
         );
         loop {
             if let Some(cell_ptr) = self.step() {
-                return cell_ptr;
+                return self
+                    .engine
+                    .get_int(cell_ptr)
+                    .expect("did not evaluate to int");
             }
         }
-    }
-
-    pub fn get_int(&self, cell_ptr: CellPtr) -> Option<i32> {
-        self.engine.get_int(cell_ptr)
     }
 
     pub fn dump_dot(&mut self) -> std::io::Result<()> {
