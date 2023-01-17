@@ -32,7 +32,11 @@ impl Cell {
     pub fn set_call_addr(&mut self, target_addr: usize) {
         let base_addr = self as *const Cell as isize + CALL_LEN;
         let call_rel_addr = target_addr as isize - base_addr;
-        self.call_rel_addr = call_rel_addr.try_into().expect("have to jump too far");
+        debug_assert!(
+            call_rel_addr >= (i32::MIN as isize) && call_rel_addr <= (i32::MAX as isize),
+            "have to jump too far"
+        );
+        self.call_rel_addr = call_rel_addr as i32;
     }
 }
 
@@ -211,27 +215,39 @@ impl TigreEngine {
     pub fn with_current<R, F: FnOnce(&mut TigreEngine) -> R + UnwindSafe>(f: F) -> R {
         // This function is always called from a combinator implementation.
         // Unwinding into non-rust code is undefined behaviour, so catch any panics here.
-        let maybe_panic = std::panic::catch_unwind(|| {
+        with_catch_unwind_in_debug(|| {
             let engine_ptr = ENGINE.with(|engine_cell| unsafe { *engine_cell.get() });
             let engine = unsafe {
                 debug_assert!(!engine_ptr.is_null());
                 &mut *engine_ptr
             };
             f(engine)
-        });
+        })
+    }
+}
 
-        match maybe_panic {
-            Ok(res) => res,
-            Err(e) => {
-                if let Some(msg) = e.downcast_ref::<&str>() {
-                    eprintln!("panic within TigreEngine::run: {}", msg);
-                } else {
-                    eprintln!("panic within TigreEngine::run");
-                }
-                std::process::abort();
+// Catching unwinds is expensive, so we only do it in debug mode
+#[cfg(debug_assertions)]
+fn with_catch_unwind_in_debug<R, F: FnOnce() -> R + UnwindSafe>(f: F) -> R {
+    let maybe_panic = std::panic::catch_unwind(f);
+
+    match maybe_panic {
+        Ok(res) => res,
+        Err(e) => {
+            if let Some(msg) = e.downcast_ref::<&str>() {
+                eprintln!("panic within TigreEngine::run: {}", msg);
+            } else {
+                eprintln!("panic within TigreEngine::run");
             }
+            std::process::abort();
         }
     }
+}
+
+// In release mode, this is a no-op.
+#[cfg(not(debug_assertions))]
+fn with_catch_unwind_in_debug<R, F: FnOnce() -> R + UnwindSafe>(f: F) -> R {
+    f()
 }
 
 thread_local!(static ENGINE: UnsafeCell<*mut TigreEngine> = UnsafeCell::new(std::ptr::null_mut()));
