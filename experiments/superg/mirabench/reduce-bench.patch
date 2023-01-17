@@ -1,5 +1,5 @@
 diff --git a/reduce.c b/reduce.c
-index 24c3241..8f2ab5c 100644
+index 24c3241..77039a7 100644
 --- a/reduce.c
 +++ b/reduce.c
 @@ -12,6 +12,7 @@
@@ -23,13 +23,13 @@ index 24c3241..8f2ab5c 100644
 +  struct timespec end;
 +  long long end_cycles = cycles;
 +  clock_gettime(CLOCK_MONOTONIC, &end);
-+  fprintf(stderr, "Start: %lld.%.9ld\n", (long long)start.tv_sec, start.tv_nsec);
-+  fprintf(stderr, "End: %lld.%.9ld\n", (long long)end.tv_sec, end.tv_nsec);
++  fprintf(stdout, "Start: %lld.%.9ld\n", (long long)start.tv_sec, start.tv_nsec);
++  fprintf(stdout, "End: %lld.%.9ld\n", (long long)end.tv_sec, end.tv_nsec);
 +
 +  long long seconds = ((long long) end.tv_sec) - ((long long)start.tv_sec);
 +  long long nanos = end.tv_nsec - start.tv_nsec + (seconds * 1000000000ll);
-+  fprintf(stderr, "Nanos: %lld\n", nanos);
-+  fprintf(stderr, "Cycles: %lld\n", end_cycles - start_cycles);
++  fprintf(stdout, "Nanos: %lld\n", nanos);
++  fprintf(stdout, "Cycles: %lld\n", end_cycles - start_cycles);
 +
    while(tag[e]==CONS && is_char(hd[e]=reduce(hd[e])))
    { unsigned c=get_char(hd[e]);
