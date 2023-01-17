@@ -1,4 +1,4 @@
-load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test", "rust_test_suite")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test", "rust_test_suite")
 load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
 load("@crate_index//:defs.bzl", "crate_deps")
 
@@ -27,4 +27,15 @@ cargo_build_script(
     name = "build_script",
     srcs = ["build.rs"],
     edition = "2021",
+)
+
+rust_binary(
+    name = "bench",
+    srcs = glob(["benches/**/*.rs"]),
+    edition = "2021",
+    deps = [":superg"] + crate_deps([
+        "regex",
+        "criterion",
+        "tempfile",
+    ]),
 )
