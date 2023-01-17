@@ -19,10 +19,11 @@ macro_rules! comb3 {
             concat!(".global ", stringify!($name)),
             concat!(stringify!($name), ":"),
             r#"
+                mov rdi, r15
                 // Load f, g, x pointers as arguments
-                mov rdi, [rsp]
-                mov rsi, [rsp+8]
-                mov rdx, [rsp+16]
+                mov rsi, [rsp]
+                mov rdx, [rsp+8]
+                mov rcx, [rsp+16]
 
                 // Align stack to 16 bytes if needed
                 mov rax, rsp
@@ -53,19 +54,23 @@ macro_rules! comb3 {
         }
         #[no_mangle]
         unsafe extern "C" fn $helper_func(
+            reg_engine: *mut TigreEngine,
             f: *const CellPtr,
             g: *const CellPtr,
             x: *const CellPtr,
         ) -> CellPtr {
+            // TODO: Restore unwinding behaviour
             // Place all code within `TigreEngine::with_current` since that also takes
             // care of catching unwinds before they escape Rust code.
+            let fimpl: fn(
+                &mut TigreEngine,
+                *const CellPtr,
+                *const CellPtr,
+                *const CellPtr,
+            ) -> CellPtr = $impl;
             TigreEngine::with_current(|engine| {
-                let fimpl: fn(
-                    &mut TigreEngine,
-                    *const CellPtr,
-                    *const CellPtr,
-                    *const CellPtr,
-                ) -> CellPtr = $impl;
+                assert!(std::ptr::eq(reg_engine, engine as *mut TigreEngine));
+                println!("OK");
                 fimpl(engine, f, g, x)
             })
         }

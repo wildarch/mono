@@ -1,5 +1,5 @@
 {
-  "checksum": "e58189da01584c361114dd45fb2e858d2e09d39b2a96ed2467ba71eb6b3896d4",
+  "checksum": "b83be5feb2dd8b5f8d6ad228907d1e05d4273e79c7d79777229b4b39bebcc51c",
   "crates": {
     "adler 1.0.2": {
       "name": "adler",
@@ -3748,6 +3748,18 @@
           "Library": {
             "crate_name": "superg",
             "crate_root": "src/lib.rs",
+            "srcs": {
+              "include": [
+                "**/*.rs"
+              ],
+              "exclude": []
+            }
+          }
+        },
+        {
+          "Binary": {
+            "crate_name": "tigre_fib",
+            "crate_root": "src/bin/tigre_fib.rs",
             "srcs": {
               "include": [
                 "**/*.rs"

@@ -1,7 +1,7 @@
 pub mod comb;
 pub mod jit;
 
-use std::{cell::UnsafeCell, collections::HashMap, panic::UnwindSafe};
+use std::{arch::global_asm, cell::UnsafeCell, collections::HashMap, panic::UnwindSafe};
 
 use jit::JitMem;
 
@@ -132,7 +132,7 @@ impl Engine for TigreEngine {
 
     fn run(&mut self) -> i32 {
         let main_ptr = self.def_lookup.get("main").expect("No main function");
-        let func: fn() -> i64 = unsafe { std::mem::transmute(main_ptr.0) };
+        let func: extern "C" fn() -> i64 = unsafe { std::mem::transmute(main_ptr.0) };
 
         // Configure the global engine reference
         ENGINE.with(|engine_cell| {
@@ -140,7 +140,7 @@ impl Engine for TigreEngine {
             unsafe { *engine_cell = self as *mut TigreEngine };
         });
 
-        let res = func();
+        let res = unsafe { run_comb_graph(self as *mut TigreEngine, func) };
 
         // Deregister global engine reference
         ENGINE.with(|engine_cell| {
@@ -149,6 +149,24 @@ impl Engine for TigreEngine {
         });
         res.try_into().expect("result does not fit into i32")
     }
+}
+
+global_asm!(
+    r#"
+    .global run_comb_graph
+    run_comb_graph:
+        // Set rbx to engine reference
+        push r15
+        mov r15, rdi
+        call rsi
+        pop r15
+        ret
+"#
+);
+
+extern "C" {
+    #[allow(improper_ctypes)]
+    fn run_comb_graph(engine: *mut TigreEngine, func: extern "C" fn() -> i64) -> i64;
 }
 
 impl TigreEngine {
