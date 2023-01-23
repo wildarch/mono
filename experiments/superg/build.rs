@@ -112,10 +112,10 @@ fn generate_tigre_combinators(mut f: File) -> std::io::Result<()> {
                 i,
                 // Number of values on the stack (f, g and xs)
                 i + 2,
-                // Size of the values on the stack, in bytes
-                (i + 2) * 8,
-                // Size of the values on the stack, plus an extra 8 bytes for alignment to a 16 byte boundary.
+                // Size of the values on the stack plus the engine pointer, in bytes
                 (i + 3) * 8,
+                // Size of the values on the stack, plus the engine pointer and an extra 8 bytes for alignment to a 16 byte boundary.
+                (i + 4) * 8,
                 i
             )?;
         }

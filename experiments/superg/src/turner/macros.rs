@@ -19,7 +19,7 @@ macro_rules! run_comb {
                 StepResult::Value(v) => {
                     // Make an indirection node
                     self.set_tag(frame_start, Tag::wanted().set_rhs_int());
-                    self.set_hd(frame_start, Comb::I);
+                    self.set_hd(frame_start, COMB_I);
                     self.set_tl(frame_start, CellPtr(v));
 
                     // If nothing is on the stack, return the node
@@ -33,7 +33,7 @@ macro_rules! run_comb {
                 StepResult::Cell(c) => {
                     // Make an indirection node
                     self.set_tag(frame_start, Tag::wanted());
-                    self.set_hd(frame_start, Comb::I);
+                    self.set_hd(frame_start, COMB_I);
                     self.set_tl(frame_start, c);
 
                     // Make the new cell top of the stack

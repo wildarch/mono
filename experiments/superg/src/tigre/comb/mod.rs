@@ -109,7 +109,7 @@ macros::comb3!(comb_C, make_c, |engine, f, g, x| {
 });
 
 // A pointer to a function that evaluates an argument to a strict operator.
-type ArgFn = unsafe extern "C" fn() -> i64;
+type ArgFn = unsafe extern "C" fn(*mut TigreEngine) -> i64;
 macros::comb_bin_op!(comb_plus, apply_plus, |a, b| a + b);
 macros::comb_bin_op!(comb_min, apply_min, |a, b| a - b);
 macros::comb_bin_op!(comb_eq, apply_eq, |a, b| if a == b { 1 } else { 0 });
@@ -120,7 +120,7 @@ macros::comb3!(comb_cond, apply_cond, |engine, c, t, f| {
     // Evaluate the c cell as a strict argument
     let c = c as *const ArgFn;
     // TODO: avoid loading pointers to both branches in the assembly
-    let c_res = (*c)();
+    let c_res = (*c)(engine as *mut TigreEngine);
     let branch_ptr = match c_res {
         0 => f,
         1 => t,

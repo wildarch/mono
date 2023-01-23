@@ -1,7 +1,7 @@
 pub mod comb;
 pub mod jit;
 
-use std::{arch::global_asm, cell::UnsafeCell, collections::HashMap, panic::UnwindSafe};
+use std::{cell::UnsafeCell, collections::HashMap};
 
 use jit::JitMem;
 
@@ -115,6 +115,7 @@ impl Engine for TigreEngine {
             next_free_cell: 0,
             def_lookup: HashMap::new(),
         };
+        engine.init_cells();
         // Reserve a cell for each definition
         for def in &program.defs {
             let cell_ptr = engine.make_cell(Comb::I, Comb::Abort);
@@ -132,41 +133,13 @@ impl Engine for TigreEngine {
 
     fn run(&mut self) -> i32 {
         let main_ptr = self.def_lookup.get("main").expect("No main function");
-        let func: extern "C" fn() -> i64 = unsafe { std::mem::transmute(main_ptr.0) };
+        let func: extern "C" fn(*mut TigreEngine) -> i64 =
+            unsafe { std::mem::transmute(main_ptr.0) };
 
-        // Configure the global engine reference
-        ENGINE.with(|engine_cell| {
-            let engine_cell = UnsafeCell::raw_get(engine_cell as *const UnsafeCell<_>);
-            unsafe { *engine_cell = self as *mut TigreEngine };
-        });
+        let res = func(self as *mut TigreEngine);
 
-        let res = unsafe { run_comb_graph(self as *mut TigreEngine, func) };
-
-        // Deregister global engine reference
-        ENGINE.with(|engine_cell| {
-            let engine_cell = UnsafeCell::raw_get(engine_cell as *const UnsafeCell<_>);
-            unsafe { *engine_cell = std::ptr::null_mut() };
-        });
         res.try_into().expect("result does not fit into i32")
     }
-}
-
-global_asm!(
-    r#"
-    .global run_comb_graph
-    run_comb_graph:
-        // Set rbx to engine reference
-        push r15
-        mov r15, rdi
-        call rsi
-        pop r15
-        ret
-"#
-);
-
-extern "C" {
-    #[allow(improper_ctypes)]
-    fn run_comb_graph(engine: *mut TigreEngine, func: extern "C" fn() -> i64) -> i64;
 }
 
 impl TigreEngine {
@@ -177,10 +150,10 @@ impl TigreEngine {
         let arg = rhs.into_cell_ptr(self);
 
         let cell = self.cell_mut(cell_ptr);
-        cell.used = true;
         cell.call_opcode = CALL_OPCODE;
         cell.set_call_addr(target_addr);
         cell.arg = arg.0 as i64;
+        cell.used = true;
         cell_ptr
     }
 
@@ -192,16 +165,14 @@ impl TigreEngine {
                 self.mem.slice_mut().len() / std::mem::size_of::<Cell>(),
             )
         };
-        loop {
-            let cell = &mut cells[self.next_free_cell];
-            if !cell.used {
-                return CellPtr(cell as *mut Cell);
-            }
-            self.next_free_cell += 1;
-            if self.next_free_cell >= cells.len() {
-                panic!("Out of heap!");
-            }
-        }
+
+        // TODO: currently a bump allocator.
+        // We should switch to a proper GC with a freelist or smth
+        debug_assert!(self.next_free_cell < cells.len(), "out of heap");
+        let cell = &mut cells[self.next_free_cell];
+        debug_assert!(!cell.used);
+        self.next_free_cell += 1;
+        return CellPtr(cell as *mut Cell);
     }
 
     fn cell_mut(&mut self, ptr: CellPtr) -> &mut Cell {
@@ -230,42 +201,25 @@ impl TigreEngine {
         }
     }
 
-    pub fn with_current<R, F: FnOnce(&mut TigreEngine) -> R + UnwindSafe>(f: F) -> R {
-        // This function is always called from a combinator implementation.
-        // Unwinding into non-rust code is undefined behaviour, so catch any panics here.
-        with_catch_unwind_in_debug(|| {
-            let engine_ptr = ENGINE.with(|engine_cell| unsafe { *engine_cell.get() });
-            let engine = unsafe {
-                debug_assert!(!engine_ptr.is_null());
-                &mut *engine_ptr
-            };
-            f(engine)
-        })
-    }
-}
+    // Initializes cells to their default values, and prefaults all pages in the region.
+    fn init_cells(&mut self) {
+        let cells = self.mem.ptr_at::<Cell>(0) as *mut Cell;
+        let cells = unsafe {
+            std::slice::from_raw_parts_mut(
+                cells,
+                self.mem.slice_mut().len() / std::mem::size_of::<Cell>(),
+            )
+        };
 
-// Catching unwinds is expensive, so we only do it in debug mode
-#[cfg(debug_assertions)]
-fn with_catch_unwind_in_debug<R, F: FnOnce() -> R + UnwindSafe>(f: F) -> R {
-    let maybe_panic = std::panic::catch_unwind(f);
-
-    match maybe_panic {
-        Ok(res) => res,
-        Err(e) => {
-            if let Some(msg) = e.downcast_ref::<&str>() {
-                eprintln!("panic within TigreEngine::run: {}", msg);
-            } else {
-                eprintln!("panic within TigreEngine::run");
-            }
-            std::process::abort();
+        // Reverse iterate so we the first cells will be fresher in cache.
+        for cell in cells.iter_mut().rev() {
+            cell.call_opcode = CALL_OPCODE;
+            cell.call_rel_addr = 0;
+            cell.arg = 0;
+            cell.used = false;
+            cell._padding = [0u8; 2];
         }
     }
-}
-
-// In release mode, this is a no-op.
-#[cfg(not(debug_assertions))]
-fn with_catch_unwind_in_debug<R, F: FnOnce() -> R + UnwindSafe>(f: F) -> R {
-    f()
 }
 
 thread_local!(static ENGINE: UnsafeCell<*mut TigreEngine> = UnsafeCell::new(std::ptr::null_mut()));

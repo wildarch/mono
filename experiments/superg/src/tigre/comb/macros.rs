@@ -19,11 +19,12 @@ macro_rules! comb3 {
             concat!(".global ", stringify!($name)),
             concat!(stringify!($name), ":"),
             r#"
-                mov rdi, r15
                 // Load f, g, x pointers as arguments
                 mov rsi, [rsp]
                 mov rdx, [rsp+8]
                 mov rcx, [rsp+16]
+                // Save engine pointer
+                push rdi
 
                 // Align stack to 16 bytes if needed
                 mov rax, rsp
@@ -35,8 +36,10 @@ macro_rules! comb3 {
             concat!(stringify!($name), "_no_align:"),
             concat!("call ", stringify!($helper_func)),
             r#"
-                // Pop arguments
-                add rsp, 24
+                // Restore engine
+                mov rdi, [rsp]
+                // Pop arguments (+engine)
+                add rsp, 32
                 jmp rax
             "#,
             // Alignment needed
@@ -44,8 +47,10 @@ macro_rules! comb3 {
             "sub rsp, 8",
             concat!("call ", stringify!($helper_func)),
             r#"
+                // Restore engine
+                mov rdi, [rsp+8]
                 // Pop arguments
-                add rsp, 32
+                add rsp, 40
                 jmp rax
             "#,
         );
@@ -54,25 +59,18 @@ macro_rules! comb3 {
         }
         #[no_mangle]
         unsafe extern "C" fn $helper_func(
-            reg_engine: *mut TigreEngine,
+            engine: *mut TigreEngine,
             f: *const CellPtr,
             g: *const CellPtr,
             x: *const CellPtr,
         ) -> CellPtr {
-            // TODO: Restore unwinding behaviour
-            // Place all code within `TigreEngine::with_current` since that also takes
-            // care of catching unwinds before they escape Rust code.
             let fimpl: fn(
                 &mut TigreEngine,
                 *const CellPtr,
                 *const CellPtr,
                 *const CellPtr,
             ) -> CellPtr = $impl;
-            TigreEngine::with_current(|engine| {
-                assert!(std::ptr::eq(reg_engine, engine as *mut TigreEngine));
-                println!("OK");
-                fimpl(engine, f, g, x)
-            })
+            fimpl(&mut *engine, f, g, x)
         }
     };
 }
@@ -86,8 +84,11 @@ macro_rules! comb_bin_op {
             concat!(stringify!($name), ":"),
             r#"
                 // Load argument pointers as arguments
-                mov rdi, [rsp]
-                mov rsi, [rsp+8]
+                mov rsi, [rsp]
+                mov rdx, [rsp+8]
+
+                // Save engine
+                push rdi
 
                 // Align stack to 16 bytes if needed
                 mov rax, rsp
@@ -99,8 +100,10 @@ macro_rules! comb_bin_op {
             concat!(stringify!($name), "_no_align:"),
             concat!("call ", stringify!($helper_func)),
             r#"
-                // Pop arguments
-                add rsp, 16
+                // Restore engine
+                mov rdi, [rsp]
+                // Pop arguments (+engine)
+                add rsp, 24
                 // Return the computed value
                 ret
             "#,
@@ -109,8 +112,10 @@ macro_rules! comb_bin_op {
             "sub rsp, 8",
             concat!("call ", stringify!($helper_func)),
             r#"
-                // Pop arguments
-                add rsp, 24
+                // Restore engine
+                mov rdi, [rsp+8]
+                // Pop arguments (+engine)
+                add rsp, 32
                 // Return the computed value
                 ret
             "#,
@@ -119,17 +124,17 @@ macro_rules! comb_bin_op {
             pub fn $name() -> usize;
         }
         #[no_mangle]
-        unsafe extern "C" fn $helper_func(a0: *const ArgFn, a1: *const ArgFn) -> i64 {
-            // Place all code within `TigreEngine::with_current` since that also takes
-            // care of catching unwinds before they escape Rust code.
-            TigreEngine::with_current(|engine| {
-                let op: fn(i64, i64) -> i64 = $op;
-                let res = op((*a0)(), (*a1)());
+        unsafe extern "C" fn $helper_func(
+            engine: *mut TigreEngine,
+            a0: *const ArgFn,
+            a1: *const ArgFn,
+        ) -> i64 {
+            let op: fn(i64, i64) -> i64 = $op;
+            let res = op((*a0)(engine), (*a1)(engine));
 
-                // Update the top cell to the literal value
-                engine.update_top_cell(Lit, res, a1 as *const CellPtr);
-                res
-            })
+            // Update the top cell to the literal value
+            (*engine).update_top_cell(Lit, res, a1 as *const CellPtr);
+            res
         }
     };
 }
@@ -143,7 +148,10 @@ macro_rules! bulk_comb {
             concat!(stringify!($name), ":"),
             r#"
                 // Load pointer to stacked arguments
-                mov rdi, rsp
+                mov rsi, rsp
+
+                // Save engine
+                push rdi
 
                 // Align stack to 16 bytes if needed
                 mov rax, rsp
@@ -154,14 +162,18 @@ macro_rules! bulk_comb {
             // No alignment needed
             concat!(stringify!($name), "_no_align:"),
             concat!("call ", stringify!($helper_func)),
-            // Pop arguments
+            // Restore engine
+            "mov rdi, [rsp]",
+            // Pop arguments (+engine)
             concat!("add rsp, ", stringify!($stack_off_no_align)),
             "jmp rax",
             // Alignment needed
             concat!(stringify!($name), "_need_align:"),
             "sub rsp, 8",
             concat!("call ", stringify!($helper_func)),
-            // Pop arguments
+            // Restore engine
+            "mov rdi, [rsp+8]",
+            // Pop arguments (+engine)
             concat!("add rsp, ", stringify!($stack_off_need_align)),
             "jmp rax",
         );
@@ -169,18 +181,17 @@ macro_rules! bulk_comb {
             pub fn $name() -> usize;
         }
         #[no_mangle]
-        unsafe extern "C" fn $helper_func(args: *const *const CellPtr) -> CellPtr {
-            // Place all code within `TigreEngine::with_current` since that also takes
-            // care of catching unwinds before they escape Rust code.
-            TigreEngine::with_current(|engine| {
-                let fimpl: fn(&mut TigreEngine, &[&CellPtr]) -> CellPtr = $impl;
-                // Check that the stack size arguments to the macro were valid
-                debug_assert_eq!($arg_count * 8, $stack_off_no_align);
-                debug_assert_eq!($arg_count * 8 + 8, $stack_off_need_align);
-                let args = args as *const &CellPtr;
-                let args = std::slice::from_raw_parts(args, $arg_count);
-                fimpl(engine, args)
-            })
+        unsafe extern "C" fn $helper_func(
+            engine: *mut TigreEngine,
+            args: *const *const CellPtr,
+        ) -> CellPtr {
+            let fimpl: fn(&mut TigreEngine, &[&CellPtr]) -> CellPtr = $impl;
+            // Check that the stack size arguments to the macro were valid
+            debug_assert_eq!(($arg_count + 1) * 8, $stack_off_no_align);
+            debug_assert_eq!(($arg_count + 2) * 8, $stack_off_need_align);
+            let args = args as *const &CellPtr;
+            let args = std::slice::from_raw_parts(args, $arg_count);
+            fimpl(&mut *engine, args)
         }
     };
 }

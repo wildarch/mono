@@ -19,6 +19,9 @@ const CELLS: usize = 250_000;
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct CellPtr(i32);
 
+// The I combinator is used so often that we hardwire a cell pointer to it.
+pub const COMB_I: CellPtr = CellPtr(0);
+
 impl CellPtr {
     pub fn comb(&self, engine: &TurnerEngineDebug) -> Option<Comb> {
         engine.comb_inst.get(self.0 as usize).copied()
@@ -29,7 +32,7 @@ impl CellPtr {
     }
 
     pub fn is_i_comb(&self) -> bool {
-        return self.0 == 0;
+        return *self == COMB_I;
     }
 }
 
@@ -45,6 +48,7 @@ impl IntoCellPtr for CellPtr {
 
 impl IntoCellPtr for Comb {
     fn into_cell_ptr(self, engine: &TurnerEngine) -> CellPtr {
+        debug_assert!(self != Comb::I, "Use hardwired COMB_I instead (faster)");
         if let Some(idx) = engine.comb_map.get(&self) {
             CellPtr(*idx as i32)
         } else {
@@ -152,7 +156,7 @@ impl crate::Engine for TurnerEngine {
         // Reserve a spot for each definition
         engine.add_comb_impl(Comb::Abort);
         for def in &compiled_defs {
-            let cell_ptr = engine.make_cell(Tag::wanted(), Comb::I, Comb::Abort);
+            let cell_ptr = engine.make_cell(Tag::wanted(), COMB_I, Comb::Abort);
             if let Some(_) = engine.def_lookup.insert(def.name.clone(), cell_ptr) {
                 panic!("Duplicate definition of {}", def.name);
             }
@@ -491,6 +495,7 @@ impl TurnerEngine {
 
     fn alloc_compiled_expr(&mut self, expr: CompiledExpr) -> CellPtr {
         match expr {
+            CompiledExpr::Comb(Comb::I) => COMB_I,
             CompiledExpr::Comb(c) => c.into_cell_ptr(self),
             CompiledExpr::Var(s) => self
                 .def_lookup
