@@ -29,6 +29,14 @@
 
 \usepackage{listings}
 
+\usepackage{svg}
+
+\ifCLASSOPTIONcompsoc
+    \usepackage[caption=false, font=normalsize, labelfont=sf, textfont=sf]{subfig}
+\else
+\usepackage[caption=false, font=footnotesize]{subfig}
+\fi
+
 \begin{document}
 
 \title{Reviving the Lost Art of Combinator Graph Reduction}
@@ -726,14 +734,98 @@ The System-V ABI that is used on x86-64-Linux mandates that before a \texttt{CAL
 Our engine regularly chains \texttt{CALL} instructions (pushing an 8-byte return address onto the stack) until a combinator is reached, so it is impossible to guarantee statically the alignment of the stack upon a call to a combinator implementation.
 The entry point of each combinator that needs to call into Rust code checks the alignment of the stack right before the \texttt{CALL} instruction and adjusts it if necessary.
 
-\subsection{Panicking inside combinators}
-Rust has the concept of \emph{panic}: an exceptional situation that indicates a bug in the program, for example, an index out-of-bounds error.
-If a panic occurs, the program collects a stack trace and terminates with an error code.
-A panic inside of a combinator implementation may cause the program to unwind into the node graph, which is undesirable because it is undefined behaviour\footnote{\url{https://doc.rust-lang.org/nomicon/ffi.html\#ffi-and-unwinding}}.
-To prevent this, all combinator implementations are wrapped in a call to \emph{catch\_unwind}\footnote{\url{https://doc.rust-lang.org/std/panic/fn.catch_unwind.html}}, so we catch panics before they leave Rust code, log them and abort the program.
+% Removed because it was too slow
+%\subsection{Panicking inside combinators}
+%Rust has the concept of \emph{panic}: an exceptional situation that indicates a bug in the program, for example, an index out-of-bounds error.
+%If a panic occurs, the program collects a stack trace and terminates with an error code.
+%A panic inside of a combinator implementation may cause the program to unwind into the node graph, which is undesirable because it is undefined behaviour\footnote{\url{https://doc.rust-lang.org/nomicon/ffi.html\#ffi-and-unwinding}}.
+%To prevent this, all combinator implementations are wrapped in a call to \emph{catch\_unwind}\footnote{\url{https://doc.rust-lang.org/std/panic/fn.catch_unwind.html}}, so we catch panics before they leave Rust code, log them and abort the program.
 
 \section{Performance evaluation}
 \label{sec:eval}
+Our performance evaluation consists of three parts:
+\begin{itemize}
+    \item We compare our Miranda-style engine with the original Miranda, to demonstrate that our implementation is competitive.
+    \item We compare our TIGRE-style engine to our Miranda-style engine, to see if the techniques described in~\cite{koopman_fresh_1989} are viable on the X86 architecture.
+    \item We compare the traditional bracket abstraction and the different semantic translation algorithms from~\cite{kiselyov_lambda_2018} by compiling the same source programs with each translation algorithm and measuring the runtime on our Miranda-style engine, to see if the semantic translation algorithms produce compiled programs that are faster to execute.
+\end{itemize}
+
+\subsection{Comparison with original Miranda}
+Figure~\ref{fig:turner-vs-miranda} shows the performance of our Miranda-style engine with the traditional bracket abstraction compared to the original Miranda~\cite{noauthor_open_2021}.
+The test program used for the benchmark is the function given in figure~\ref{fig:fib}.
+
+\begin{figure*}
+    \includesvg[width=\textwidth]{turner_vs_miranda}
+    \centering
+    \caption{Time to execute the Fibonacci benchmark program. A lower value on the Y-axis is better.}
+    \label{fig:turner-vs-miranda}
+\end{figure*}
+
+\begin{figure}
+    \begin{lstlisting}
+-- Miranda
+fib n = n,                       if n < 2
+      = fib(n - 1) + fib(n - 2), otherwise
+
+-- Superg (LISP-like)
+(defun fib (n)
+    (if (< n 2) 
+        n
+        (+ (fib (- n 1)) (fib (- n 2)))))
+    \end{lstlisting}
+    \centering
+    \caption{
+        Recursive function to compute the $n$-th element of the Fibonacci sequence.
+    }
+    \label{fig:fib}
+\end{figure}
+
+We observe that our Miranda-style engine is more than twice as fast as the original Miranda.
+While we have not attempted an in-depth evaluation of the performance differences between these two systems, we can point to two likely reasons that our implementation performs better on this benchmark:
+\begin{itemize}
+    \item Miranda supports (exclusively) arbitrary precision integers.
+          They are implemented by the high-performance GNU MP~\cite{gnump} library, but are still slower than the native 32-bit machine integers that our engine uses.
+    \item As mentioned in~\ref{sec:miranda}, the original Miranda must be compiled with optimizations disabled.
+          Without these optimizations, the compiler is likely to generate a slower implementation of key functions.
+\end{itemize}
+
+As the points above indicate, the comparison of the two systems is not fair.
+Therefore, we do not claim that our implementation is strictly better than the original, but rather that it is a reasonably fast reference implementation of a combinator graph reduction engine.
+The other benchmarks in this section all use the Miranda-style engine with bracket abstraction as a reference point for performance, based on which we can judge if the proposed changes are beneficial.
+
+\subsection{TIGRE-style Engine}
+To benchmark the TIGRE-style engine we use the same Fibonacci program and bracket abstraction algorithm, and plot the execution time against our Miranda-style engine.
+Both engines are configured to use the same compiler, so they will execute identical combinator expressions.
+The results can be seen in figure~\ref{fig:turner-vs-tigre}.
+
+\begin{figure*}
+    \includesvg[width=\textwidth]{turner_vs_tigre}
+    \centering
+    \caption{Time to execute the Fibonacci benchmark program. A lower value on the Y-axis is better.}
+    \label{fig:turner-vs-tigre}
+\end{figure*}
+
+Contrary to our expectations, the TIGRE-style engine is significantly slower than the reference Miranda-style engine.
+Based on the flame graphs~\cite{gregg_flame_2016} of the two engines, available in Appendix~\ref{app:flame-graph}, we can conclude that the S combinator is significantly slower on this engine.
+
+We used Valgrind's cachegrind~\cite{NethercotePhd2004} tool to inspect the \texttt{make\_s} function and found that its execution time is dominated by data write operation to update the graph.
+While the TIGRE-style engine executes fewer instructions (22M vs. 79M) and performs fewer data accesses (13M vs. 49M), it has a much higher cache miss rate for writes (3\% vs. 0.5\%).
+
+We hypothesize that updates to nodes in the graph are slow in the TIGRE-style engine because those same nodes have been loaded into the instruction cache, and therefore trigger an expensive cache invalidation to maintain coherency between the instruction and data caches.
+The node to be updated is part of the current spine, so its \texttt{CALL} instruction will have been executed before the update, loading it into the instruction cache.
+When a write occurs to this node, the CPU must conservatively invalidate or update that cached value, or it would risk executing a stale instruction if the code were to jump back to that address.
+Writes to addresses in the instruction cache are frequent in the TIGRE-style engine, but in most software, they are very rare.
+On some processor architectures, like ARM, programs must manually clear the instruction cache if they issue a write to a location that may be cached~\cite{bramley_caches_2013}.
+
+It appears that the TIGRE approach to implementing combinator graph reduction is a poor fit for modern architectures due to the split between instruction and data caches.
+Other innovations from TIGRE, such as \texttt{LIT} combinators and removing tags, may still be beneficial.
+In particular, it may be possible to get the benefits of TIGRE without cache coherency issues by storing jump addresses rather than call instructions in nodes.
+Rather than jump directly to a node and execute it, the runtime could load the jump address and push the argument pointer to the stack normally, then jump to the address instead.
+The implementation of such an engine is left as future work.
+
+\subsection{Kiselyov's algorithms}
+
+\textbf{TEXT BELOW ARE NOTES!}
 Programs:
 \begin{itemize}
     \item ackermann
@@ -775,5 +867,24 @@ Source code for our Superg evaluator is available at \url{https://github.com/wil
 
 \bibliographystyle{IEEEtran}
 \bibliography{zotero, references}
+
+\appendix
+
+\subsection{Flame graphs}
+\label{app:flame-graph}
+\begin{figure*}
+    \includesvg[inkscapeformat=png, width=\textwidth]{flamegraph_turner}
+    \centering
+    \caption{Flame graph for $fib(20)$ on Miranda-style engine.}
+    \label{fig:flamegraph-turner}
+\end{figure*}
+
+\begin{figure*}
+    \includesvg[inkscapeformat=png, width=\textwidth]{flamegraph_tigre}
+    \centering
+    \caption{Flame graph for $fib(20)$ on TIGRE-style engine.}
+    \label{fig:flamegraph-tigre}
+\end{figure*}
+
 
 \end{document}
