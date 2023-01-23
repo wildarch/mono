@@ -37,6 +37,8 @@
 \usepackage[caption=false, font=footnotesize]{subfig}
 \fi
 
+\usepackage{pgfplots}
+
 \begin{document}
 
 \title{Reviving the Lost Art of Combinator Graph Reduction}
@@ -757,7 +759,9 @@ The test program used for the benchmark is the function given in figure~\ref{fig
 \begin{figure*}
     \includesvg[width=\textwidth]{turner_vs_miranda}
     \centering
-    \caption{Time to execute the Fibonacci benchmark program. A lower value on the Y-axis is better.}
+    \caption{
+        Time to execute the Fibonacci benchmark program on the original Miranda and our Miranda-style engine.
+        A lower value on the Y-axis is better.}
     \label{fig:turner-vs-miranda}
 \end{figure*}
 
@@ -801,7 +805,9 @@ The results can be seen in figure~\ref{fig:turner-vs-tigre}.
 \begin{figure*}
     \includesvg[width=\textwidth]{turner_vs_tigre}
     \centering
-    \caption{Time to execute the Fibonacci benchmark program. A lower value on the Y-axis is better.}
+    \caption{
+        Time to execute the Fibonacci benchmark program on Miranda-style and TIGRE-style engines.
+        A lower value on the Y-axis is better.}
     \label{fig:turner-vs-tigre}
 \end{figure*}
 
@@ -824,32 +830,57 @@ Rather than jump directly to a node and execute it, the runtime could load the j
 The implementation of such an engine is left as future work.
 
 \subsection{Kiselyov's algorithms}
+To compare the semantic translation algorithms from~\cite{kiselyov_lambda_2018} with each other, we again use the Fibonacci test program and execute all compiled programs on the Miranda-style engine.
+The bracket abstraction algorithm has been added as a reference point.
+The results can be seen in figure~\ref{fig:bracket-vs-kiselyov}.
 
-\textbf{TEXT BELOW ARE NOTES!}
-Programs:
-\begin{itemize}
-    \item ackermann
-    \item digits of e
-    \item linfib
-    \item lsort
-    \item nfib
-    \item primes
-    \item queens
-    \item tak
-    \item towers of hanoi
-    \item treesort
-\end{itemize}
+\begin{figure*}
+    \includesvg[width=\textwidth]{bracket_vs_kiselyov}
+    \centering
+    \caption{Time to execute the Fibonacci benchmark program compiled with the algorithms from~\cite{kiselyov_lambda_2018}. A lower value on the Y-axis is better.}
+    \label{fig:bracket-vs-kiselyov}
+\end{figure*}
 
-Evaluate performance of:
+All of the algorithms presented in~\cite{kiselyov_lambda_2018} produce more efficient code than the reference bracket abstraction algorithm.
+The $\lazyeta$ compilation scheme produces the best code for the Fibonacci program.
+For many of the test programs in~\cite{kiselyov_lambda_2018} it was shown to generate the shortest programs of all the algorithms presented there.
+This is also true for the Fibonacci program, as shown in figure~\ref{fig:fib-sizes}.
 
-\begin{itemize}
-    \item Bracket abstraction
-    \item Kiselyov
-    \item GHC
-\end{itemize}
+\begin{figure}
+    \begin{tikzpicture}
+        \begin{axis}[
+                xlabel={Compiled expression size (nodes)},
+                xmin=0,
+                ylabel={Translation algorithm},
+                symbolic y coords={Bracket,$\strict$,$\lazy$,$\lazyeta$,$\linear$},
+            ]
+            \addplot[xbar] coordinates {
+                    (73,Bracket)
+                    (59,$\strict$)
+                    (59,$\lazy$)
+                    (47,$\lazyeta$)
+                    (53,$\linear$)
+                };
+        \end{axis}
+    \end{tikzpicture}
+    \centering
+    \caption{Size of combinator expression generated for the Fibonacci program by different translation algorithm}
+    \label{fig:fib-sizes}
+\end{figure}
 
-Suggestion from \textit{Common Benchmarking Pitfalls}: Always look at your distribution.
-When you have run benchmarks, take a look at the times for each sample.
+
+It comes as no surprise that the shortest translation is also the fastest to execution, but it is worth noting that while the Bracket abstraction translation is only 55\% larger than the $\lazyeta$ one, it runs 94\% slower.
+We see a similar pattern for the Ackermann function, for which results may be found in appendix~\ref{app:ack}.
+This suggests that while the semantic translation algorithms from~\cite{kiselyov_lambda_2018} reduce the size of the combinator expression, they reduce runtime even further.
+
+\section{Related work}
+supercombinators
+
+GHC
+
+Kiselyov's later work.
+
+Edward Kmett's SIMD combinator stuff.
 
 \section{Conclusion}
 % Repeat the main question / objective of your research
@@ -886,5 +917,54 @@ Source code for our Superg evaluator is available at \url{https://github.com/wil
     \label{fig:flamegraph-tigre}
 \end{figure*}
 
+\newpage
+
+\subsection{Ackermann benchmark results}
+\label{app:ack}
+
+\begin{figure*}
+    \begin{lstlisting}
+(defun ack (x z) (if (= x 0)
+                     (+ z 1)
+                     (if (= z 0)
+                         (ack (- x 1) 1)
+                         (ack (- x 1) (ack x (- z 1))))))
+    \end{lstlisting}
+    \centering
+    \caption{
+        Ackermann's function.
+    }
+    \label{fig:ack}
+\end{figure*}
+
+
+\begin{figure*}
+    \includesvg[width=\textwidth]{ack_bracket_vs_kiselyov}
+    \centering
+    \caption{Time to execute the Ackermann benchmark program compiled with the algorithms from~\cite{kiselyov_lambda_2018}. A lower value on the Y-axis is better.}
+    \label{fig:ack-bracket-vs-kiselyov}
+\end{figure*}
+
+\begin{figure}
+    \begin{tikzpicture}
+        \begin{axis}[
+                xlabel={Compiled expression size (nodes)},
+                xmin=0,
+                ylabel={Translation algorithm},
+                symbolic y coords={Bracket,$\strict$,$\lazy$,$\lazyeta$,$\linear$},
+            ]
+            \addplot[xbar] coordinates {
+                    (415,Bracket)
+                    (175,$\strict$)
+                    (137,$\lazy$)
+                    (109,$\lazyeta$)
+                    (123,$\linear$)
+                };
+        \end{axis}
+    \end{tikzpicture}
+    \centering
+    \caption{Size of combinator expression generated for the Ackermann program by different translation algorithm}
+    \label{fig:ack-sizes}
+\end{figure}
 
 \end{document}
