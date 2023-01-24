@@ -147,6 +147,8 @@ For readers unfamiliar with combinatory logic and/or graph reduction, we provide
 \section{Preliminaries}
 \label{sec:prelim}
 \textbf{TODO: write section. Currently contains only a few small fragments}
+\subsection{Lambda Calculus}
+
 \subsection{Combinatory Logic}
 Starting from a lambda calculus expression, we first translate it into an expression consisting exclusively of the application of a small set of predefined functions, or \textit{combinators}.
 It turns out that any lambda calculus expression can be expressed using just three combinators:
@@ -168,9 +170,7 @@ Better still, conversion to combinators removes all bound variables.
 The runtime need not concern itself with passing arguments, this is all handled by the combinators.
 The compiled program is executed using graph reduction, a technique that is also common in other reduction engines\cite{kieburtz_g-machine_1985,fairbairn_tim_1987}.
 
-\subsection{Graph Reduction}
-% In the reduction graph, vertices are combinators, constants or function applications, and edges connect the function and argument for application (combinators and constants have no outgoing edges, they are leaf nodes).
-
+\subsection{Bracket abstraction}
 
 \section{Kiselyov's algorithms}
 \label{sec:kiselyov}
@@ -799,7 +799,7 @@ We observe that our Miranda-style engine is more than twice as fast as the origi
 While we have not attempted an in-depth evaluation of the performance differences between these two systems, we can point to two likely reasons that our implementation performs better on this benchmark:
 \begin{itemize}
     \item Miranda supports (exclusively) arbitrary precision integers.
-          They are implemented by the high-performance GNU MP~\cite{gnump} library, but are still slower than the native 32-bit machine integers that our engine uses.
+          They are implemented by the high-performance GNU MP~\cite{gnump} library but are still slower than the native 32-bit machine integers that our engine uses.
     \item As mentioned in~\ref{sec:miranda}, the original Miranda must be compiled with optimizations disabled.
           Without these optimizations, the compiler is likely to generate a slower implementation of key functions.
 \end{itemize}
@@ -916,7 +916,7 @@ In future work, we will compare the performance of our runtime against that of G
 
 \subsection{SIMD Combinator Reduction}
 In his talk \emph{Combinator Revisited}~\cite{kmett_combinators_2018}, Kmett hypothesizes the use of SIMD instructions to perform combinator reductions.
-The rationale is that combinators have a relatively simple implementation, and SIMD instructions are getting more and more powerful, so potentially they can be used to implement the reduction of multiple combinators in a single instructions.
+The rationale is that combinators have a relatively simple implementation, and SIMD instructions are getting more and more powerful, so potentially they can be used to implement the reduction of multiple combinators in a single instruction.
 Assuming the reduction of a single combinator uses 64-bit wide values, the same routine implemented with AVX-512 instructions could be used to perform as many as 8 reductions in parallel on a single core.
 An eightfold improvement in performance is certainly promising, although it is unclear what level of parallelism a typical program may allow for.
 A work-in-progress version of the compiler is available at \url{https://github.com/ekmett/coda}.
