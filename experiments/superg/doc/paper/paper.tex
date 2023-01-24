@@ -15,8 +15,7 @@
     linkcolor=blue,
     filecolor=magenta,      
     urlcolor=cyan,
-    pdftitle={Reviving the Lost Art of Combinator Graph Reduction},
-    pdfpagemode=FullScreen,
+    pdftitle={Reviving the Lost Art of Combinator Graph Reduction}
     }
 
 \urlstyle{same}
@@ -38,6 +37,7 @@
 \fi
 
 \usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
 
 \begin{document}
 
@@ -55,14 +55,25 @@
 \begin{abstract}
     % Rules of thumb
     % - 1 sentence background
+    Combinator Graph Reduction was once the dominant execution strategy for lazy functional languages, but inefficient translation algorithms and lack of an open-source implementation caused the technique to fall into obscurity in the late 1980s.
     % - 1 sentence motive/problem
+    Recently, a new family of translation algorithms has been proposed~\cite{kiselyov_lambda_2018}.
+    The new translations produce smaller combinator expressions, and for some their output size is linear in the size of the input in the worst case, rather than quadratic.
+    While the effect on code size is known, the difference in runtime performance has remained unquantified.
     % - 1 sentence objective
+    Our goal is to find out if the gains in code size hold up during execution time on a modern, efficient Combinator Graph Reduction engine.
     % - 1 sentence approach/method
+    Since no such engine existed at the time, we have developed our own based on the design of Miranda~\cite{turner_miranda_1985} and TIGRE~\cite{koopman_fresh_1989}.
+    We compile a set of test programs with the proposed translation algorithms~\cite{kiselyov_lambda_2018} and measure their execution time on our best engine.
     % - 2 sentences support
+    Our benchmarks show that our Miranda-style engine outperforms the original Miranda, and is therefore a good reference point to measure performance improvements against.
+    We find that the threaded code approach proposed in TIGRE reduces the number of instructions and data accesses needed to execute programs, but frequent cache misses make it unattractive on architectures with split instruction and data caches.
+    Kiselyov's new translation algorithms are shown to significantly boost performance in our benchmarks, the effect on execution time is even greater than we observe on code size.
     % - 1 sentence conclusion
+    We conclude that the new translation algorithms significantly improve performance, and there may be further gains to be had by combining ideas from the different translation algorithms.
+    Many opportunities remain to improve the basic combinator graph reduction engine, such as the integration of other ideas from TIGRE, a concurrent garbage collector, and parallel reduction.
     % - 1 sentence implication
-    % - 1 sentence limitation
-    This is the abstract.
+    Our results show that there are significant improvements to be made in this area of research that has been largely static in recent years, and we hope there will be renewed interest from the community to do research in this field.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -80,7 +91,7 @@ It is a difficult balance, and over the years many different evaluator designs, 
 One of the early approaches to implementing lazy functional languages is combinator graph reduction~\cite{turner_new_1979}.
 It was the basis for David Turner's Miranda language~\cite{turner_miranda_1985}, the popular choice for pure functional languages and one of the few to be commercially supported at the time.
 Eventually, the interest in Miranda and combinator graph reduction with it waned.
-Part of the reason may be that Miranda was until very recently a closed-source, licensed software (its source code was released only in 2020~\cite{noauthor_open_2021}), leading to the creation of the open-source Haskell language~\cite{hudak_history_2007}.
+Part of the reason may be that Miranda was until very recently closed-source, licensed software (its source code was released only in 2020~\cite{noauthor_open_2021}), leading to the creation of the open-source Haskell language~\cite{hudak_history_2007}.
 But combinator reduction also deserves part of the blame.
 % Firstly, owing to the simplicity of individual combinators, expressions are reduced in many small steps, so the per-step overhead greatly impacts runtime performance.
 % Every reduction step modifies the stack and usually also the graph, resulting in high memory traffic.
