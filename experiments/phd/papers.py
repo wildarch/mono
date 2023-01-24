@@ -13,11 +13,15 @@ class Paper:
     year: int
     ee: str
 
+author_names = set()
 papers = {}
 
 for xml_filename in os.listdir(PEOPLE_DIR):
     xml_path = PEOPLE_DIR + xml_filename
     tree = etree.parse(xml_path)
+
+    for name in tree.iterfind('./person/author'):
+        author_names.add(name.text)
 
     for r in tree.iterfind('//r/*'):
         title = etree.tostring(r.find('.//title')).decode('utf-8')
@@ -56,8 +60,10 @@ with open('papers.html', 'w') as f:
             year = paper.year
             f.write(f'<h2>{year}</h2>')
         
+        authors = [f'<b>{n}</b>' if n in author_names else n for n in paper.authors]
+        
         f.write('<div>')
-        f.write(f'<a href="{paper.ee}">{paper.title}</a> {", ".join(paper.authors)}')
+        f.write(f'<a href="{paper.ee}">{paper.title}</a> {", ".join(authors)}')
         f.write('<br />')
         f.write('<br />')
         f.write('</div>')
