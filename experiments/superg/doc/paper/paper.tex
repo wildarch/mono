@@ -888,13 +888,38 @@ We see a similar pattern for the Ackermann function, for which results may be fo
 This suggests that while the semantic translation algorithms from~\cite{kiselyov_lambda_2018} reduce the size of the combinator expression, they reduce runtime even further.
 
 \section{Related work}
-supercombinators
+\subsection{Super-combinators}
+Super-combinators~\cite{hughes_super-combinators_1982} are the basis of many lazy functional runtimes~\cite{fairbairn_tim_1987,kieburtz_g-machine_1985,burn_spineless_1988,jones_implementing_nodate} developed after Miranda.
+A supercombinator is a lambda expression of the form $\lambda x_1. \lambda x_2. ... \lambda x_n. E$, where $E$ has no free variables, and any lambda abstraction in $E$ is also a supercombinator~\cite{spj_impl}.
+Any program in the lambda calculus may be transformed into supercombinators by \emph{lifting} free variables.
+For example, we may consider $\lambda f.f\ (\lambda x.f\ x\ 2)$, which is not a super-combinator, because $f$ is free in the inner lambda.
+To make this expression a super-combinator, we can pass $f$ explicitly:
 
-GHC
+\[
+    \lambda f. f\ ((\lambda f.\lambda x. f\ x\ 2)\ f)
+\]
 
-Kiselyov's later work.
+This transformation is useful because the output of a supercombinator depends entirely on the value of its inputs, and thus its implementation may be described as a fixed set of (machine) instructions.
 
-Edward Kmett's SIMD combinator stuff.
+Programs translated into super-combinators have a code size that is linear in the size of the input in the worst case, an improvement over the worst-case quadratic size of bracket abstraction.
+
+Perhaps more importantly, the reduction steps for a program based on super-combinators are larger.
+A downside is that this makes the execution less lazy, but an important advantage is that the larger step size makes the overhead of the reduction loop smaller.
+The small step size is an often noted issue with combinator reduction engines~\cite{spj_impl}, and a major reason why they were largely abandoned.
+
+\subsection{Haskell}
+Haskell is without a doubt the most popular lazy functional programming language today.
+It too has its roots in the super-combinator approach.
+The popular Glasgow Haskell Compiler is based on the Spineless Tagless G-Machine~\cite{jones_implementing_nodate}, which in turn is based on the Spineless G-Machine~\cite{burn_spineless_1988} and G-Machine~\cite{kieburtz_g-machine_1985}.
+GHC compiles super-combinators into machine code ahead of time, which makes the resulting binaries self-contained and highly efficient.
+In future work, we will compare the performance of our runtime against that of GHC.
+
+\subsection{SIMD Combinator Reduction}
+In his talk \emph{Combinator Revisited}~\cite{kmett_combinators_2018}, Kmett hypothesizes the use of SIMD instructions to perform combinator reductions.
+The rationale is that combinators have a relatively simple implementation, and SIMD instructions are getting more and more powerful, so potentially they can be used to implement the reduction of multiple combinators in a single instructions.
+Assuming the reduction of a single combinator uses 64-bit wide values, the same routine implemented with AVX-512 instructions could be used to perform as many as 8 reductions in parallel on a single core.
+An eightfold improvement in performance is certainly promising, although it is unclear what level of parallelism a typical program may allow for.
+A work-in-progress version of the compiler is available at \url{https://github.com/ekmett/coda}.
 
 \section{Conclusion}
 % Repeat the main question / objective of your research
