@@ -144,46 +144,30 @@ fn bench_compilers_ack(c: &mut Criterion) {
     }
 }
 
-fn add_all_compilers<P: Display + Clone>(
+fn add_all_compilers<P: Display + Clone + Copy>(
     group: &mut BenchmarkGroup<WallTime>,
     n: P,
     program: &str,
     expected_res: i32,
 ) {
     // Bracket
-    group.bench_with_input(BenchmarkId::new("Bracket", n.clone()), &n, |b, n| {
+    group.bench_function(BenchmarkId::new("Bracket", n), |b| {
         bench_instance::<_, TurnerEngine>(b, program, expected_res, BracketCompiler);
     });
     // Strict
-    group.bench_with_input(
-        BenchmarkId::new("Kiselyov - Strict", n.clone()),
-        &n,
-        |b, n| {
-            bench_instance::<_, TurnerEngine>(b, program, expected_res, StrictCompiler);
-        },
-    );
+    group.bench_function(BenchmarkId::new("Kiselyov - Strict", n), |b| {
+        bench_instance::<_, TurnerEngine>(b, program, expected_res, StrictCompiler);
+    });
     // Lazy
-    group.bench_with_input(
-        BenchmarkId::new("Kiselyov - Lazy", n.clone()),
-        &n,
-        |b, n| {
-            bench_instance::<_, TurnerEngine>(b, program, expected_res, LazyCompiler);
-        },
-    );
+    group.bench_function(BenchmarkId::new("Kiselyov - Lazy", n), |b| {
+        bench_instance::<_, TurnerEngine>(b, program, expected_res, LazyCompiler);
+    });
     // LazyOpt
-    group.bench_with_input(
-        BenchmarkId::new("Kiselyov - LazyOpt", n.clone()),
-        &n,
-        |b, n| {
-            bench_instance::<_, TurnerEngine>(b, program, expected_res, LazyOptCompiler);
-        },
-    );
+    group.bench_function(BenchmarkId::new("Kiselyov - LazyOpt", n), |b| {
+        bench_instance::<_, TurnerEngine>(b, program, expected_res, LazyOptCompiler);
+    });
     // Linear
-    group.bench_with_input(
-        BenchmarkId::new("Kiselyov - Linear", n.clone()),
-        &n,
-        |b, n| {
-            bench_instance::<_, TurnerEngine>(b, program, expected_res, LinearCompiler);
-        },
-    );
+    group.bench_function(BenchmarkId::new("Kiselyov - Linear", n), |b| {
+        bench_instance::<_, TurnerEngine>(b, program, expected_res, LinearCompiler);
+    });
 }
