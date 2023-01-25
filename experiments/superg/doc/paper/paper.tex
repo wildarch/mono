@@ -56,24 +56,27 @@
     % Rules of thumb
     % - 1 sentence background
     Combinator Graph Reduction was once the dominant execution strategy for lazy functional languages, but inefficient translation algorithms and lack of an open-source implementation caused the technique to fall into obscurity in the late 1980s.
+    The traditional translation algorithm produces a combinator expression that is in the worse case quadratic in the size of the input.
     % - 1 sentence motive/problem
-    Recently, a new family of translation algorithms has been proposed~\cite{kiselyov_lambda_2018}.
-    The new translations produce smaller combinator expressions, and for some their output size is linear in the size of the input in the worst case, rather than quadratic.
+    Recently, Kiselyov proposed a new family of translation algorithms that generate smaller combinator expressions, with some variants being linear in the size of the input.
     While the effect on code size is known, the difference in runtime performance has remained unquantified.
     % - 1 sentence objective
-    Our goal is to find out if the gains in code size hold up during execution time on a modern, efficient Combinator Graph Reduction engine.
+    Our goal is to find out how the reduction in code size affects execution time on a modern, efficient Combinator Graph Reduction engine.
     % - 1 sentence approach/method
-    Since no such engine existed at the time, we have developed our own based on the design of Miranda~\cite{turner_miranda_1985} and TIGRE~\cite{koopman_fresh_1989}.
-    We compile a set of test programs with the proposed translation algorithms~\cite{kiselyov_lambda_2018} and measure their execution time on our best engine.
+    In absence of a suitable engine, we have developed our own based on the design of Miranda and TIGRE.
+    We compile a set of test programs with Kiselyov's translation algorithms and measure their execution time on our best engine.
     % - 2 sentences support
+
     Our benchmarks show that our Miranda-style engine outperforms the original Miranda, and is therefore a good reference point to measure performance improvements against.
     We find that the threaded code approach proposed in TIGRE reduces the number of instructions and data accesses needed to execute programs, but frequent cache misses make it unattractive on architectures with split instruction and data caches.
-    Kiselyov's new translation algorithms are shown to significantly boost performance in our benchmarks, the effect on execution time is even greater than we observe on code size.
+    Kiselyov's new translation algorithms are shown to significantly boost performance in our benchmarks.
+    The effect on execution time is even greater than we observe on code size.
     % - 1 sentence conclusion
     We conclude that the new translation algorithms significantly improve performance, and there may be further gains to be had by combining ideas from the different translation algorithms.
-    Many opportunities remain to improve the basic combinator graph reduction engine, such as the integration of other ideas from TIGRE, a concurrent garbage collector, and parallel reduction.
+
+    %Many opportunities remain to improve the basic combinator graph reduction engine, such as the integration of other ideas from TIGRE, a concurrent garbage collector, and parallel reduction.
     % - 1 sentence implication
-    Our results show that there are significant improvements to be made in this area of research that has been largely static in recent years, and we hope there will be renewed interest from the community to do research in this field.
+    %Our results show that there are significant improvements to be made in this area of research that has been largely static in recent years, and we hope there will be renewed interest from the community to do research in this field.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -769,11 +772,11 @@ Our performance evaluation consists of three parts:
 \begin{itemize}
     \item We compare our Miranda-style engine with the original Miranda, to demonstrate that our implementation is competitive.
     \item We compare our TIGRE-style engine to our Miranda-style engine, to see if the techniques described in~\cite{koopman_fresh_1989} are viable on the X86 architecture.
-    \item We compare the traditional bracket abstraction and the different semantic translation algorithms from~\cite{kiselyov_lambda_2018} by compiling the same source programs with each translation algorithm and measuring the runtime on our Miranda-style engine, to see if the semantic translation algorithms produce compiled programs that are faster to execute.
+    \item We compare the traditional bracket abstraction and the various semantic translation algorithms from~\cite{kiselyov_lambda_2018} by compiling the same source programs with each translation algorithm and measuring the runtime on our Miranda-style engine, to see if the semantic translation algorithms produce compiled programs that execute faster.
 \end{itemize}
 
 \subsection{Comparison with original Miranda}
-Figure~\ref{fig:turner-vs-miranda} shows the performance of our Miranda-style engine with the traditional bracket abstraction compared to the original Miranda~\cite{noauthor_open_2021}.
+Figure~\ref{fig:turner-vs-miranda} shows the performance of our Miranda-style engine with the traditional bracket abstraction compared to the original Miranda~\cite{turner_open_2021}.
 The test program used for the benchmark is the function given in figure~\ref{fig:fib}.
 
 \begin{figure*}
@@ -805,11 +808,11 @@ fib n = n,                       if n < 2
 \end{figure}
 
 We observe that our Miranda-style engine is more than twice as fast as the original Miranda.
-While we have not attempted an in-depth evaluation of the performance differences between these two systems, we can point to two likely reasons that our implementation performs better on this benchmark:
+While we have not attempted an in-depth evaluation of the performance differences, we can point to two likely reasons why our implementation performs better on this benchmark:
 \begin{itemize}
     \item Miranda supports (exclusively) arbitrary precision integers.
           They are implemented by the high-performance GNU MP~\cite{gnump} library but are still slower than the native 32-bit machine integers that our engine uses.
-    \item As mentioned in~\ref{sec:miranda}, the original Miranda must be compiled with optimizations disabled.
+    \item As mentioned in Section~\ref{sec:miranda}, the original Miranda must be compiled with optimizations disabled.
           Without these optimizations, the compiler is likely to generate a slower implementation of key functions.
 \end{itemize}
 
