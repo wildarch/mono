@@ -41,7 +41,7 @@
 
 \begin{document}
 
-\title{Reviving the Lost Art of Combinator Graph Reduction}
+\title{Reviving the Lost Art of \\Combinator Graph Reduction}
 
 \author{\IEEEauthorblockN{Daan de Graaf}
     \IEEEauthorblockA{\textit{Master's student Computer Engineering} \\
@@ -80,6 +80,9 @@
     combinatory logic, graph reduction, lazy functional language, lazy evaluation
 \end{IEEEkeywords}
 
+\section{Submission}
+Submitted in partial fulfillment of the requirements for completion of the TU Eindhoven course Advanced Functional Programming (Capita Selecta SET, 2IMP05), under the guidance of prof. Tom Verhoeff.
+
 \section{Introduction}
 % Why did I research this? Give the motive, usually a knowledge gap or problem
 Lazy evaluation of programs is a powerful idea.
@@ -91,13 +94,13 @@ It is a difficult balance, and over the years many different evaluator designs, 
 One of the early approaches to implementing lazy functional languages is combinator graph reduction~\cite{turner_new_1979}.
 It was the basis for David Turner's Miranda language~\cite{turner_miranda_1985}, the popular choice for pure functional languages and one of the few to be commercially supported at the time.
 Eventually, the interest in Miranda and combinator graph reduction with it waned.
-Part of the reason may be that Miranda was until very recently closed-source, licensed software (its source code was released only in 2020~\cite{noauthor_open_2021}), leading to the creation of the open-source Haskell language~\cite{hudak_history_2007}.
+Part of the reason may be that Miranda was until very recently closed-source, licensed software (its source code was released only in 2020~\cite{turner_open_2021}), leading to the creation of the open-source Haskell language~\cite{hudak_history_2007}.
 But combinator reduction also deserves part of the blame.
 % Firstly, owing to the simplicity of individual combinators, expressions are reduced in many small steps, so the per-step overhead greatly impacts runtime performance.
 % Every reduction step modifies the stack and usually also the graph, resulting in high memory traffic.
 One of the major issues is that the translation to combinators may result in much larger programs.
 For a lambda calculus expression of size $N$, the traditional bracket abstraction algorithm produces an output of $O(N^2)$ in the worst case, where other approaches such as supercombinators are linear\cite{spj_impl}.
-Larger programs run slower, and along with other disadvantages, this led to combinator graph reduction being all but abandoned.
+Along with other disadvantages, this led to combinator graph reduction being all but abandoned.
 
 % What did I research?
 % - Research problem/question
@@ -117,15 +120,17 @@ This leads us to our first research question:
 % How did I research this?
 % - Methods
 % - Sub-questions
-We use GHC as the reference for a contemporary evaluator, and then measure the execution time of a set of benchmark programs.
-We also need a fast reduction engine that can run programs compiled to combinator expressions.
+We compare Kiselyov's translation algorithm to bracket abstraction by compiling a set of benchmark programs and measuring their execution time.
+Future work will add GHC as a reference point for a contemporary evaluator, along with additional benchmark programs.
+
+We also need a fast Combinator Graph Reduction engine that can run programs compiled to combinator expressions.
 Alas, there is no performant reduction engine tailored to executing such programs.
-The now open-sourced Miranda is a good starting point, but it is showing its age.
-The 2020 port compiles cleanly on a recent GCC, but enabling optimizations is known to break the garbage collector.
-Miranda's architecture is based on cells with a tag, head and tail as described in\cite{turner_new_1979}, but later work has shown that a tagless representation with direct pointers to code leads to better performance\cite{koopman_fresh_1989}.
+The now open-sourced Miranda software is a good starting point, but it is showing its age.
+The 2020 port compiles cleanly on a recent GCC, but enabling optimizations is known to break the garbage collector (section~\ref{sec:miranda} covers this issue in more detail).
+Miranda's architecture is based on cells with a tag, head, and tail as described in\cite{turner_new_1979}, but later work has shown that a tagless representation with direct pointers to code leads to better performance\cite{koopman_fresh_1989}.
 In absence of an up-to-date reference on building a practical combinator reduction engine, we formulate the second research question:
 
-\textbf{RQ2:} How is combinator graph reduction implemented efficiently on conventional hardware?
+\textbf{RQ2:} How is combinator graph reduction implemented efficiently on general-purpose hardware?
 
 We evaluate the state of the art in combinator graph reduction and build a fast implementation for a language that is simple but powerful enough to express our benchmark programs.
 Using this engine, we can then answer \textbf{RQ1}.
@@ -134,15 +139,16 @@ Using this engine, we can then answer \textbf{RQ1}.
 % - Structure Overview
 Concretely, our contributions are the following:
 \begin{itemize}
-    \item Kiselyov develops not one but two algorithms. The first does not have linear complexity, but tends to produce very compact code.
+    \item Kiselyov develops not one but two algorithms. The first does not have linear complexity but tends to produce very compact code.
           The second is guaranteed to be of linear complexity, at the cost of being less compact in certain cases.
-          Kiselyov's description is somewhat theoretical, so in section~\ref{sec:kiselyov} we describe both algorithms in a way that is straightforward to implement.
+          Kiselyov's description requires that the reader be familiar with OCaml and the tagless-final style of programming.
+          In section~\ref{sec:kiselyov} we describe both algorithms in a more conventional style that is directly implementable in a general-purpose language.
     \item We implement a fast combinator graph reduction engine based on the ideas in Miranda~\cite{turner_miranda_1985} and later improvements~\cite{koopman_architecture_1992}.
           We elaborate on its design in sections~\ref{sec:miranda} and~\ref{sec:tigre}.
-    \item We evaluate the performance of Miranda, Haskell and our engine on a set of benchmark programs in section~\ref{sec:eval}.
+    \item We evaluate the performance of Miranda, our engines, and Kiselyov's translation algorithms on a set of benchmark programs in section~\ref{sec:eval}.
 \end{itemize}
 
-For readers unfamiliar with combinatory logic and/or graph reduction, we provide a short introduction to these topics in section~\ref{sec:prelim}.
+For readers unfamiliar with lambda calculus, combinatory logic or bracket abstraction, we provide a short introduction to these topics in section~\ref{sec:prelim}.
 
 \section{Preliminaries}
 \label{sec:prelim}
@@ -175,8 +181,10 @@ The compiled program is executed using graph reduction, a technique that is also
 \section{Kiselyov's algorithms}
 \label{sec:kiselyov}
 Kiselyov's paper~\cite{kiselyov_lambda_2018} describes three iterations of his non-linear semantic translation, and finally the linear algorithm.
-They are presented as a type system accompanied with operational semantics, with the exception of the $\eta$-optimization given as an OCaml code patch.
-OCaml's type system can represent these algorithms very concisely in tagless-final style, but how should we represent them in a more conventional style, possibly in a language that does not have such a strong type system?
+They are presented as a type system accompanied by an operational semantics, except for the $\eta$-optimization, which is given as an OCaml code patch.
+OCaml's type system can represent these algorithms very concisely in a tagless-final style.
+Below we describe the same algorithms in a more conventional style.
+Our description places no requirements on the type system and can be directly implemented in any general-purpose programming language.
 
 \subsection{Strict algorithm}
 This is based on the rules in figure 6 of Kiselyov's paper.
@@ -265,8 +273,8 @@ There is also the new function $\sqcup$, which we need to implement:
     \end{array}
 \end{equation*}
 
-In our implementation, we unroll the recursion into a while loop, and repeatedly pop elements from the two arrays until both are empty.
-This builds the new context backwards, so as a final step the array is reversed.
+In our implementation, we unroll the recursion into a while loop and repeatedly pop elements from the two arrays until both are empty.
+This builds the new context back to front, so as a final step, the array is reversed.
 
 Alternatively, an implementation can pad the shorter list (at the start!) with $f$ and zip them.
 This is particularly convenient for languages that provide a zip function with a default value\footnote{such as \href{https://docs.python.org/3/library/itertools.html\#itertools.zip\_longest}{\texttt{ziplongest}} in Python.}.
@@ -436,7 +444,7 @@ below we give the corresponding semantic function, which is no longer recursive,
 \label{sec:miranda}
 For our base implementation, we try to stick to Miranda's design as much as possible.
 While there is published work on Miranda~\cite{turner_miranda_1985}, it does not provide much detail on the reduction engine.
-Fortunately, the source code for Miranda is now freely available~\cite{noauthor_open_2021}, and from the code, we can deduce that its design is very similar to SASL~\cite{turner_new_1979}, an earlier language developed by Turner.
+Fortunately, the source code for Miranda is now freely available~\cite{turner_open_2021}, and from the code, we can deduce that its design is very similar to SASL~\cite{turner_new_1979}, an earlier language developed by Turner.
 
 Miranda uses a graph reduction engine, so after a program has been converted into combinatory logic using Turner's abstraction algorithm~\cite{turner_another_1979}, it is loaded into a graph structure.
 The graph is binary: every node has exactly two children, and the node itself represents the application of the right node to the left one.
