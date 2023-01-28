@@ -784,18 +784,10 @@ Our performance evaluation consists of three parts:
     \item We compare the traditional bracket abstraction and the various semantic translation algorithms from~\cite{kiselyov_lambda_2018} by compiling the same source programs with each translation algorithm and measuring the runtime on our Miranda-style engine, to see if the semantic translation algorithms produce compiled programs that execute faster.
 \end{itemize}
 
-\subsection{Comparison with original Miranda}
-Figure~\ref{fig:turner-vs-miranda} shows the performance of our Miranda-style engine with the traditional bracket abstraction compared to the original Miranda~\cite{turner_open_2021}.
-The test program used for the benchmark is the function given in Figure~\ref{fig:fib}.
-
-\begin{figure*}
-    \includesvg[width=\textwidth]{turner_vs_miranda}
-    \centering
-    \caption{
-        Time to execute the Fibonacci benchmark program on the original Miranda and our Miranda-style engine.
-        A lower value on the Y-axis is better.}
-    \label{fig:turner-vs-miranda}
-\end{figure*}
+The program used in these benchmarks is a recursive definition of a function to compute elements of the Fibonacci sequence.
+Figure~\ref{fig:fib} shows the definition of the function in the Miranda language (for use with the original Miranda), as well as a definition in the LISP-like language used by our tools.
+The two definitions are identical, all differences are syntactical.
+In our benchmarks, we vary the value of parameter $n$ between $10$ and $20$ to show how the execution time changes as we increase the number of recursive calls (and therefore the number of operations performed).
 
 \begin{figure}
     \begin{lstlisting}
@@ -815,6 +807,26 @@ fib n = n,                       if n < 2
     }
     \label{fig:fib}
 \end{figure}
+
+We use the Criterion~\cite{heisler_criterionrs_2023} benchmarking library to measure the performance of our engines and Miranda.
+The original Miranda does not capture performance metrics, so we apply a small patch to the source code to output the time elapsed during a reduction operation.
+The 20-line patch and instructions on how to apply it are included with the source code for our implementation.
+
+Benchmarks were run on an otherwise quiescent laptop equipped with an x86-64 AMD CPU (Ryzen 7 4800U), running Debian 11 (Bullseye).
+The original Miranda was compiled using GCC 10.2.1 without any optimization flags, to avoid breaking the garbage collector as discussed in Section~\ref{sec:miranda}.
+All other code is written in Rust and compiled using the \texttt{release} profile (\texttt{rustc} version 1.65.0).
+
+\subsection{Comparison with original Miranda}
+Figure~\ref{fig:turner-vs-miranda} shows the performance of our Miranda-style engine with the traditional bracket abstraction compared to the original Miranda~\cite{turner_open_2021}.
+
+\begin{figure*}
+    \includesvg[width=\textwidth]{turner_vs_miranda}
+    \centering
+    \caption{
+        Time to execute the Fibonacci benchmark program on the original Miranda and our Miranda-style engine.
+        A lower value on the Y-axis is better.}
+    \label{fig:turner-vs-miranda}
+\end{figure*}
 
 We observe that our Miranda-style engine is more than twice as fast as the original Miranda.
 While we have not attempted an in-depth evaluation of the performance differences, we can point to two likely reasons why our implementation performs better on this benchmark:
