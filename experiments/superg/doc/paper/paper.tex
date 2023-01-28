@@ -179,7 +179,10 @@ Better still, conversion to combinators removes all bound variables.
 The runtime need not concern itself with passing arguments, this is all handled by the combinators.
 The compiled program is executed using graph reduction, a technique that is also common in other reduction engines\cite{kieburtz_g-machine_1985,fairbairn_tim_1987}.
 
-\subsection{Bracket abstraction}
+\subsection{Bracket Abstraction}
+
+\subsection{Graph Reduction}
+Must cover: outermost reduction.
 
 \section{Kiselyov's algorithms}
 \label{sec:kiselyov}
@@ -190,7 +193,7 @@ Below we describe the same algorithms in a more conventional style.
 Our description places no requirements on the type system and can be directly implemented in any general-purpose programming language.
 
 \subsection{Strict algorithm}
-This is based on the rules in figure 6 of Kiselyov's paper.
+This is based on the rules in Figure 6 of Kiselyov's paper.
 We call it \textit{strict} it does not have lazy weakening: most notably it lacks the K-optimization required for full laziness.
 
 The most naive implementation is to perform the type checking, then use the built context to apply the elimination rules and the translated program.
@@ -445,18 +448,24 @@ below we give the corresponding semantic function, which is no longer recursive,
 
 \section{Miranda}
 \label{sec:miranda}
-For our base implementation, we try to stick to Miranda's design as much as possible.
+For our base implementation of a Combinator Graph Reduction engine, we try to stick to Miranda's design as much as possible.
 While there is published work on Miranda~\cite{turner_miranda_1985}, it does not provide much detail on the reduction engine.
 Fortunately, the source code for Miranda is now freely available~\cite{turner_open_2021}, and from the code, we can deduce that its design is very similar to SASL~\cite{turner_new_1979}, an earlier language developed by Turner.
 
-Miranda uses a graph reduction engine, so after a program has been converted into combinatory logic using Turner's abstraction algorithm~\cite{turner_another_1979}, it is loaded into a graph structure.
-The graph is binary: every node has exactly two children, and the node itself represents the application of the right node to the left one.
+The approach we describe here is the one taken for our implementation, which may not fully correspond to Miranda's.
+Not all implementation issues are fully described in the literature, and in places where Miranda's implementation was not clear to us either, we developed our own solution.
+In particular, Section~\ref{sec:strict} covers \emph{our} approach to the resumption of the main reduction after arguments to strict combinators have been reduced, but this may be implemented differently in Miranda.
+
+Miranda converts source programs into combinatory logic using Turner's modified bracket abstraction algorithm~\cite{turner_another_1979}.
+The converted program, composed of combinators, constants and function application, is then loaded into a graph structure.
+The graph is binary: every node has exactly two children, and the node itself represents the application of the left node to the right one.
 Let us start with an example program $SKK \ 3$.
-The $S$ combinator takes 3 arguments, but currying lets us write it as $((SK) \; K)\ 3$.
-In this form, it is straightforward to construct the associated binary graph, shown in figure~\ref{fig:skk3}.
+The $S$ combinator takes three arguments, but a node can only store the application to a single argument.
+The left associativity of function application lets us rewrite the example program as $((SK) \; K)\ 3$.
+In this form, it is straightforward to construct the associated binary graph, shown in Figure~\ref{fig:skk3}.
 
 \begin{figure}
-    \includegraphics[width=.23\columnwidth]{skk3}
+    \includegraphics[width=.15\columnwidth]{skk3}
     \centering
     \caption{$SKK \ 3$ in graph representation.}
     \label{fig:skk3}
@@ -465,10 +474,10 @@ In this form, it is straightforward to construct the associated binary graph, sh
 To reduce this graph, we follow the left pointer until we find a combinator to apply.
 As we traverse the graph along what is often called the \textit{spine}, we keep the nodes we have seen on a stack, because their right nodes contain the arguments to the combinator we eventually find.
 
-In this example graph, after following two pointers we find the $S$ combinator, and we apply the definition $S f g x \Rightarrow (f x) (g x)$ to rewrite the graph, as shown in figure~\ref{fig:skk3_sred}.
+In this example graph, after following two pointers we find the $S$ combinator, and we apply the definition $S f g x \Rightarrow (f x) (g x)$ to rewrite the graph, as shown in Figure~\ref{fig:skk3_sred}.
 
 \begin{figure}
-    \includegraphics[width=.8\columnwidth]{skk3_sred}
+    \includegraphics[width=.51\columnwidth]{skk3_sred}
     \centering
     \caption{
         First reduction step for $SKK \ 3$.
@@ -478,16 +487,16 @@ In this example graph, after following two pointers we find the $S$ combinator, 
 \end{figure}
 
 The reduction process continues until the program has been reduced to a constant value, or there are insufficient arguments for the next combinator to reduce.
-The expression is said to be in \textit{weak head normal form}: some inner part of the expression may be reducible, but we only perform outermost reduction, so this is as close as we can get to normal form.
+The expression is said to be in \textit{weak head normal form}: some inner part of the expression may be reducible, but we only perform outermost reduction, so this is as close as we can get to the normal form.
 
 \subsection{Sharing}
-In the reduction in figure~\ref{fig:skk3_sred}, we have copied the value $3$ to two nodes.
+In the reduction in Figure~\ref{fig:skk3_sred}, we have copied the value $3$ to two nodes.
 For another reduction where the $x$ value is a pointer to a subgraph, performing the reduction may result in multiple pointers to the same expression.
 Expressions in Miranda are \textit{referentially transparent}: we can safely replace any expression with the value it computes.
 Computing $x$ in both branches would therefore be wasteful.
 Instead, we would like to compute it once (in whatever branch runs first) and have the second branch directly reuse the result.
 It turns out that this is not too difficult to implement: when we make a reduction step, we update the outermost node with the contents of the new outermost node.
-In figure~\ref{fig:skk3_sred}, this would mean we overwrite node 1 with the contents of node 4.
+In Figure~\ref{fig:skk3_sred}, this would mean we overwrite node 1 with the contents of node 4.
 Now any other pointers to node 1 automatically point to the reduced equivalent.
 If the expression reduces to a single value $v$ (say an integer), we can use the $I$ combinator to make an \textit{indirection node} $I v$.
 
@@ -504,7 +513,7 @@ Our implementation stores two flags in \texttt{tag}:
 Miranda integers have unlimited precision, using GNU MP~\cite{gnump} internally.
 For simplicity (and performance), our implementation instead treats the cell pointer as a 32-bit signed integer.
 
-It is unclear why a representation with three separate arrays was chosen over a single array where each element contains a 'cell' struct with a head, tail and tag.
+It is unclear why a representation with three separate arrays was chosen over a single array where each element contains a `cell' struct with a head, tail, and tag.
 We suspect decomposing the graph into separate arrays leads to poor data locality, as almost any operation will access all three parts of a cell.
 Our base implementation respects this design choice, later implementations do not.
 
@@ -529,9 +538,9 @@ when we encounter a combinator we have not seen before, its implementation is ad
 At runtime, combinator resolution is done by indexing into the array and calling the associated function.
 
 \subsection{Strict combinators}
+\label{sec:strict}
 Miranda has special built-in combinators to perform arithmetic operations and compare numbers.
 Where most combinators place no restrictions on their arguments, these combinators require their arguments to be fully reduced to integers (hence call them \textit{strict}), and so require special treatment.
-We found Miranda's implementation difficult to follow, the approach we describe here is the one taken for our implementation, and may not fully correspond to Miranda's.
 
 When a \textit{strict} combinator is about to be reduced, the engine inspects the arguments.
 If all arguments are reduced, the combinator reduction is performed as usual.
@@ -576,7 +585,7 @@ This example shows that it is not sufficient to check the \texttt{tag} of each a
 \subsection{Garbage collection}
 \label{sec:gc}
 The graph reduction process may lead to some nodes becoming unreachable.
-Coming back to the example in figure~\ref{fig:skk3_sred}, after the reduction step nodes 2 and 3 are no longer used: they are \textit{garbage}.
+Coming back to the example in Figure~\ref{fig:skk3_sred}, after the reduction step nodes 2 and 3 are no longer used: they are \textit{garbage}.
 In this example, it is easy to conclude which nodes are garbage, but in larger programs, there are often multiple references to the same node, so we cannot mark nodes as garbage during the reduction step.
 Miranda employs a simple mark-and-sweep garbage collector that kicks in when the engine runs out of free cells while allocating a new node.
 In the first phase, it zeroes out the \texttt{WANTED} bit on all tags in the heap.
@@ -604,7 +613,7 @@ At evaluation time Miranda must check the tag of nodes to see if their right-han
 TIGRE does away with this by adding a special \texttt{LIT} combinator.
 The \texttt{LIT} combinator takes one argument guaranteed to be a literal value and returns it, like an \texttt{I} combinator specialized for constants.
 An apparent downside of this is that simple expressions require more indirection, and therefore a larger graph to reduce.
-Take for example the expression $1+2$, which in the Miranda-style engine can be represented with just two nodes, shown in figure~\ref{fig:1_plus_2_miranda}.
+Take for example the expression $1+2$, which in the Miranda-style engine can be represented with just two nodes, shown in Figure~\ref{fig:1_plus_2_miranda}.
 
 \begin{figure}
     \includegraphics[width=.2\columnwidth]{1_plus_2_miranda}
@@ -616,7 +625,7 @@ Take for example the expression $1+2$, which in the Miranda-style engine can be 
     \label{fig:1_plus_2_miranda}
 \end{figure}
 
-The TIGRE version of this program, shown in figure~\ref{fig:1_plus_2_tigre}, is larger, occupying four nodes.
+The TIGRE version of this program, shown in Figure~\ref{fig:1_plus_2_tigre}, is larger, occupying four nodes.
 
 \begin{figure}
     \includegraphics[width=.46\columnwidth]{1_plus_2_tigre}
@@ -655,7 +664,7 @@ The x86-64 \texttt{CALL} \textit{rel32} instruction\footnote{\url{https://c9x.me
 \end{enumerate}
 
 We exploit this by encoding nodes as a \texttt{CALL} instruction to the left pointer, followed by the right pointer as a raw value.
-The memory layout of a node is illustrated in figure~\ref{fig:tigre_layout}.
+The memory layout of a node is illustrated in Figure~\ref{fig:tigre_layout}.
 
 \begin{figure*}
     \includegraphics[width=2\columnwidth]{tigre_layout}
@@ -695,7 +704,7 @@ Figure~\ref{fig:combI} shows the implementation of the I combinator.
 \end{figure}
 
 Combinators that return a value (\texttt{LIT} or strict combinators) can be implemented by computing the value and returning it with \texttt{RET}.
-See for example the implementation of \texttt{LIT} in figure~\ref{fig:combLIT}.
+See for example the implementation of \texttt{LIT} in Figure~\ref{fig:combLIT}.
 
 \begin{figure}
     \begin{lstlisting}[
@@ -777,7 +786,7 @@ Our performance evaluation consists of three parts:
 
 \subsection{Comparison with original Miranda}
 Figure~\ref{fig:turner-vs-miranda} shows the performance of our Miranda-style engine with the traditional bracket abstraction compared to the original Miranda~\cite{turner_open_2021}.
-The test program used for the benchmark is the function given in figure~\ref{fig:fib}.
+The test program used for the benchmark is the function given in Figure~\ref{fig:fib}.
 
 \begin{figure*}
     \includesvg[width=\textwidth]{turner_vs_miranda}
@@ -823,7 +832,7 @@ The other benchmarks in this section all use the Miranda-style engine with brack
 \subsection{TIGRE-style Engine}
 To benchmark the TIGRE-style engine we use the same Fibonacci program and bracket abstraction algorithm, and plot the execution time against our Miranda-style engine.
 Both engines are configured to use the same compiler, so they will execute identical combinator expressions.
-The results can be seen in figure~\ref{fig:turner-vs-tigre}.
+The results can be seen in Figure~\ref{fig:turner-vs-tigre}.
 
 \begin{figure*}
     \includesvg[width=\textwidth]{turner_vs_tigre}
@@ -855,7 +864,7 @@ The implementation of such an engine is left as future work.
 \subsection{Kiselyov's algorithms}
 To compare the semantic translation algorithms from~\cite{kiselyov_lambda_2018} with each other, we again use the Fibonacci test program and execute all compiled programs on the Miranda-style engine.
 The bracket abstraction algorithm has been added as a reference point.
-The results can be seen in figure~\ref{fig:bracket-vs-kiselyov}.
+The results can be seen in Figure~\ref{fig:bracket-vs-kiselyov}.
 
 \begin{figure*}
     \includesvg[width=\textwidth]{bracket_vs_kiselyov}
@@ -867,7 +876,7 @@ The results can be seen in figure~\ref{fig:bracket-vs-kiselyov}.
 All of the algorithms presented in~\cite{kiselyov_lambda_2018} produce more efficient code than the reference bracket abstraction algorithm.
 The $\lazyeta$ compilation scheme produces the best code for the Fibonacci program.
 For many of the test programs in~\cite{kiselyov_lambda_2018} it was shown to generate the shortest programs of all the algorithms presented there.
-This is also true for the Fibonacci program, as shown in figure~\ref{fig:fib-sizes}.
+This is also true for the Fibonacci program, as shown in Figure~\ref{fig:fib-sizes}.
 
 \begin{figure}
     \begin{tikzpicture}
