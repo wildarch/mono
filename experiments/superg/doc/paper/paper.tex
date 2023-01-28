@@ -833,28 +833,7 @@ Figure~\ref{fig:turner-vs-miranda} shows the performance of our Miranda-style en
                 scaled y ticks = false,
                 legend pos = north west,
             ]
-            \addplot[
-                color = blue,
-                mark=square,
-            ]
-            coordinates {
-                    (10.0, 0.18171432823529418)
-                    (15.0, 1.7536414818181825)
-                    (20.0, 17.489519720000008)
-                };
-
-
-            \addplot[
-                color = red,
-                mark=o,
-            ]
-            coordinates {
-                    (10.0, 0.05903952613565834)
-                    (15.0, 0.6745943900990098)
-                    (20.0, 7.2472888442857135)
-                };
-
-            \legend{Miranda(original), Miranda-style Engine}
+            \input{benches/miranda_vs_turner.tex}
 
         \end{axis}
     \end{tikzpicture}
@@ -883,14 +862,28 @@ To benchmark the TIGRE-style engine we use the same Fibonacci program and bracke
 Both engines are configured to use the same compiler, so they will execute identical combinator expressions.
 The results can be seen in Figure~\ref{fig:turner-vs-tigre}.
 
-\begin{figure*}
-    \includesvg[width=\textwidth]{turner_vs_tigre}
+\begin{figure}
+    %\includesvg[width=\textwidth]{turner_vs_tigre}
+    \begin{tikzpicture}
+        \begin{axis}[
+                title={Time to execute \texttt{fib} $n$},
+                xlabel={Parameter $n$},
+                xtick={10, 15, 20},
+                ylabel={Execution time (in milliseconds)},
+                ymin = 0,
+                scaled y ticks = false,
+                legend pos = north west,
+            ]
+            \input{benches/turner_vs_tigre.tex}
+
+        \end{axis}
+    \end{tikzpicture}
     \centering
     \caption{
         Time to execute the Fibonacci benchmark program on Miranda-style and TIGRE-style engines.
         A lower value on the Y-axis is better.}
     \label{fig:turner-vs-tigre}
-\end{figure*}
+\end{figure}
 
 Contrary to our expectations, the TIGRE-style engine is significantly slower than the reference Miranda-style engine.
 Based on the flame graphs~\cite{gregg_flame_2016} of the two engines, available in Appendix~\ref{app:flame-graph}, we can conclude that the S combinator is significantly slower on this engine.
@@ -915,12 +908,27 @@ To compare the semantic translation algorithms from~\cite{kiselyov_lambda_2018} 
 The bracket abstraction algorithm has been added as a reference point.
 The results can be seen in Figure~\ref{fig:bracket-vs-kiselyov}.
 
-\begin{figure*}
-    \includesvg[width=\textwidth]{bracket_vs_kiselyov}
+\begin{figure}
+    %\includesvg[width=\textwidth]{bracket_vs_kiselyov}
+    \begin{tikzpicture}
+        \begin{axis}[
+                title={Time to execute \texttt{fib} $n$},
+                width=\columnwidth,
+                height=1.5\columnwidth,
+                xlabel={Parameter $n$},
+                xtick={10, 15, 20},
+                ylabel={Execution time (in milliseconds)},
+                ymin = 0,
+                scaled y ticks = false,
+                legend pos = north west,
+            ]
+            \input{benches/bracket_vs_kiselyov.tex}
+        \end{axis}
+    \end{tikzpicture}
     \centering
     \caption{Time to execute the Fibonacci benchmark program compiled with the algorithms from~\cite{kiselyov_lambda_2018}. A lower value on the Y-axis is better.}
     \label{fig:bracket-vs-kiselyov}
-\end{figure*}
+\end{figure}
 
 All of the algorithms presented in~\cite{kiselyov_lambda_2018} produce more efficient code than the reference bracket abstraction algorithm.
 The $\lazyeta$ compilation scheme produces the best code for the Fibonacci program.
