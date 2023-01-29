@@ -29,6 +29,8 @@
 \usepackage{listings}
 
 \usepackage{svg}
+\usepackage{placeins}
+
 
 \ifCLASSOPTIONcompsoc
     \usepackage[caption=false, font=normalsize, labelfont=sf, textfont=sf]{subfig}
@@ -191,6 +193,8 @@ They are presented as a type system accompanied by an operational semantics, exc
 OCaml's type system can represent these algorithms very concisely in a tagless-final style.
 Below we describe the same algorithms in a more conventional style.
 Our description places no requirements on the type system and can be directly implemented in any general-purpose programming language.
+For the first and most basic algorithm, we give full definitions of all functions inline.
+Definitions for the more advanced algorithms are given in Appendix~\ref{app:kiselyov}.
 
 \subsection{Strict algorithm}
 This is based on the rules in Figure 6 of Kiselyov's paper.
@@ -198,45 +202,55 @@ We call it \textit{strict} it does not have lazy weakening: most notably it lack
 
 The most naive implementation is to perform the type checking, then use the built context to apply the elimination rules and the translated program.
 As Kiselyov already notes in his treatment of the linear algorithm further on in the paper, the translation does not actually care what elements are in the context, just that we keep track of the size of the context.
-This lets us express compilation as a recursive function:
+This lets us express compilation as a recursive function, shown in Figure~\ref{fig:strict}.
 
-\begin{equation*}
-    \begin{array}{l l l l}
-        \strict & z         & = & 1 \models I                                              \\
-        \strict & s \ e     & = & n+1 \models (0 \models K) \coprod (n \models c)          \\
-                &           &   & \text{where } (n \models c) := \strict e                 \\
-        \\
-        \strict & \lambda e & = & 0 \models K \; c                                         \\
-                &           &   & \text{where } (0 \models c) := \strict e                 \\
-        \strict & \lambda e & = & (n-1) \models K \; c                                     \\
-                &           &   & \text{where } (n \models c) := \strict e                 \\
-        \\
-        \strict & e_1 \ e_2 & = & (n \models ((n_1 \models c_1) \coprod (n_2 \models c_2)) \\
-                &           &   & \text{where } (n_1 \models c_1) := \strict e_1           \\
-                &           &   & \text{where } (n_2 \models c_2) := \strict e_2           \\
-                &           &   & \text{where } n := \max n_1 \, n_2                       \\
-    \end{array}
-\end{equation*}
+\begin{figure}
+    \begin{equation*}
+        \begin{array}{l l l l}
+            \strict & z         & = & 1 \models I                                              \\
+            \strict & s \ e     & = & n+1 \models (0 \models K) \coprod (n \models c)          \\
+                    &           &   & \text{where } (n \models c) := \strict e                 \\
+            \\
+            \strict & \lambda e & = & 0 \models K \; c                                         \\
+                    &           &   & \text{where } (0 \models c) := \strict e                 \\
+            \strict & \lambda e & = & (n-1) \models K \; c                                     \\
+                    &           &   & \text{where } (n \models c) := \strict e                 \\
+            \\
+            \strict & e_1 \ e_2 & = & (n \models ((n_1 \models c_1) \coprod (n_2 \models c_2)) \\
+                    &           &   & \text{where } (n_1 \models c_1) := \strict e_1           \\
+                    &           &   & \text{where } (n_2 \models c_2) := \strict e_2           \\
+                    &           &   & \text{where } n := \max n_1 \, n_2                       \\
+        \end{array}
+    \end{equation*}
+    \centering
+    \caption{Compilation function for the $\strict$ algorithm.}
+    \label{fig:strict}
+\end{figure}
 
 There are two cases for $\lambda e$, and this is precisely where the number of elements in the context matters:
 if the context is empty, the first rule applies, otherwise, we use the second one.
-The semantic function may be defined as:
+The semantic function may be defined as in Figure~\ref{fig:strict-sem}.
 
-\begin{equation*}
-    \arraycolsep=1.4pt
-    \begin{array}{l l l l l}
-        (0 \models c_1)   & \coprod & (0 \models c_2)   & = & c_1 \ c_2                                         \\
-        \\
-        (0 \models c_1)   & \coprod & (n_2 \models c_2) & = & (0 \models B c_1) \coprod (n_2 - 1 \models c_2)   \\
-        \\
-        (n_1 \models c_1) & \coprod & (0 \models c_2)   & = & (0 \models C C c_2) \coprod (n_1 - 1 \models c_1) \\
-        \\
-        (n_1 \models c_1) & \coprod & (n_2 \models c_2) & = & (n_1 - 1 \models (s \coprod l)) \coprod r)        \\
-                          &         &                   &   & \text{where } s := (0 \models S )                 \\
-                          &         &                   &   & \text{where } l := (n_1-1 \models c_1 )           \\
-                          &         &                   &   & \text{where } r := (n_2-1 \models c_2 )           \\
-    \end{array}
-\end{equation*}
+\begin{figure}
+    \begin{equation*}
+        \arraycolsep=1.4pt
+        \begin{array}{l l l l l}
+            (0 \models c_1)   & \coprod & (0 \models c_2)   & = & c_1 \ c_2                                         \\
+            \\
+            (0 \models c_1)   & \coprod & (n_2 \models c_2) & = & (0 \models B c_1) \coprod (n_2 - 1 \models c_2)   \\
+            \\
+            (n_1 \models c_1) & \coprod & (0 \models c_2)   & = & (0 \models C C c_2) \coprod (n_1 - 1 \models c_1) \\
+            \\
+            (n_1 \models c_1) & \coprod & (n_2 \models c_2) & = & (n_1 - 1 \models (s \coprod l)) \coprod r)        \\
+                              &         &                   &   & \text{where } s := (0 \models S )                 \\
+                              &         &                   &   & \text{where } l := (n_1-1 \models c_1 )           \\
+                              &         &                   &   & \text{where } r := (n_2-1 \models c_2 )           \\
+        \end{array}
+    \end{equation*}
+    \centering
+    \caption{Semantic function for the $\strict$ algorithm.}
+    \label{fig:strict-sem}
+\end{figure}
 
 These simplified functions can be implemented directly and efficiently in a conventional programming language.
 
@@ -1045,6 +1059,7 @@ Source code for our translation algorithms and runtimes, as well as associated t
 \bibliographystyle{IEEEtran}
 \bibliography{zotero, references}
 
+\newpage
 \appendix
 
 \subsection{Flame graphs}
@@ -1063,8 +1078,176 @@ Source code for our translation algorithms and runtimes, as well as associated t
     \label{fig:flamegraph-tigre}
 \end{figure*}
 
-\newpage
+\FloatBarrier
+\subsection{Semantic translation definitions}
+\label{app:kiselyov}.
 
+\begin{figure*}
+    \begin{equation*}
+        \begin{array}{l l l l}
+            \lazy & z         & = & t \models I                                                             \\
+            \lazy & s \ e     & = & \Gamma,f \models c                                                      \\
+                  &           &   & \text{where } (\Gamma \models c) := \lazy e                             \\
+            \\
+            \lazy & \lambda e & = & \emptyset \models K \; c                                                \\
+                  &           &   & \text{where } (\emptyset \models c) := \lazy e                          \\
+            \lazy & \lambda e & = & (\emptyset \models K) \coprod (\Gamma \models c)                        \\
+                  &           &   & \text{where } (\Gamma,f \models c) := \lazy e                           \\
+            \lazy & \lambda e & = & \Gamma \models K \; c                                                   \\
+                  &           &   & \text{where } (\Gamma,t \models c) := \lazy e                           \\
+            \\
+            \lazy & e_1 \ e_2 & = & (\Gamma \models ((\Gamma_1 \models c_1) \coprod (\Gamma_2 \models c_2)) \\
+                  &           &   & \text{where } (\Gamma_1 \models c_1) := \lazy e_1                       \\
+                  &           &   & \text{where } (\Gamma_2 \models c_2) := \lazy e_2                       \\
+                  &           &   & \text{where } \Gamma := \Gamma_1 \sqcup \Gamma_2                        \\
+        \end{array}
+    \end{equation*}
+    \centering
+    \caption{Compilation function with Lazy Weakening.}
+    \label{fig:lazy}
+\end{figure*}
+
+\begin{figure*}
+    \begin{equation*}
+        \begin{array}{l l l l l}
+            \Gamma_1    & \sqcup & \emptyset   & = & \Gamma_1                     \\
+            \emptyset   & \sqcup & \Gamma_2    & = & \Gamma_2                     \\
+            \Gamma_1,t  & \sqcup & \Gamma_2,\_ & = & (\Gamma_1 \sqcup \Gamma_2),t \\
+            \Gamma_1,\_ & \sqcup & \Gamma_2,t  & = & (\Gamma_1 \sqcup \Gamma_2),t \\
+            \Gamma_1,f  & \sqcup & \Gamma_2,f  & = & (\Gamma_1 \sqcup \Gamma_2),f \\
+        \end{array}
+    \end{equation*}
+    \centering
+    \caption{Semantic function with Lazy Weakening.}
+    \label{fig:lazy-sem}
+\end{figure*}
+
+\begin{figure*}
+    \begin{equation*}
+        \begin{array}{l l l l}
+            \lazyeta & z         & = & \emptyset \models V                                                          \\
+            \lazyeta & s \ e     & = & \Gamma,f \models c                                                           \\
+                     &           &   & \text{where } (\Gamma \models c) := \lazyeta e                               \\
+            \\
+            \lazyeta & \lambda e & = & \emptyset \models I                                                          \\
+                     &           &   & \text{where } (\emptyset \models V) := \lazyeta e                            \\
+            \lazyeta & \lambda e & = & \emptyset \models K \; c                                                     \\
+                     &           &   & \text{where } (\emptyset \models c) := \lazyeta e                            \\
+            \lazyeta & \lambda e & = & (\emptyset \models K) \coprod_\eta (\Gamma \models c)                        \\
+                     &           &   & \text{where } (\Gamma,f \models c) := \lazyeta e                             \\
+            \lazyeta & \lambda e & = & \Gamma \models K \; c                                                        \\
+                     &           &   & \text{where } (\Gamma,t \models c) := \lazyeta e                             \\
+            \\
+            \lazyeta & e_1 \ e_2 & = & (\Gamma \models ((\Gamma_1 \models c_1) \coprod_\eta (\Gamma_2 \models c_2)) \\
+                     &           &   & \text{where } (\Gamma_1 \models c_1) := \lazyeta e_1                         \\
+                     &           &   & \text{where } (\Gamma_2 \models c_2) := \lazyeta e_2                         \\
+                     &           &   & \text{where } \Gamma := \Gamma_1 \sqcup_\eta \Gamma_2                        \\
+        \end{array}
+    \end{equation*}
+    \centering
+    \caption{Compilation function with Eta optimization.}
+    \label{fig:lazyeta}
+\end{figure*}
+
+
+\begin{figure*}
+
+    \begin{equation*}
+        \begin{array}{l l l l l}
+            (\Gamma_1,\_ \models c_1) & \sqcup_\eta & (\emptyset \models V)     & = & \Gamma_1,t                        \\
+            (\emptyset \models V)     & \sqcup_\eta & (\Gamma_2,\_ \models c_2) & = & \Gamma_2,t                        \\
+            (\emptyset \models c_1)   & \sqcup_\eta & (\emptyset \models V)     & = & t                                 \\
+            (\emptyset \models V)     & \sqcup_\eta & (\emptyset \models c_2)   & = & t                                 \\
+            (\emptyset \models V)     & \sqcup_\eta & (\emptyset \models V)     & = & \mathbf{impossible}               \\
+            \\
+            % Original ones
+            (\Gamma_1 \models c_1)    & \sqcup_\eta & (\emptyset \models c_2)   & = & \Gamma_1                          \\
+            (\emptyset \models c_1)   & \sqcup_\eta & (\Gamma_2 \models c_2)    & = & \Gamma_2                          \\
+            (\Gamma_1,t \models c_1)  & \sqcup_\eta & (\Gamma_2,\_ \models c_2) & = & (\Gamma_1 \sqcup_\eta \Gamma_2),t \\
+            (\Gamma_1,\_ \models c_1) & \sqcup_\eta & (\Gamma_2,t \models c_2)  & = & (\Gamma_1 \sqcup_\eta \Gamma_2),t \\
+            (\Gamma_1,f \models c_1)  & \sqcup_\eta & (\Gamma_2,f \models c_2)  & = & (\Gamma_1 \sqcup_\eta \Gamma_2),f \\
+        \end{array}
+    \end{equation*}
+    \centering
+    \caption{Context merge function for Eta optimization.}
+    \label{fig:lazyeta-ctx}
+\end{figure*}
+
+\begin{figure*}
+    \begin{equation*}
+        \arraycolsep=1.4pt
+        \begin{array}{l l l l l}
+            % Added for eta optimization
+            (\Gamma_1,f \models c_1) & \coprod_\eta & (\emptyset \models V)    & = & c_1                                                        \\
+            (\emptyset \models V)    & \coprod_\eta & (\Gamma_2,f \models c_2) & = & (\emptyset \models CI) \coprod_\eta (\Gamma_2 \models c_2) \\
+
+            (\Gamma_1,t \models c_1) & \coprod_\eta & (\emptyset \models V)    & = & (\Gamma_1 \models (s \coprod_\eta l)) \coprod_\eta i       \\
+                                     &              &                          &   & \text{where } l := (\Gamma_1 \models c_1 )                 \\
+                                     &              &                          &   & \text{where } s := (\emptyset \models S )                  \\
+                                     &              &                          &   & \text{where } i := (\emptyset \models I )                  \\
+            (\emptyset \models V)    & \coprod_\eta & (\Gamma_2,t \models c_2) & = & (\emptyset \models SI) \coprod_\eta (\Gamma_2 \models c_2) \\
+            (\emptyset \models c_1)  & \coprod_\eta & (\emptyset \models V)    & = & c_1                                                        \\
+            (\emptyset \models V)    & \coprod_\eta & (\emptyset \models c_2)  & = & CI\ c_2                                                    \\
+            (\emptyset \models V)    & \coprod_\eta & (\emptyset \models V)    & = & \mathbf{impossible}                                        \\
+            \\
+
+            (\Gamma_1 \models c_1)   & \coprod_\eta & (\Gamma_2 \models)       & = & (\Gamma_1 \models c_1) \coprod (\Gamma_2 \models)          \\
+        \end{array}
+    \end{equation*}
+    \centering
+    \caption{Semantic function with Eta optimization.}
+    \label{fig:lazyeta-sem}
+\end{figure*}
+
+\begin{figure*}
+    \begin{equation*}
+        \begin{array}{l l l l}
+            \linear & z         & = & 1 \models I                                                              \\
+            \linear & s \ e     & = & n+1 \models (0 \models K) \coprod (n \models c)                          \\
+                    &           &   & \text{where } (n \models c) := \linear e                                 \\
+            \\
+            \linear & \lambda e & = & 0 \models K \; c                                                         \\
+                    &           &   & \text{where } (0 \models c) := \linear e                                 \\
+            \linear & \lambda e & = & (n-1) \models K \; c                                                     \\
+                    &           &   & \text{where } (n \models c) := \linear e                                 \\
+            \\
+            \linear & e_1 \ e_2 & = & (n \models ((n_1 \models c_1) \coprod_{\text{linear}} (n_2 \models c_2)) \\
+                    &           &   & \text{where } (n_1 \models c_1) := \linear e_1                           \\
+                    &           &   & \text{where } (n_2 \models c_2) := \linear e_2                           \\
+                    &           &   & \text{where } n := \max n_1 \, n_2                                       \\
+        \end{array}
+    \end{equation*}
+    \centering
+    \caption{Compilation function for Linear algorithm}
+    \label{fig:linear}
+\end{figure*}
+
+TODO
+
+\begin{figure*}
+    \begin{equation*}
+        \arraycolsep=1.4pt
+        \begin{array}{l l l l l}
+            (0 \models c_1)   & \coprod & (0 \models c_2)   & = & c_1 \ c_2                               \\
+            \\
+            (0 \models c_1)   & \coprod & (n \models c_2)   & = & B_n \ c_1 \ c_2                         \\
+            \\
+            (n \models c_1)   & \coprod & (0 \models c_2)   & = & C_n \ c_1 \ c_2                         \\
+            \\
+            (n \models c_1)   & \coprod & (n \models c_2)   & = & S_n \ c_1 \ c_2                         \\
+            \\
+            (n_1 \models c_1) & \coprod & (n_2 \models c_2) & = & B_{n_2-n_1} \ (S_{n_1} \ c_1) \ c_2     \\
+                              &         &                   &   & \text{where } n_1 < n_2                 \\
+            (n_1 \models c_1) & \coprod & (n_2 \models c_2) & = & C_{n_1-n_2} \ (B_{n_1-n_2} \ c_1) \ c_2 \\
+                              &         &                   &   & \text{where } n_1 > n_2                 \\
+        \end{array}
+    \end{equation*}
+    \centering
+    \caption{Semantic function for Linear algorithm}
+    \label{fig:linear-sem}
+\end{figure*}
+
+\FloatBarrier
 \subsection{Ackermann benchmark results}
 \label{app:ack}
 
@@ -1112,5 +1295,7 @@ Source code for our translation algorithms and runtimes, as well as associated t
     \caption{Size of combinator expression generated for the Ackermann program by different translation algorithm}
     \label{fig:ack-sizes}
 \end{figure}
+
+\FloatBarrier
 
 \end{document}
