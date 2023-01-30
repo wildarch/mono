@@ -157,35 +157,138 @@ For readers unfamiliar with lambda calculus, combinatory logic or bracket abstra
 
 \section{Preliminaries}
 \label{sec:prelim}
-\textbf{TODO: write section. Currently contains only a few small fragments}
 \subsection{Lambda Calculus}
+For an accessible introduction to the Lambda Calculus, we can recommend~\cite{rojas_tutorial_2015}.
+Most introductory resources, including~\cite{rojas_tutorial_2015}, present Lambda Calculus with named bindings.
+Kiselyov's algorithms~\cite{kiselyov_lambda_2018} use De Bruijn indices~\cite{de_bruijn_lambda_1972} instead.
 
+%The lambda ($\lambda$) calculus is perhaps the smallest programming language.
+%At its core there is only the definition of functions (\emph{abstraction}) and the \emph{application} of a function to an argument.
+%We use the $\lambda$ symbol to denote abstraction, e.g. $\lambda x.x$ defines a function (unnamed) that takes an argument $x$ (the $x$ before the dot), and when applied to an $y$ returns that same value $y$.
+%This application may be written as $(\lambda x.x) y$.
+%$\lambda x.x$ is in fact the definition of the \emph{identity} function: a function that returns its argument unchanged.
+%we can nest abstractions to create functions that accept multiple arguments, for example $\lambda x.\lambda y. x$, a function that takes two arguments and returns the first (the second is discarded).
+%
+%Functions may be arguments to other functions: $(\lambda x.x) (\lambda x.x)$ is a valid expression in the lambda calculus (it evaluates to $\lambda x.x$).
+%
+%TODO: Outermost reduction
+%\url{https://personal.utdallas.edu/~gupta/courses/apl/lambda.pdf}
+%
 \subsection{Combinatory Logic}
-Starting from a lambda calculus expression, we first translate it into an expression consisting exclusively of the application of a small set of predefined functions, or \textit{combinators}.
-It turns out that any lambda calculus expression can be expressed using just three combinators:
-\begin{itemize}
-    \item $S \ f \ g \ x = f \ x \ (g \ x)$
-    \item $K \ x \ y = x$
-    \item $I \ x = x$\footnote{It turns out that $SKK = I$, so even this combinator is not strictly necessary, but all reasonable implementations do include $I$, and it simplifies the example.}
-\end{itemize}
+Chapter 16 of~\cite{spj_impl} starts with a good introduction to Combinatory Logic and the Bracket Abstraction algorithm.
 
-For example, $\lambda x.x+1$ can be converted into the combinator expression:
-
-\[
-    S \ (S \  (K \  +) \  I) \ (K \ 1)
-\]
-
-We invite the reader to verify this by applying $x$ to this expression and reducing it to $x+1$ with the usual $\beta$-reduction rule.
-While the generated expression is not as easy to read, the simplicity of its components is appealing: to execute a program compiled to combinators, an evaluator only needs to support four operations: the built-in $S$, $K$ and $I$ combinators, and function application\footnote{And any builtins of the language, like the plus operator in the example.}.
-Better still, conversion to combinators removes all bound variables.
-The runtime need not concern itself with passing arguments, this is all handled by the combinators.
-
-\textbf{TODO: } Combinators $B$ and $C$.
-
+%Starting from a lambda calculus expression, we first translate it into an expression consisting exclusively of the application of a small set of predefined functions, or \textit{combinators}.
+%It turns out that any lambda calculus expression can be expressed using just three combinators:
+%\begin{itemize}
+%    \item $S \ f \ g \ x = f \ x \ (g \ x)$
+%    \item $K \ x \ y = x$
+%    \item $I \ x = x$\footnote{It turns out that $SKK = I$, so even this combinator is not strictly necessary, but all reasonable implementations do include $I$, and it simplifies the example.}
+%\end{itemize}
+%
+%For example, $\lambda x.x+1$ can be converted into the combinator expression:
+%
+%\[
+%    S \ (S \  (K \  +) \  I) \ (K \ 1)
+%\]
+%
+%We invite the reader to verify this by applying $x$ to this expression and reducing it to $x+1$ with the usual $\beta$-reduction rule.
+%While the generated expression is not as easy to read, the simplicity of its components is appealing: to execute a program compiled to combinators, an evaluator only needs to support four operations: the built-in $S$, $K$ and $I$ combinators, and function application\footnote{And any builtins of the language, like the plus operator in the example.}.
+%Better still, conversion to combinators removes all bound variables.
+%The runtime need not concern itself with passing arguments, this is all handled by the combinators.
+%
+%\textbf{TODO: } Combinators $B$ and $C$.
+%
 \subsection{Bracket Abstraction}
 
 \subsection{Graph Reduction}
-Must cover: outermost reduction.
+A good tutorial-style introduction to Graph Reduction may be found at~\cite{peyton_jones_implementing_2000}.
+For a more formal and detailed reference, see~\cite{spj_impl}.
+
+Graph Reduction is a common technique for implementing non-strict functional programming languages, i.e. languages that evaluate expressions only when their value is needed.
+Nodes in the graph are either constant values (leaf nodes) or application nodes (representing the application of a function to an argument).
+Edges are used to connect application nodes with their function and argument nodes.
+The usual convention is to denote application nodes with \emph{@}.
+Here is how we might represent the expression \texttt{square 3}:
+
+\begin{verbatim}
+       @
+      / \
+square   3
+\end{verbatim}
+
+This graph has three nodes: a reference to the function \texttt{square}, an argument 3, and an application node.
+We can \emph{reduce} this graph by applying rewrite rules to it. For example, we know that an expression \texttt{square x} produces a value $x*x$.
+For the above graph, we can therefore state that:
+
+\begin{verbatim}
+       @
+      / \    reduces to    9
+square   3
+\end{verbatim}
+
+The example graph happens to be a tree, but this is not always the case: A node may be referenced by multiple application nodes.
+Consider the graph for \texttt{square (square 3)}:
+
+\begin{verbatim}
+       @
+      / \
+     |   @
+     |  / \
+  square   3
+\end{verbatim}
+
+The two application nodes \emph{share} the \texttt{square} node.
+When we perform the reduction of \texttt{square 3}, the upper application node maintains its (now exclusive) reference to \texttt{square}, and the other application node is replaced with the constant value 9.
+Sharing nodes is important for efficiency because it prevents unnecessary re-evaluation of expressions.
+The graph representation of \texttt{(square 3) + (square 3)} highlights this:
+
+\begin{verbatim}
+      @ 
+     / \
+    @  |
+   / \ |
+  +   \|
+       @
+      / \
+square   3
+\end{verbatim}
+
+We would like to evaluate \texttt{square 3} only once.
+One way to do this is to replace the top application node of an evaluated expression with the new value.
+For the example graph above, we get:
+
+\begin{verbatim}
+      @ 
+     / \
+    @  |
+   / \ |
+  +   \|
+       9
+\end{verbatim}
+
+Now both the left and right sides of the + see the updated value (notice that we are passing the two arguments to + using a double application node).
+
+A graph could have multiple possible rewrites (reduction steps) that we could perform, in which case we need to decide what rewrite rules should be applied first.
+There are many possible ways to make this decision~\cite{spj_impl}, but most practical implementations choose a \emph{left-outermost} reduction strategy.
+In the graph representation, this amounts to traversing the graph from the root, following \emph{left} edges of application nodes.
+This chain of edges from the root down is called the \emph{spine} of the reduction.
+Eventually, we find a leaf node and apply the rewrite rule that matches that particular node (if any apply).
+The reduction then repeats from the root again, until eventually, no more rewrites are possible.
+
+At this point, it could be that the graph has been reduced to a constant value (e.g. 9).
+Another possibility is parts of the graph are still reduceable, but our reduction strategy does not `reach' it.
+For example, we can have the following graph (including a $K$ combinator) that our strategy will not reduce:
+
+\begin{verbatim}
+     @
+    / \
+   K   @
+      / \
+square   3
+\end{verbatim}
+
+$K$ requires two arguments, but we have given it only one, so the usual rewrite rule $K\ x\ y \Rightarrow x$ does not apply.
+Because the graph contains a subexpression that \emph{could} be reduced, we say the reduction has reached \emph{Weak Head Normal Form}, rather than \emph{Normal Form}.
 
 \section{Kiselyov's algorithms}
 \label{sec:kiselyov}
@@ -532,7 +635,7 @@ We exploit this by encoding nodes as a \texttt{CALL} instruction to the left poi
 The memory layout of a node is illustrated in Figure~\ref{fig:tigre_layout}.
 
 \begin{figure*}
-    \includegraphics[width=2\columnwidth]{tigre_layout}
+    \includegraphics[width=1.4\columnwidth]{tigre_layout}
     \centering
     \caption{
         Memory layout of a node in the TIGRE-style engine.
