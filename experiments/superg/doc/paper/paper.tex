@@ -179,7 +179,8 @@ We invite the reader to verify this by applying $x$ to this expression and reduc
 While the generated expression is not as easy to read, the simplicity of its components is appealing: to execute a program compiled to combinators, an evaluator only needs to support four operations: the built-in $S$, $K$ and $I$ combinators, and function application\footnote{And any builtins of the language, like the plus operator in the example.}.
 Better still, conversion to combinators removes all bound variables.
 The runtime need not concern itself with passing arguments, this is all handled by the combinators.
-The compiled program is executed using graph reduction, a technique that is also common in other reduction engines\cite{kieburtz_g-machine_1985,fairbairn_tim_1987}.
+
+\textbf{TODO: } Combinators $B$ and $C$.
 
 \subsection{Bracket Abstraction}
 
@@ -197,11 +198,14 @@ For the first and most basic algorithm, we give full definitions of all function
 Definitions for the more advanced algorithms are given in Appendix~\ref{app:kiselyov}.
 
 \subsection{Strict algorithm}
-This is based on the rules in Figure 6 of Kiselyov's paper.
-We call it \textit{strict} it does not have lazy weakening: most notably it lacks the K-optimization required for full laziness.
+The compilation function below, which we denote $\strict$, is based on the rules in Figure 6 of Kiselyov's paper~\cite{kiselyov_lambda_2018}.
+We call it \textit{strict} it does not have lazy weakening: most notably it lacks the K-optimization required for full laziness~\cite{spj_impl}.
 
-The most naive implementation is to perform the type checking, then use the built context to apply the elimination rules and the translated program.
-As Kiselyov already notes in his treatment of the linear algorithm further on in the paper, the translation does not actually care what elements are in the context, just that we keep track of the size of the context.
+Kiselyov describes the algorithm as a type system with an operational semantics.
+The type system describes how to assign a type, or context, to a lambda calculus term.
+The operational semantics define how a typed term may be converted into combinatory logic.
+A naive implementation thus requires two phases: an initial typing step, followed by a translation step.
+As Kiselyov already notes in his treatment of the linear algorithm further on in the paper, the translation does not care what elements are in the context, just that we keep track of the size of the context.
 This lets us express compilation as a recursive function, shown in Figure~\ref{fig:strict}.
 
 \begin{figure}
@@ -229,7 +233,7 @@ This lets us express compilation as a recursive function, shown in Figure~\ref{f
 
 There are two cases for $\lambda e$, and this is precisely where the number of elements in the context matters:
 if the context is empty, the first rule applies, otherwise, we use the second one.
-The semantic function may be defined as in Figure~\ref{fig:strict-sem}.
+Figure~\ref{fig:strict-sem} defines the semantic function.
 
 \begin{figure}
     \begin{equation*}
@@ -252,29 +256,27 @@ The semantic function may be defined as in Figure~\ref{fig:strict-sem}.
     \label{fig:strict-sem}
 \end{figure}
 
-These simplified functions can be implemented directly and efficiently in a conventional programming language.
+These functions are equivalent to Kiselyov's type system and can be implemented directly and efficiently in a conventional programming language.
 
 \subsection{Lazy weakening}
-Adding lazy weakening requires that we track which items in the context are ignored.
-We change our context representation from an integer to a list of boolean values.
-In the new compilation functions below, we use a shorthand $t$ for the value \textit{true} and $f$ for \textit{false}.
-We always match the last element of lists and represent the remainder of the list with $\Gamma$.
-Appendix~\ref{app:kiselyov} contains the new compilation function $\lazy$ (Figure~\ref{fig:lazy}).
+The addition of Kiselyov's \textit{Lazy Weakening} requires that we track which items in the context are ignored.
+The context representation changes from an integer to a list of boolean values.
+In the new compilation function $\lazy$, shown in Figure~\ref{fig:lazy}, we use the shorthand $t$ for the value \textit{true} and $f$ for \textit{false}.
+We always match the last element of lists and denote the remainder of the list by $\Gamma$.
 
 We have introduced yet another case for $\lambda e$, this time to distinguish between $t$ or $f$ as the last element in the context of the inner expression.
-There is also the new function $\sqcup$, whose definition is given in Figure~\ref{fig:lazy-ctx}.
+There is also the new function $\sqcup$ to merge the left and right contexts of a function application term, whose definition is given in Figure~\ref{fig:lazy-ctx}.
+Merging follows the natural rule that if either of the two contexts requires a particular item, the merged context also requires it.
 
 In our implementation, we unroll the recursion into a while loop and repeatedly pop elements from the two arrays until both are empty.
 This builds the new context back to front, so as a final step, the array is reversed.
-
 Alternatively, an implementation can pad the shorter list (at the start!) with $f$ and zip them.
 This is particularly convenient for languages that provide a zip function with a default value\footnote{such as \href{https://docs.python.org/3/library/itertools.html\#itertools.zip\_longest}{\texttt{ziplongest}} in Python.}.
 
-Our semantic function now has to handle more cases, and thus is somewhat larger.
+Our definition of the semantic function now has to handle more cases, and thus is somewhat larger.
 See Figure~\ref{fig:lazy-sem} for the full definition.
-
-The first 4 cases are direct translations from the previous definitions, the others are new additions to handle ignored elements.
-The last 2 cases are not included in the original paper, but they are necessary to make the pattern matching exhaustive, and are present in the reference OCaml implementation.
+The first four cases are direct translations from the previous definitions, the others are new additions to handle ignored elements.
+The last two cases are not included in the original paper, but they are necessary to make the pattern matching exhaustive, and are present in the reference OCaml implementation\footnote{From~\cite{kiselyov_lambda_2018}: \url{https://okmij.org/ftp/tagless-final/skconv.ml}}.
 
 \subsection{Eta optimization}
 Kiselyov covers eta optimization as a change to his OCaml code rather than typing rules.
@@ -291,20 +293,23 @@ The updated definition is given in Figure~\ref{fig:lazyeta-ctx}.
 The $V$ value effectively encodes an additional implicit used element in the context.
 We also have some new cases for the semantic function, available in Figure~\ref{fig:lazyeta-sem}.
 
-The case $(\emptyset \models V) \coprod (\emptyset \models V) $ is impossible in this translation, implementations may throw an error or leave it as undefined behavior.
-\textbf{TODO:} Why is this an impossible case?
+The case $(\emptyset \models V) \coprod (\emptyset \models V) $ is impossible in this translation:
+it represents the application of a value to itself, e.g. $\lambda x. x\ x$.
+For such an $x$, we cannot assign a proper type.
+Implementations may throw an error or leave it as undefined behavior.
 
 With the addition of the expression value to $\sqcup_\eta$, the function now takes the same input as $\coprod_\eta$ and has very similar matching patterns.
 Our implementation, therefore, folds context merging into $\coprod_\eta$ to make the code more concise.
 
 \subsection{Linear algorithm}
 The implementation of the linear algorithm is much simpler because it is based on the $\strict$ algorithm.
-The compilation function is identical save for a different semantic function $\coprod_{\text{linear}}$.
+The compilation function is identical save for a different semantic function $\coprod_{\text{linear}}$, shown in Figure~\ref{fig:linear-sem}.
 For the full definition, see Figure~\ref{fig:linear}.
 
-In figure~\ref{fig:linear-sem} we give the corresponding semantic function, which is no longer recursive, making this algorithm linear.
+The main achievement is that the semantic function is no longer recursive.
+The $\linear$ algorithm visits each term exactly once, so arguing its linearity becomes an almost trivial exercise.
 
-\textbf{TODO: } Can we add lazy weakening and/or eta optimization?
+We leave the addition of full laziness and $\eta$-optimization to the $\linear$ algorithm as future work.
 
 \section{Miranda}
 \label{sec:miranda}
@@ -420,7 +425,7 @@ After we have traversed the spine and encountered the $+$ combinator, the engine
 Figure~\ref{fig:add_step1} shows the state of the graph at this point in the reduction process.
 
 \begin{figure}
-    \includegraphics[width=.8\columnwidth]{add_step1}
+    \includegraphics[width=.6\columnwidth]{add_step1}
     \centering
     \caption{
         Graph of $+ \ 1 \ (K \ 2 \ 3)$ after the second argument has been added to the stack.
@@ -432,7 +437,7 @@ Once $K \ 2 \ 3$ has been reduced to $3$, the engine observes that the stack is 
 Figure~\ref{fig:add_step2} reflects this state.
 
 \begin{figure}
-    \includegraphics[width=.8\columnwidth]{add_step2}
+    \includegraphics[width=.6\columnwidth]{add_step2}
     \centering
     \caption{
         Graph of $+ \ 1 \ (K \ 2 \ 3)$ after the second argument has been reduced.
@@ -465,7 +470,7 @@ Our benchmark programs do not use too much heap space, so we choose not to focus
 \label{sec:tigre}
 The TIGRE engine, first presented in~\cite{koopman_fresh_1989}, is a combinator graph reduction engine like Miranda.
 Originally designed for the VAX instruction set, our implementation targets the x86-64 instruction set but mirrors the TIGRE design otherwise.
-The TIGRE paper focuses on key differences from Miranda, the elimination of tags and directly executable graph nodes, so where the paper omits implementation details we take the same approach as our reference implementation based on Miranda.
+The TIGRE paper focuses on key differences from Miranda, the elimination of tags and directly executable graph nodes, so where the TIGRE paper omits implementation details we take the same approach as our reference implementation based on Miranda.
 
 \subsection{Eliminating tags}
 The TIGRE authors point to tags as a major source of inefficiency in graph reduction engines.
@@ -476,7 +481,7 @@ An apparent downside of this is that simple expressions require more indirection
 Take for example the expression $1+2$, which in the Miranda-style engine can be represented with just two nodes, shown in Figure~\ref{fig:1_plus_2_miranda}.
 
 \begin{figure}
-    \includegraphics[width=.2\columnwidth]{1_plus_2_miranda}
+    \includegraphics[width=.17\columnwidth]{1_plus_2_miranda}
     \centering
     \caption{
         Graph of $1 + 2$ in the Miranda-style engine.
@@ -488,7 +493,7 @@ Take for example the expression $1+2$, which in the Miranda-style engine can be 
 The TIGRE version of this program, shown in Figure~\ref{fig:1_plus_2_tigre}, is larger, occupying four nodes.
 
 \begin{figure}
-    \includegraphics[width=.46\columnwidth]{1_plus_2_tigre}
+    \includegraphics[width=.38\columnwidth]{1_plus_2_tigre}
     \centering
     \caption{
         Graph of $1 + 2$ in the TIGRE-style engine.
@@ -589,7 +594,7 @@ A strict combinator that needs to evaluate its arguments is easier to implement 
 The fully evaluated argument is then available in the \texttt{\%rax} register.
 This even works from Rust code: a pointer to a node can be cast to a function pointer with an integer as a return value and invoked normally.
 
-\textbf{TODO: Maybe add a step-by-step reduction example?}
+%\textbf{TODO: Maybe add a step-by-step reduction example?}
 
 To our surprise, we did not find the TIGRE-style engine more difficult to implement than the Miranda version, mainly because the reduction process happens to map rather naturally to subroutine calls.
 We discuss the main challenges encountered during the implementation in the next section.
@@ -821,7 +826,7 @@ While the $\linear$ strategy produces slightly more compact code than $\strict$ 
 Our small benchmark programs only require bulk combinators for up to $2$ arguments, so the $\linear$ strategy cannot win much in terms of code size.
 We expect that for certain worst-case inputs, as given in~\cite{kiselyov_lambda_2018}, $\linear$ may still prove useful.
 
-It comes as no surprise that the shortest translation is also the fastest to execution, but it is worth noting that while the Bracket abstraction translation is only 55\% larger than the $\lazyeta$ one, it runs 94\% slower.
+It comes as no surprise that the shortest translation is also the fastest to execute, but it is worth noting that while the Bracket abstraction translation is only 55\% larger than the $\lazyeta$ one, it runs 94\% slower.
 We see a similar pattern for the Ackermann function, for which results may be found in appendix~\ref{app:ack}.
 This suggests that while the semantic translation algorithms from~\cite{kiselyov_lambda_2018} reduce the size of the combinator expression, they reduce runtime even further.
 
@@ -862,7 +867,7 @@ A work-in-progress version of the compiler is available at \url{https://github.c
 \section{Conclusion}
 % Repeat the main question / objective of your research
 Our objective with this work was to revive research around Combinator Graph Reduction by improving the performance.
-We have attempted this by using a novel semantic translation algorithm to compile lambda calculus programs into combinator expressions~\cite{kiselyov_lambda_2018}, and by implementing combinator graph reduction engines based on the designs of Miranda~\cite{turner_new_1979} and TIGRE~\cite{koopman_fresh_1989}.
+We used a novel semantic translation algorithm to compile lambda calculus programs into smaller combinator expressions~\cite{kiselyov_lambda_2018} and have implemented modern combinator graph reduction engines based on the designs of Miranda~\cite{turner_new_1979} and TIGRE~\cite{koopman_fresh_1989}.
 
 % Give the answer to the question
 We have developed a reference implementation of a combinator graph reduction engine based on the now open source Miranda~\cite{turner_new_1979}.
@@ -872,7 +877,7 @@ Our implementation comprises under 1000 lines of Rust code and outperforms the o
 % Give the answer to the question
 Our port of the TIGRE~\cite{koopman_fresh_1989} engine runs natively on stock x86-64 hardware and executes our benchmark program with fewer instructions and data accesses than our Miranda-style engine.
 % Why is this the answer? Present the main arguments
-Unfortunately, its performance still lags behind the reference implementation because its inherent frequent writes to executable code sections trigger expensive invalidations of the instruction cache.
+Unfortunately, its performance still lags behind the Miranda-style engine because its inherent frequent writes to executable code sections trigger expensive invalidations of the instruction cache.
 We conclude that the TIGRE design is a poor fit for architectures with split instruction and data caches, though some concepts like \texttt{LIT} combinators and tag elimination may still prove effective.
 
 % Give the answer to the question

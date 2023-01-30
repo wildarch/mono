@@ -1,4 +1,4 @@
-/// The strict compilation algorithm, as given in fig.10
+/// The linear compilation algorithm, as given in fig.10
 use super::BExpr;
 
 use crate::compiled_expr::*;
