@@ -199,6 +199,26 @@ Chapter 16 of~\cite{spj_impl} starts with a good introduction to Combinatory Log
 %\textbf{TODO: } Combinators $B$ and $C$.
 %
 \subsection{Bracket Abstraction}
+Bracket Abstraction is the traditional algorithm for compiling lambda calculus expressions into combinatory logic.
+The basic algorithm requires only the $S$, $K$, and $I$ combinators.
+Its compilation function can be defined recursively as:
+
+\begin{equation*}
+    \begin{array}{l l l}
+        C [[\ e_1\ e_2\ ]]     & = & C [[\ e_1\ ]]\ C [[\ e_2\ ]]                  \\
+        C [[\ \lambda x.e\ ]]  & = & A\ x\ [[\ C [[\ e\ ]]\ ]]                     \\
+        C [[\ cv\ ]]           & = & cv                                            \\
+        \\
+        A\ x\ [[\ f_1\ f_2\ ]] & = & \ S\ (A\ x\ [[\ f_1\ ]])\ (A\ x\ [[\ f_2\ ]]) \\
+        A\ x\ [[\ x\ ]]        & = & I                                             \\
+        A\ x\ [[\ cv\ ]]       & = & K\ cv                                         \\
+    \end{array}
+\end{equation*}
+
+Any lambda calculus expression can be compiled using this algorithm.
+
+TODO more!
+
 
 \subsection{Graph Reduction}
 A good tutorial-style introduction to Graph Reduction may be found at~\cite{peyton_jones_implementing_2000}.
