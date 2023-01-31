@@ -159,8 +159,22 @@ For readers unfamiliar with lambda calculus, combinatory logic or bracket abstra
 \label{sec:prelim}
 \subsection{Lambda Calculus}
 For an accessible introduction to the Lambda Calculus, we can recommend~\cite{rojas_tutorial_2015}.
+
+The Lambda Calculus comes in many flavors.
+The most basic version has only function abstraction and application, and is untyped.
+Kiselyov's description of his new algorithms~\cite{kiselyov_lambda_2018} use a typed variant.
+Our description of the translation is not defined as a type system, hence the untyped Lambda Calculus suffices for our treatment.
+We do, however, enrich the Lambda Calculus with a few primitives that are convenient in a practical implementation. They are:
+\begin{itemize}
+    \item Machine integers (signed 32-bit). These can be emulated with e.g. Church Encoding, but arithmetic over a native integer type is faster.
+    \item Arithmetic operations. To manipulate machine integers, we introduce the usual $+$, $-$, $*$ and $/$ operations.
+    \item Comparison operations. To compare machine integers, we also add $==$, $<$ etc. These operations return $1$ if true, and $0$ if false (machine integers do double duty as a boolean type).
+\end{itemize}
+
 Most introductory resources, including~\cite{rojas_tutorial_2015}, present Lambda Calculus with named bindings.
 Kiselyov's algorithms~\cite{kiselyov_lambda_2018} use De Bruijn indices~\cite{de_bruijn_lambda_1972} instead.
+As this is core to the algorithm, we adopt the same approach.
+However, for example expressions, we continue to use the easier-to-read named bindings.
 
 %The lambda ($\lambda$) calculus is perhaps the smallest programming language.
 %At its core there is only the definition of functions (\emph{abstraction}) and the \emph{application} of a function to an argument.
@@ -176,6 +190,33 @@ Kiselyov's algorithms~\cite{kiselyov_lambda_2018} use De Bruijn indices~\cite{de
 %
 \subsection{Combinatory Logic}
 Chapter 16 of~\cite{spj_impl} starts with a good introduction to Combinatory Logic and the Bracket Abstraction algorithm.
+
+Combinatory Logic is a notation designed to remove variables (named or otherwise) from Lambda Calculus expressions.
+The core idea is to define a set of simple basic functions, or \emph{combinators}, that can be combined to pass variables to the proper subexpressions.
+We only need three combinators to convert any Lambda Calculus expression:
+\begin{itemize}
+    \item $S \ f \ g \ x = f \ x \ (g \ x)$: Passes an argument to both subexpressions of an application.
+    \item $K \ x \ y = x$: Drops the second argument.
+    \item $I \ x = x$\footnote{$SKK = I$, so even this combinator is not strictly necessary, but all reasonable implementations do include $I$.}: The identity function that accepts an argument and returns it.
+\end{itemize}
+
+The traditional algorithm to compile Lambda Calculus expressions into Combinator Logic with these three combinators is Bracket Abstraction, which we present in the next section.
+
+The set of combinators used in the translation may be extended to generate smaller programs.
+Kiselyov's algorithms~\cite{kiselyov_lambda_2018} for example use the following additional combinators as special cases of $S$:
+
+\begin{itemize}
+    \item $B\ f\ g\ x = f\ (g\ x)$: Passes an argument to the \emph{right} subexpression.
+    \item $C\ f\ g\ x = (f\ x)\ g$: Passes an argument to the \emph{left} subexpression.
+\end{itemize}
+
+Another addition, specifically for the $\linear$ algorithm, is the addition of \emph{bulk} combinators, variants of $S$, $B$ and $C$ that pass multiple arguments:
+
+\begin{itemize}
+    \item $S_n\ f\ g\ x_1\ ...\ x_n = (f\ x_1\ ...\ x_n)\ (g\ x_1\ ...\ x_n)$
+    \item $B_n\ f\ g\ x_1\ ...\ x_n = f\ (g\ x_1\ ...\ x_n)$
+    \item $C_n\ f\ g\ x_1\ ...\ x_n = (f\ x_1\ ...\ x_n)\ g$
+\end{itemize}
 
 %Starting from a lambda calculus expression, we first translate it into an expression consisting exclusively of the application of a small set of predefined functions, or \textit{combinators}.
 %It turns out that any lambda calculus expression can be expressed using just three combinators:
@@ -216,9 +257,35 @@ Its compilation function can be defined recursively as:
 \end{equation*}
 
 Any lambda calculus expression can be compiled using this algorithm.
+As an example, we can compile the expression $\lambda x.\lambda y. x$, and obtain:
 
-TODO more!
+\begin{equation*}
+    \begin{array}{l l}
+        C\ [[\ \lambda x.\lambda y. x\ ]]        & \Rightarrow \\
+        A\ x\ [[\ C\ [[\ \lambda y. x\ ]]\ ]]    & \Rightarrow \\
+        A\ x\ [[\ A\ y\ [[\ C\ [[\ x\ ]]\ ]]\ ]] & \Rightarrow \\
+        A\ x\ [[\ A\ y\ [[\ x\ ]]\ ]]            & \Rightarrow \\
+        A\ x\ [[\ K\ x\ ]]                       & \Rightarrow \\
+        S\ (A\ x\ [[\ K\ ]])\ (A\ x\ [[\ x\ ]])  & \Rightarrow \\
+        S\ (K\ K)\ I                             & \Rightarrow \\
+    \end{array}
+\end{equation*}
 
+The generated expression consists exclusively of combinators, as expected.
+We can show that it produces the same result as the original lambda expression by applying it to two abstract variables $x$ and $y$:
+
+\begin{equation*}
+    \begin{array}{l l}
+        S\ (K\ K)\ I\ x\ y   & \Rightarrow \\
+        (K\ K\ x)\ (I\ x)\ y & \Rightarrow \\
+        K\ x\ y              & \Rightarrow \\
+        x                    &             \\
+    \end{array}
+\end{equation*}
+
+While correct, the Bracket Abstraction algorithm is not optimal.
+Looking at the derivation above, $S\ (K\ K)\ I$ is identical to the $K$ combinator.
+In Section~\ref{sec:kiselyov}, we cover the better compilation algorithms proposed in~\cite{kiselyov_lambda_2018}.
 
 \subsection{Graph Reduction}
 A good tutorial-style introduction to Graph Reduction may be found at~\cite{peyton_jones_implementing_2000}.
