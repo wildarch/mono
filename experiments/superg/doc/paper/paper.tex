@@ -173,8 +173,8 @@ We do, however, enrich the Lambda Calculus with a few primitives that are conven
 
 Most introductory resources, including~\cite{rojas_tutorial_2015}, present Lambda Calculus with named bindings.
 Kiselyov's algorithms~\cite{kiselyov_lambda_2018} use De Bruijn indices~\cite{de_bruijn_lambda_1972} instead.
-As this is core to the algorithm, we adopt the same approach.
-However, for example expressions, we continue to use the easier-to-read named bindings.
+As this is core to the algorithm, we adopt the same approach for our algorithm descriptions in Section~\ref{sec:kiselyov}.
+However, in the example expressions we give in this paper, we continue to use the easier-to-read named bindings.
 
 %The lambda ($\lambda$) calculus is perhaps the smallest programming language.
 %At its core there is only the definition of functions (\emph{abstraction}) and the \emph{application} of a function to an argument.
@@ -192,7 +192,7 @@ However, for example expressions, we continue to use the easier-to-read named bi
 Chapter 16 of~\cite{spj_impl} starts with a good introduction to Combinatory Logic and the Bracket Abstraction algorithm.
 
 Combinatory Logic is a notation designed to remove variables (named or otherwise) from Lambda Calculus expressions.
-The core idea is to define a set of simple basic functions, or \emph{combinators}, that can be combined to pass variables to the proper subexpressions.
+The core idea is to define a set of basic functions, or \emph{combinators}, that can be combined to pass variables to the proper subexpressions.
 We only need three combinators to convert any Lambda Calculus expression:
 \begin{itemize}
     \item $S \ f \ g \ x = f \ x \ (g \ x)$: Passes an argument to both subexpressions of an application.
@@ -267,7 +267,7 @@ As an example, we can compile the expression $\lambda x.\lambda y. x$, and obtai
         A\ x\ [[\ A\ y\ [[\ x\ ]]\ ]]            & \Rightarrow \\
         A\ x\ [[\ K\ x\ ]]                       & \Rightarrow \\
         S\ (A\ x\ [[\ K\ ]])\ (A\ x\ [[\ x\ ]])  & \Rightarrow \\
-        S\ (K\ K)\ I                             & \Rightarrow \\
+        S\ (K\ K)\ I                             &             \\
     \end{array}
 \end{equation*}
 
@@ -363,7 +363,7 @@ Eventually, we find a leaf node and apply the rewrite rule that matches that par
 The reduction then repeats from the root again, until eventually, no more rewrites are possible.
 
 At this point, it could be that the graph has been reduced to a constant value (e.g. 9).
-Another possibility is parts of the graph are still reduceable, but our reduction strategy does not `reach' it.
+Another possibility is that parts of the graph are still reduceable, but our reduction strategy does not `reach' it.
 For example, we can have the following graph (including a $K$ combinator) that our strategy will not reduce:
 
 \begin{verbatim}
@@ -871,7 +871,7 @@ Finally, an estimate of the average execution time is computed using linear regr
 
 Benchmarks were run on an otherwise quiescent laptop equipped with an x86-64 AMD CPU (Ryzen 7 4800U), running Debian 11 (Bullseye).
 The original Miranda was compiled using GCC 10.2.1 without any optimization flags, to avoid breaking the garbage collector as discussed in Section~\ref{sec:miranda}.
-All other code is written in Rust and compiled using the \texttt{release} profile (\texttt{rustc} version 1.65.0).
+All other code is written in Rust and compiled using the optimizing \texttt{release} profile (\texttt{rustc} version 1.65.0).
 
 \subsection{Comparison with original Miranda}
 Figure~\ref{fig:turner-vs-miranda} shows the performance of our Miranda-style engine with the traditional bracket abstraction compared to the original Miranda~\cite{turner_open_2021}.
@@ -1057,7 +1057,7 @@ A work-in-progress version of the compiler is available at \url{https://github.c
 \section{Conclusion}
 % Repeat the main question / objective of your research
 Our objective with this work was to revive research around Combinator Graph Reduction by improving the performance.
-We used a novel semantic translation algorithm to compile lambda calculus programs into smaller combinator expressions~\cite{kiselyov_lambda_2018} and have implemented modern combinator graph reduction engines based on the designs of Miranda~\cite{turner_new_1979} and TIGRE~\cite{koopman_fresh_1989}.
+We used a recently proposed semantic translation algorithm to compile lambda calculus programs into smaller combinator expressions~\cite{kiselyov_lambda_2018} and have implemented modern combinator graph reduction engines based on the designs of Miranda~\cite{turner_new_1979} and TIGRE~\cite{koopman_fresh_1989}.
 
 % Give the answer to the question
 We have developed a reference implementation of a combinator graph reduction engine based on the now open source Miranda~\cite{turner_new_1979}.
