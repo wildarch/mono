@@ -4,32 +4,50 @@
 include "MiniDialect.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/IR/OpBase.td"
+include "mlir/IR/FunctionInterfaces.td"
+include "mlir/IR/SymbolInterfaces.td"
 
-def Mini_FooOp : Mini_Op<"foo", [Pure,
-                                             SameOperandsAndResultType]> {
-    let summary = "Illustrates how to define an operation.";
-    let description = [{
-        The `mini.foo` operation illustrates how to define a new
-        operation in a dialect. It uses an operation trait to declare that it
-        has no side effects.
+def ConstantOp : Mini_Op<"constant", [Pure]> {
+    let summary = "constant";
+    let arguments = (ins I32Attr:$value);
+    let results = (outs I32);
+}
 
-        This operation takes an integer argument and returns an integer.
+def FuncOp : Mini_Op<"func", [
+    FunctionOpInterface, IsolatedFromAbove, Symbol
+]> {
+    let summary = "user-defined function";
 
-        Example:
+    let arguments = (ins
+        SymbolNameAttr:$sym_name,
+        TypeAttrOf<FunctionType>:$function_type,
+        OptionalAttr<DictArrayAttr>:$arg_attrs,
+        OptionalAttr<DictArrayAttr>:$res_attrs
+    );
+    let regions = (region AnyRegion:$body);
 
-        ```mlir
-        %0 = arith.constant 2 : i32
-        // Apply the foo operation to %0
-        %1 = mini.foo %0 : i32
-        ```
+    let builders = [OpBuilder<(ins
+      "mlir::StringRef":$name, "mlir::FunctionType":$type,
+      CArg<"mlir::ArrayRef<mlir::NamedAttribute>", "{}">:$attrs)
+    >];
+    let extraClassDeclaration = [{
+      /// Returns the argument types of this function.
+      mlir::ArrayRef<mlir::Type> getArgumentTypes() { return getFunctionType().getInputs(); }
+  
+      /// Returns the result types of this function.
+      mlir::ArrayRef<mlir::Type> getResultTypes() { return getFunctionType().getResults(); }
     }];
+    let skipDefaultBuilders = 1;
+    let hasCustomAssemblyFormat = 1;
+}
+
+def ReturnOp : Mini_Op<"return", [
+    Pure, HasParent<"FuncOp">, Terminator
+]> {
+    let summary = "returns from a function";
 
     let arguments = (ins I32:$input);
-    let results = (outs I32:$res);
-
-    let assemblyFormat = [{
-        $input attr-dict `:` type($input)
-    }];
 }
 
 #endif // MINI_OPS
