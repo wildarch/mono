@@ -3,10 +3,15 @@
 #include "MiniDialect.h"
 #include "MiniOps.h"
 
+#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
+#include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
+#include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
+#include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -68,6 +73,17 @@ struct ReturnOpLowering
   }
 };
 
+struct MiniToLLVMLoweringPass
+    : public mlir::PassWrapper<MiniToLLVMLoweringPass,
+                               mlir::OperationPass<mlir::ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(MiniToLLVMLoweringPass)
+
+  void getDependentDialects(mlir::DialectRegistry &registry) const override {
+    registry.insert<mlir::LLVM::LLVMDialect>();
+  }
+  void runOnOperation() final;
+};
+
 } // namespace
 
 void MiniLoweringPass::runOnOperation() {
@@ -87,10 +103,32 @@ void MiniLoweringPass::runOnOperation() {
   }
 }
 
+void MiniToLLVMLoweringPass::runOnOperation() {
+  mlir::LLVMConversionTarget target(getContext());
+  target.addLegalOp<mlir::ModuleOp>();
+
+  mlir::LLVMTypeConverter typeConverter(&getContext());
+
+  mlir::RewritePatternSet patterns(&getContext());
+  mlir::arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
+  mlir::populateFuncToLLVMConversionPatterns(typeConverter, patterns);
+
+  auto module = getOperation();
+  if (mlir::failed(
+          mlir::applyFullConversion(module, target, std::move(patterns)))) {
+
+    signalPassFailure();
+  }
+}
+
 namespace experiments_mlir::mini {
 
 std::unique_ptr<mlir::Pass> createMiniLoweringPass() {
   return std::make_unique<MiniLoweringPass>();
+}
+
+std::unique_ptr<mlir::Pass> createLowerToLLVMPass() {
+  return std::make_unique<MiniToLLVMLoweringPass>();
 }
 
 } // namespace experiments_mlir::mini

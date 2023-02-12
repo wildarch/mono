@@ -31,4 +31,6 @@ add_subdirectory(include)
 add_subdirectory(lib)
 
 add_executable(main util/main.cpp)
-target_link_libraries(main mini)
+
+llvm_map_components_to_libnames(llvm_libs Support Core nativecodegen OrcJIT)
+target_link_libraries(main mini ${llvm_libs} MLIRExecutionEngine)
