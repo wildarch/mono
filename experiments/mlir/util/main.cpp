@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "MiniDialect.h"
+#include "MiniLoweringPass.h"
 #include "MiniOps.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/Attributes.h"
@@ -8,6 +9,8 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 
 int main(int argc, char **argv) {
@@ -23,8 +26,8 @@ int main(int argc, char **argv) {
   builder.setInsertionPointToEnd(module.getBody());
 
   // Add a main function
-  llvm::SmallVector<mlir::Type> argTypes(0);
-  auto funcType = builder.getFunctionType(argTypes, std::nullopt);
+  llvm::SmallVector<mlir::Type> resTypes = {builder.getI32Type()};
+  auto funcType = builder.getFunctionType(std::nullopt, resTypes);
   auto mainFuncOp = builder.create<experiments_mlir::mini::FuncOp>(
       builder.getUnknownLoc(), "main", funcType);
 
@@ -39,4 +42,17 @@ int main(int argc, char **argv) {
                                                    constantOp);
 
   module.dump();
+
+  mlir::PassManager pm(&context);
+  mlir::applyPassManagerCLOptions(pm);
+  auto lowerPass = experiments_mlir::mini::createMiniLoweringPass();
+  pm.addPass(std::move(lowerPass));
+
+  if (mlir::failed(pm.run(module))) {
+    std::cerr << "Failed to lower!" << std::endl;
+    return 1;
+  }
+
+  module.dump();
+  return 0;
 }
