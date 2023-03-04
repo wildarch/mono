@@ -13,6 +13,8 @@
           - james-yu.latex-workshop
           - rust-lang.rust-analyzer
           - znck.grammarly
+          - llvm-vs-code-extensions.vscode-clangd
+          - mike-lischke.vscode-antlr4
         visual_studio_code_settings: {
           "workbench.startupEditor": "none",
           "extensions.ignoreRecommendations": true,
@@ -47,7 +49,6 @@
 
   tasks:
   - include_tasks: tasks/google-chrome.yml
-  - include_tasks: tasks/spotify.yml
   - include_tasks: tasks/zotero.yml
   - include_tasks: tasks/zoom.yml
   - name: Install APT Packages
@@ -58,10 +59,7 @@
       pkg:
       # Assumes non-free repository is enabled.
       # Should be the default if installing from an unofficial non-free image
-      - firmware-amd-graphics
-      - firmware-iwlwifi
       - google-chrome-stable
-      - spotify-client
       - build-essential
       - default-jdk
       - git
@@ -83,12 +81,6 @@
       # End Latex related
       - sqlite3
 
-  - name: Make user daan member of sudo
-    ansible.builtin.user:
-      name: daan
-      groups: sudo 
-      append: yes
-
   - name: Use Vim as editor 
     become: true
     community.general.alternatives:
@@ -97,19 +89,6 @@
 
   - include_tasks: tasks/gnome.yml
 
-  - name: Shut down when the lid is closed (on battery)
-    become: true
-    ansible.builtin.lineinfile:
-      path: /etc/systemd/logind.conf 
-      regexp: '^HandleLidSwitch='
-      line: HandleLidSwitch=poweroff
-  - name: Ignore when lid is closed (on AC)
-    become: true
-    ansible.builtin.lineinfile:
-      path: /etc/systemd/logind.conf 
-      regexp: '^HandleLidSwitchExternalPower='
-      line: HandleLidSwitchExternalPower=ignore
-  
   - name: Set grub timeout to 1
     become: true
     ansible.builtin.lineinfile:

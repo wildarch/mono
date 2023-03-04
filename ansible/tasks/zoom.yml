@@ -1,13 +1,4 @@
-  - name: Build zoom
-    tags: 
-      - deb
-    command: "bazel build //package/zoom:zoom_deb"
-    # This task never make modification to the system, so do not mark it as a change 
-    changed_when: false 
-
-  - name: Install zoom
-    become: true
-    tags: 
-      - deb
-    apt:
-      deb: "../bazel-bin/package/zoom/zoom.deb"
+- name: Install zoom
+  become: true
+  apt:
+    deb: https://zoom.us/client/5.13.10.1208/zoom_amd64.deb

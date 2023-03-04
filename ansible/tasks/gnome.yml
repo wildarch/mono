@@ -34,11 +34,6 @@
     key: "/org/gnome/shell/favorite-apps"
     value: "['google-chrome.desktop', 'spotify.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', 'code.desktop']"
 
-- name: Use dark terminal theme
-  community.general.dconf:
-    key: "/org/gnome/terminal/legacy/theme-variant"
-    value: "'dark'"
-
 - name: Use Alt+Tab to switch windows (not applications)
   community.general.dconf:
     key: "/org/gnome/desktop/wm/keybindings/switch-windows"
