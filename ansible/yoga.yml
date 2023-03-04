@@ -24,11 +24,7 @@
           }
         }
   - role: gantsign.golang
-    golang_version: '1.19.4'
-  - role: hurricanehrndz.rustup
-    rustup_user: daan
-    rustup_cargo_crates: 
-    - cargo-watch
+    golang_version: '1.20.1'
   - role: geerlingguy.docker
     become: true
     docker_install_compose: false
@@ -42,10 +38,6 @@
         home: '/usr/lib/jvm/default-java'
       intellij_plugins:
       - 'com.google.idea.bazel.ijwb'
-  handlers:
-  - name: update grub
-    become: true
-    ansible.builtin.command: update-grub
 
   tasks:
   - include_tasks: tasks/google-chrome.yml
@@ -57,8 +49,6 @@
       update_cache: true
       cache_valid_time: 3600
       pkg:
-      # Assumes non-free repository is enabled.
-      # Should be the default if installing from an unofficial non-free image
       - google-chrome-stable
       - build-essential
       - default-jdk
@@ -88,14 +78,6 @@
       path: /usr/bin/vim.gtk3
 
   - include_tasks: tasks/gnome.yml
-
-  - name: Set grub timeout to 1
-    become: true
-    ansible.builtin.lineinfile:
-      path: /etc/default/grub 
-      regexp: '^GRUB_TIMEOUT='
-      line: GRUB_TIMEOUT=1 
-    notify: update grub
 
   - name: Add go path to $PATH
     ansible.builtin.blockinfile:

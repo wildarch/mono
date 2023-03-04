@@ -1,7 +1,7 @@
-FROM debian:bullseye-slim
+FROM ubuntu:jammy 
 
 # Taken from https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#sort-multi-line-arguments
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
   ansible \
   git \
   gpg \

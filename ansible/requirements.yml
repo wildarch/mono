@@ -2,7 +2,6 @@
 # To install run:
 # ansible-galaxy install -r ansible/requirements.yml
 roles:
-  - name: hurricanehrndz.rustup
   - name: gantsign.visual-studio-code
   - name: gantsign.golang
   - name: geerlingguy.docker
