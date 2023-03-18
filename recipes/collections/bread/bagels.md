@@ -1,31 +1,59 @@
 # Bagels
 
-![](https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Bagel_with_sesame_3.jpg/320px-Bagel_with_sesame_3.jpg)
+![](https://www.chainbaker.com/wp-content/uploads/2023/02/IMG_4525.jpg)
 
 ## Ingredients
-- 4 tbsp honey
-- 4g dry yeast
-- 400g bread flour
+### Dough
+- 250g bread flour
+- 50g whole wheat flour
+- 3g instant dry yeast
+- 6g salt
+- 10g olive oil
+- 20g honey
+- 165ml warm water
 - sesame seeds
 
+### Boiling solution
+- 1.5L water
+- 40g honey
+- 20g baking soda
+
 ## Instructions
-1.  Mix 235ml warm water with 1 tbsp honey and the yeast, leave to bloom for ~5 minutes.
+1. Place an empty bowl on a scale and weigh out:
+   * 165g warm water
+   * 3g instant dry yeast
+   * 6g salt
+   * 10g olive oil
+   * 20g honey
+   * 50g whole wheat flour
+   Mix very well with a whisk, making sure the honey and salt are fully dissolved.
 
-2. Add 1 tsp salt and 325g flour to start with, and begin to knead the dough. 
-Knead in more flour until the dough will not absorb any more. Cover the dough and let rise until doubled in size (1-2 hours).
+2. Add 250g bread flour. Start mixing with a spoon, switch to pressing by hand once the spoon is no longer doing the job.
+   This is a no-knead recipe, do not fully knead your dough at this stage, instead try to incorporate all the dry flour.
 
-3. Divide the dough into 6 parts. 
-roll each part out into a snake and make it into a circle around your wrist. 
-To join the two ends of the snake, press down on the seam and roll it off. 
-Line a baking tray with parchment paper, lightly dust with flour, and place the bagels. Finally, cover with cling film and keep in the fridge for 1-2 days.
+3. Cover and let the dough ferment for 40 minutes.
 
-4. Preheat the oven to 230°C. 
-Bring a wide pot of water to a boil, add in 1 tbsp of honey per liter of water.
-Boil the bagels in batches, 1 or 2 minutes per side. 
-Put the bagels in upside down, so that after you flip them over to boil the other side, 
-you can scoop them out onto the baking tray without flipping them again.
-Sprinkle half of them with sesame seeds while they are still wet.
-Once all bagels have been boiled, bake them in the oven for 20-25 minutes.
+4. Lightly dust the dough and your working surface, then turn the dough out onto the surface.
+   Perform a [fold](https://www.chainbaker.com/step-number-5-folding/).
+   Wash out the bowl to get any remaining dry flour out, then place the dough back into the bowl and leave it to ferment for another 40 minutes.
+
+5. Divide the dough into 5 equal-weight balls (using a scale helps).
+   Shape them into nice tight balls, cover and let rest for another 30 minutes.
+
+6. Once the balls have rested for 25 minutes, start to bring a saucepan to the boil with 1.5L of water.
+   Add 2 tbsp honey and 4tsp baking soda (the soda will start to foam).
+
+7. Make the bagel shape: Press your finger down into the dough ball to poke a hole into it.
+   Gently stretch the bagel to make the hole bigger, about twice as big as you want it to be in the end.
+
+8. Boil the bagels one-by-one, 20 seconds per side.
+   Put the bagels in upside down, so that when they are done they are pointing upward.
+   After boiling, place the bagels onto a cooling rack, and cover with sesame seeds (if using).
+
+9. Once the bagels have cooled down completely, transfer them to a baking tray lined with parchment paper.
+   Cover and let ferment in the fridge overnight (about 12 hours).
+
+10. The next morning, bake the bagels in the oven at 210°C, for 20 minutes.
 
 # Info
-Original recipe: https://www.youtube.com/watch?v=cF-vuTPdOhQ
+Original recipe: https://www.chainbaker.com/cold-proofed-bagels.
