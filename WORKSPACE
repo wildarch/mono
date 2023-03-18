@@ -178,7 +178,6 @@ crates_repository(
     manifests = [
         "//:Cargo.toml",
         "//:experiments/dblp/dblp-rs/Cargo.toml",
-        "//experiments/superg:Cargo.toml",
     ],
 )
 

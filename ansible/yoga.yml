@@ -79,6 +79,19 @@
 
   - include_tasks: tasks/gnome.yml
 
+  - name: Shut down when the lid is closed (on battery)
+    become: true
+    ansible.builtin.lineinfile:
+      path: /etc/systemd/logind.conf 
+      regexp: '^HandleLidSwitch='
+      line: HandleLidSwitch=poweroff
+  - name: Ignore when lid is closed (on AC)
+    become: true
+    ansible.builtin.lineinfile:
+      path: /etc/systemd/logind.conf 
+      regexp: '^HandleLidSwitchExternalPower='
+      line: HandleLidSwitchExternalPower=ignore
+
   - name: Add go path to $PATH
     ansible.builtin.blockinfile:
       path: /home/daan/.profile
