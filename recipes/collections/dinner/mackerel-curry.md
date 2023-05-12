@@ -4,10 +4,11 @@ Serves: 2
 ## Ingredients
 - 2 tbsp green curry paste
 - 400ml coconut milk
-- lime juice
 - 200g smoked mackerel
 - 2 aubergines
 - 1 red chili
+- lime juice
+- fish sauce
 
 ## Instructions
 1. Preheat the oven to 200°C. 
