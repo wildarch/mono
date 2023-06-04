@@ -35,3 +35,6 @@ Serves: 2
    Repeat with remaining eggs, working around pan as you go. 
    Season eggs with a little salt, cover, reduce heat to lowest setting, and cook until egg whites are barely set and yolks are still runny, 5 to 8 minutes.
 7. Serve with roughly chopped coriander and crumbled feta.
+
+## Info
+Original recipe: https://www.seriouseats.com/shakshuka-north-african-shirred-eggs-tomato-pepper-recipe
