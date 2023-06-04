@@ -1,6 +1,8 @@
 # Pizza bread
 ![](https://www.seriouseats.com/thmb/fQOnVZMBUwYAolRhdoxnDFuczpM=/750x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/the-best-french-bread-pizza-recipe-beautyshot-04-7ddc539eb19f4944a1865b4bbdef2ef8.jpg)
 
+Serves: 2
+
 ## Ingredients
 - 45g unsalted butter
 - 3 tbsp extra virgin olive oil
