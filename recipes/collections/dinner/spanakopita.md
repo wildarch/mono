@@ -13,7 +13,7 @@ Serves: 6
 - 50g butter
 - 14 butter puff pastry sheets
 - 1 tbsp panko
-- tsp nutmeg
+- 1 tsp nutmeg
 
 ## Instructions
 
