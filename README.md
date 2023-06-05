@@ -12,7 +12,7 @@ git clone https://github.com/wildarch/mono.git
 # 3. Run commands below
 sudo apt install ansible
 ansible-galaxy install -r ansible/requirements.yml
-ansible-playbook ansible/yoga.yml -K
+ansible-playbook ansible/zbook.yml -K
 
 # 4. Install dependencies for building the monorepo
 ansible-playbook ansible/build.yml -K
