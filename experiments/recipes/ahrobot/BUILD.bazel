@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "ahrobot_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/wildarch/mono/experiments/recipes/ahrobot",
+    visibility = ["//visibility:private"],
+    deps = ["@com_github_chromedp_chromedp//:chromedp"],
+)
+
+go_binary(
+    name = "ahrobot",
+    embed = [":ahrobot_lib"],
+    visibility = ["//visibility:public"],
+)
