@@ -1,28 +1,39 @@
-#include <cstring>
-#include <fstream>
-#include <iostream>
+#include <string>
+#include <vector>
+
+enum class Datatype { STRING, INT };
+
+struct ColumnDef {
+  std::string name;
+  Datatype type;
+};
+
+struct TableSchema {
+  std::vector<ColumnDef> columns;
+};
+
+class ConstantColumn {};
+struct IntColumn : public ConstantColumn {
+  std::vector<int> data;
+};
+struct StringColumn : public ConstantColumn {
+  std::vector<std::string> data;
+};
+
+class Table {};
+struct ConstantTable : public Table {
+  TableSchema schema;
+  std::vector<ConstantColumn> columnData;
+};
 
 int main(int argc, char **argv) {
-  if (argc != 2) {
-    std::cerr << "expected path to csv file\n";
-    return 1;
-  }
-
-  std::ifstream infile(argv[1]);
-  if (infile.fail()) {
-    std::cerr << "cannot open csv file: " << strerror(errno) << "\n";
-    return 1;
-  }
-
-  std::string line;
-  while (!infile.eof()) {
-    std::getline(infile, line);
-    if (infile.fail()) {
-      std::cerr << "error reading file: " << strerror(errno) << "\n";
-    }
-
-    std::cout << "line: " << line << "\n";
-  }
-
-  return 0;
+  Table table = ConstantTable{
+      .schema = TableSchema{.columns = {ColumnDef{
+                                            .name = "id",
+                                            .type = Datatype::INT,
+                                        },
+                                        ColumnDef{.name = "name",
+                                                  .type = Datatype::STRING}}},
+      .columnData = {IntColumn{.data = {1, 2, 3}},
+                     StringColumn{.data = {"Alice", "Bob", "Charlie"}}}};
 }
