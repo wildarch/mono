@@ -1,17 +1,15 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
-    name = "query_lib",
+    name = "driver_lib",
     srcs = ["main.go"],
-    importpath = "github.com/wildarch/mono/experiments/query",
+    importpath = "github.com/wildarch/mono/experiments/query/sqlite/driver",
     visibility = ["//visibility:private"],
-    deps = [
-        "//experiments/query/sqlite",
-    ],
+    deps = ["//experiments/query/sqlite"],
 )
 
 go_binary(
-    name = "query",
-    embed = [":query_lib"],
+    name = "driver",
+    embed = [":driver_lib"],
     visibility = ["//visibility:public"],
 )
