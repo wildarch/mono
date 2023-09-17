@@ -52,7 +52,8 @@ static int64_t readColumn(parquet::ColumnReader &abstractReader,
 }
 
 void ParquetScanner::scan(Batch &batch) {
-  if (!_currentRowGroup) {
+  if (!_currentRowGroup &&
+      _currentRowGroupIdx < _reader.metadata()->num_row_groups()) {
     _currentRowGroup = _reader.RowGroup(_currentRowGroupIdx);
     assert(_currentRowGroup);
     _rowGroupValuesRead = 0;
@@ -82,7 +83,16 @@ void ParquetScanner::scan(Batch &batch) {
 }
 
 bool ParquetScanner::hasNext() {
-  return _currentRowGroupIdx < _reader.metadata()->num_row_groups();
+  bool hasMoreRowGroups =
+      _currentRowGroupIdx < _reader.metadata()->num_row_groups();
+  if (hasMoreRowGroups) {
+    return true;
+  }
+  bool hasRowsLeftInCurrentGroup = _currentRowGroup.has_value();
+  if (hasRowsLeftInCurrentGroup) {
+    return true;
+  }
+  return false;
 }
 
 } // namespace execution

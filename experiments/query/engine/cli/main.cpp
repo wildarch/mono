@@ -4,8 +4,8 @@
 
 #include "execution/Batch.h"
 #include "execution/ParquetScanner.h"
-
-constexpr uint32_t ROWS_PER_BATCH = 1024;
+#include "execution/operator/Operator.h"
+#include "execution/operator/ParquetScanOperator.h"
 
 int main(int argc, char **argv) {
   if (argc != 2) {
@@ -22,18 +22,13 @@ int main(int argc, char **argv) {
           .type = execution::PhysicalColumnType::INT32,
       }};
 
-  execution::ParquetScanner scanner(*reader, columns);
-
-  std::array<execution::PhysicalColumnType, 1> batchColumnTypes{
-      execution::PhysicalColumnType::INT32,
-  };
-  execution::Batch batch(batchColumnTypes, ROWS_PER_BATCH);
+  execution::OperatorPtr root =
+      std::make_shared<execution::ParquetScanOperator>(*reader, columns);
 
   int64_t sum = 0;
-  while (scanner.hasNext()) {
-    scanner.scan(batch);
-
-    auto &column = batch.columns().at(0);
+  std::optional<execution::Batch> batch;
+  while ((batch = root->poll())) {
+    auto &column = batch->columns().at(0);
     for (auto val : column.get<execution::PhysicalColumnType::INT32>()) {
       sum += val;
     }
