@@ -20,33 +20,34 @@ CAST_READER_CASE(STRING_PTR, ByteArrayReader)
 #undef CAST_READER_CASE
 
 template <PhysicalColumnType type>
-void readColumn(parquet::ColumnReader &abstractReader, Batch::Column &target) {
+static int64_t readColumn(parquet::ColumnReader &abstractReader,
+                          const Batch &batch, Batch::Column &target) {
   auto &reader = castReader<type>(abstractReader);
-}
-
-int64_t readColumnTest(parquet::ColumnReader &abstractReader,
-                       const Batch &batch, Batch::Column &target) {
-  auto &reader = castReader<PhysicalColumnType::INT32>(abstractReader);
 
   int64_t valuesRead;
-  reader.ReadBatch(batch.rows(), nullptr, nullptr,
-                   target.getForWrite<PhysicalColumnType::INT32>(),
-                   &valuesRead);
+  if constexpr (type == PhysicalColumnType::STRING_PTR) {
+    throw std::logic_error("Reading string columns is not yet supported");
+  } else {
+    reader.ReadBatch(batch.rows(), nullptr, nullptr, target.getForWrite<type>(),
+                     &valuesRead);
+  }
   return valuesRead;
 }
 
-void readColumn(parquet::ColumnReader &abstractReader, Batch::Column &target,
-                PhysicalColumnType type) {
+static int64_t readColumn(parquet::ColumnReader &abstractReader,
+                          const Batch &batch, Batch::Column &target,
+                          PhysicalColumnType type) {
   switch (type) {
 #define CASE(v)                                                                \
   case PhysicalColumnType::v:                                                  \
-    readColumn<PhysicalColumnType::v>(abstractReader, target);                 \
-    break;
+    return readColumn<PhysicalColumnType::v>(abstractReader, batch, target);
 
     CASE(INT32)
     CASE(DOUBLE)
     CASE(STRING_PTR)
 #undef CASE
+  default:
+    __builtin_unreachable();
   }
 }
 
@@ -66,9 +67,9 @@ void ParquetScanner::scan(Batch &batch) {
   for (size_t i = 0; i < batch.columns().size(); i++) {
     auto &columnReader = _columnReaders[i];
     auto &batchColumn = batch.columnsForWrite().at(i);
-    // TODO: check types
     // TODO: check number of values read
-    valuesRead = readColumnTest(*columnReader, batch, batchColumn);
+    valuesRead =
+        readColumn(*columnReader, batch, batchColumn, _columnsToRead[i].type);
   }
 
   batch.setRows(valuesRead);

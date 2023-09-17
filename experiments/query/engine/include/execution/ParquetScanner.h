@@ -16,11 +16,6 @@ public:
     PhysicalColumnType type;
   };
 
-  enum class ScanResult {
-    MORE,
-    END_OF_FILE,
-  };
-
 private:
   parquet::ParquetFileReader &_reader;
   std::vector<ColumnToRead> _columnsToRead;
