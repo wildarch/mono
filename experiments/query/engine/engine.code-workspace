@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../../apache-arrow-13.0.0/cpp"
+		},
+		{
+			"path": "../../../../duckdb"
+		}
+	],
+	"settings": {}
+}

@@ -2,7 +2,9 @@ set(
     ENGINE_SOURCE_FILES
     execution/Batch.cpp
     execution/ParquetScanner.cpp
+    execution/expression/ExpressionEvaluator.cpp
     execution/operator/ParquetScanOperator.cpp
+    execution/operator/FilterOperator.cpp
 )
 add_library(engine ${ENGINE_SOURCE_FILES})
 target_include_directories(

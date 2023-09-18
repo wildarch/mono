@@ -7,7 +7,7 @@
 
 namespace execution {
 
-class ParquetScanOperator : public Operator {
+class ParquetScanOperator : public LeafOperator {
 private:
   ParquetScanner _scanner;
   std::vector<PhysicalColumnType> _columnTypes;

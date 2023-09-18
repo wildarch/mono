@@ -59,6 +59,8 @@ public:
   public:
     Column(PhysicalColumnType type, uint32_t rows);
 
+    inline auto type() const { return _type; }
+
     template <PhysicalColumnType type>
     std::span<const typename StoredType<type>::type> get() const {
       assert(type == _type);
