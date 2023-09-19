@@ -4,6 +4,7 @@
 #include "execution/expression/ColumnExpression.h"
 #include "execution/expression/ConstantExpression.h"
 #include "execution/expression/ExpressionVisitor.h"
+#include "execution/expression/IR/ExpressionOps.h"
 
 namespace execution {
 
@@ -42,6 +43,10 @@ ConstantValue evaluate(const Expression &expr, const Batch &batch,
       [](const ConstantExpression &expr) { return expr.value(); },
   }
       .visit(expr);
+}
+
+void useColumnOp(expression::ColumnOp op) {
+  // TODO
 }
 
 } // namespace execution

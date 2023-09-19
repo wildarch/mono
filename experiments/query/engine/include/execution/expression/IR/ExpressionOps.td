@@ -4,7 +4,7 @@
 include "execution/expression/IR/ExpressionDialect.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-def Column_ExpressionOp : Expression_Op<"column", [Pure]> {
+def ColumnOp : Expression_Op<"column", [Pure]> {
     let summary = "Reference to a column";
     let description = [{
         A reference to a column in a table.
