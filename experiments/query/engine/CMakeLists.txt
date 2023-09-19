@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 
 project(engine VERSION 0.1
                DESCRIPTION "Query Engine"
-               LANGUAGES CXX)
+               LANGUAGES CXX C)
 
 set(default_build_type "Release")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -23,5 +23,26 @@ endif()
 find_package(Arrow REQUIRED)
 find_package(Parquet REQUIRED)
 
+find_package(LLVM 17 REQUIRED CONFIG)
+include(TableGen)
+include(AddLLVM)
+
+# Use LLVM config to find MLIR
+if (NOT DEFINED MLIR_DIR)
+    set(MLIR_DIR ${LLVM_INSTALL_PREFIX}/lib/cmake/mlir)
+endif()
+find_package(MLIR 17 REQUIRED CONFIG)
+message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+
+include(AddMLIR)
+include(HandleLLVMOptions)
+
 add_subdirectory(lib)
 add_subdirectory(cli)
+
+# MLIR dialect
+add_subdirectory(include/execution/expression/IR)

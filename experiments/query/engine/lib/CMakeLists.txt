@@ -1,3 +1,6 @@
+# MLIR expression dialect
+add_subdirectory(execution/expression/IR)
+
 set(
     ENGINE_SOURCE_FILES
     execution/Batch.cpp
@@ -17,6 +20,7 @@ target_link_libraries(
     engine 
     Arrow::arrow_static
     Parquet::parquet_static
+    MLIRExpression
 )
 set_target_properties(
     engine
