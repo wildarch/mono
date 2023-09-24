@@ -4,12 +4,27 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/Support/LogicalResult.h"
+#include "llvm/Support/FormatVariadic.h"
 
 #define GET_OP_CLASSES
 #include "execution/operator/IR/OperatorOps.cpp.inc"
 
 namespace execution {
 namespace qoperator {
+
+mlir::LogicalResult ScanParquetOp::verify() {
+  // TODO: duplicate check?
+  auto namedColumns = getColumns().size();
+  auto typedColumns = getType().getColumns().size();
+  if (namedColumns != typedColumns) {
+    emitOpError(llvm::formatv(
+        "named {} columns to read, but output table has {} columns",
+        namedColumns, typedColumns));
+    return mlir::failure();
+  }
+
+  return mlir::success();
+}
 
 mlir::LogicalResult FilterOp::verify() {
   // Test that the predicate block arguments match the child column types

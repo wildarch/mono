@@ -12,12 +12,13 @@ def ScanParquetOp : Operator_Op<"scan_parquet", [Pure]> {
         Scan a table stored in a parquet file
     }];
 
-    let arguments = (ins StrAttr:$path);
+    let arguments = (ins StrAttr:$path, ArrayAttr:$columns);
     let results = (outs Operator_Table:$result);
 
     let assemblyFormat = [{
-        $path attr-dict `:` type($result)
+        $path $columns attr-dict `:` type($result)
     }];
+    let hasVerifier = 1;
 }
 
 def FilterOp : Operator_Op<"filter", [Pure, SameOperandsAndResultType]> {

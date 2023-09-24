@@ -38,7 +38,7 @@ public:
       : Operator(kind, std::span<const OperatorPtr>()) {}
 };
 
-/** Base class for operator with exactly one child. */
+/** Base class for operators with exactly one child. */
 class SingleChildOperator : public Operator {
 public:
   inline SingleChildOperator(OperatorKind kind, OperatorPtr child)

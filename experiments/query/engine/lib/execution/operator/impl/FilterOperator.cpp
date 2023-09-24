@@ -1,4 +1,4 @@
-#include "execution/operator/FilterOperator.h"
+#include "execution/operator/impl/FilterOperator.h"
 #include "execution/Batch.h"
 #include "execution/expression/ExpressionEvaluator.h"
 #include <stdexcept>
@@ -6,7 +6,7 @@
 
 namespace execution {
 
-static bool evaluatePredicate(const Expression &expr, const Batch &batch,
+static bool evaluatePredicate(mlir::Operation *expr, const Batch &batch,
                               uint32_t row) {
   auto res = evaluate(expr, batch, row);
   if (!std::holds_alternative<bool>(res)) {
@@ -55,7 +55,7 @@ std::optional<Batch> FilterOperator::poll() {
 
   uint32_t outputRow = 0;
   for (uint32_t inputRow = 0; inputRow < input->rows(); inputRow++) {
-    if (!evaluatePredicate(*_expr, *input, inputRow)) {
+    if (!evaluatePredicate(_expr, *input, inputRow)) {
       continue;
     }
 

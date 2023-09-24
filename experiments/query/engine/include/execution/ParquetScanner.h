@@ -17,7 +17,7 @@ public:
   };
 
 private:
-  parquet::ParquetFileReader &_reader;
+  std::unique_ptr<parquet::ParquetFileReader> _reader;
   std::vector<ColumnToRead> _columnsToRead;
 
   int _currentRowGroupIdx = 0;
@@ -26,9 +26,9 @@ private:
   int64_t _rowGroupValuesRead = 0;
 
 public:
-  ParquetScanner(parquet::ParquetFileReader &reader,
+  ParquetScanner(std::unique_ptr<parquet::ParquetFileReader> reader,
                  std::span<const ColumnToRead> columnsToRead)
-      : _reader(reader),
+      : _reader(std::move(reader)),
         _columnsToRead(columnsToRead.begin(), columnsToRead.end()) {}
 
   bool hasNext();

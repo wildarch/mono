@@ -1,15 +1,15 @@
-#include "execution/operator/ParquetScanOperator.h"
-#include "execution/operator/Operator.h"
+#include "execution/operator/impl/ParquetScanOperator.h"
+#include "execution/operator/impl/Operator.h"
 
 namespace execution {
 
 static constexpr uint32_t ROWS_PER_BATCH = 1024;
 
 ParquetScanOperator::ParquetScanOperator(
-    parquet::ParquetFileReader &reader,
+    std::unique_ptr<parquet::ParquetFileReader> reader,
     std::span<const ParquetScanner::ColumnToRead> columnsToRead)
     : LeafOperator(OperatorKind::PARQUET_SCAN),
-      _scanner(reader, columnsToRead) {
+      _scanner(std::move(reader), columnsToRead) {
   for (const auto &c : columnsToRead) {
     _columnTypes.push_back(c.type);
   }
