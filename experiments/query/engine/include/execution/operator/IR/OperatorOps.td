@@ -35,6 +35,7 @@ def FilterOp : Operator_Op<"filter", [Pure, SameOperandsAndResultType]> {
     let assemblyFormat = [{
         $child `:` type($result) attr-dict-with-keyword $predicate
     }];
+    let hasVerifier = 1;
 }
 
 def FilterReturnOp : Operator_Op<"filter.return", [Terminator, Pure, HasParent<"FilterOp">]> {
