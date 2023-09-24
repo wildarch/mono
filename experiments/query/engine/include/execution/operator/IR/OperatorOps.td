@@ -3,6 +3,7 @@
 
 include "execution/operator/IR/OperatorDialect.td"
 include "execution/operator/IR/OperatorTypes.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
 def ScanParquetOp : Operator_Op<"scan_parquet", [Pure]> {
@@ -16,6 +17,36 @@ def ScanParquetOp : Operator_Op<"scan_parquet", [Pure]> {
 
     let assemblyFormat = [{
         $path attr-dict `:` type($result)
+    }];
+}
+
+def FilterOp : Operator_Op<"filter", [Pure, SameOperandsAndResultType]> {
+    let summary = "Filter rows from the child based on a predicate";
+    let description = [{
+        Applies a predicate to all rows produced by the child operator.
+        Only rows that satisfy the predicate are forwarded to the parent.
+    }];
+
+    let arguments = (ins Operator_Table:$child);
+    // TODO: validate that the block args match the columns
+    let regions = (region SizedRegion<1>:$predicate);
+    let results = (outs Operator_Table:$result);
+
+    let assemblyFormat = [{
+        $child `:` type($result) attr-dict-with-keyword $predicate
+    }];
+}
+
+def FilterReturnOp : Operator_Op<"filter.return", [Terminator, Pure, HasParent<"FilterOp">]> {
+    let summary = "return from a filter predicate block";
+    let description = [{
+        Return the evaluated predicate condition value.
+    }];
+
+    let arguments = (ins I1:$condition);
+
+    let assemblyFormat = [{
+        $condition attr-dict
     }];
 }
 
