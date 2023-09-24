@@ -1,5 +1,6 @@
-# MLIR expression dialect
+# MLIR dialects
 add_subdirectory(execution/expression/IR)
+add_subdirectory(execution/operator/IR)
 
 set(
     ENGINE_SOURCE_FILES
@@ -21,6 +22,7 @@ target_link_libraries(
     Arrow::arrow_static
     Parquet::parquet_static
     MLIRExpression
+    MLIROperator
 )
 set_target_properties(
     engine

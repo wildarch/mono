@@ -6,6 +6,7 @@ set(LIBS
     MLIRArithDialect
     MLIROptLib
     MLIRExpression
+    MLIROperator
 )
 add_llvm_executable(query-opt query-opt.cpp)
 

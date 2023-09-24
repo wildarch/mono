@@ -13,6 +13,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 
 #include "execution/expression/IR/ExpressionDialect.h"
+#include "execution/operator/IR/OperatorDialect.h"
 
 int main(int argc, char **argv) {
   mlir::registerAllPasses();
@@ -21,6 +22,7 @@ int main(int argc, char **argv) {
 
   mlir::DialectRegistry registry;
   registry.insert<execution::expression::ExpressionDialect,
+                  execution::qoperator::OperatorDialect,
                   mlir::arith::ArithDialect>();
   // Add the following to include *all* MLIR Core dialects, or selectively
   // include what you need like above. You only need to register dialects that

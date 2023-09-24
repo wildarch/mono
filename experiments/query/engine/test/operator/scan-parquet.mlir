@@ -1,0 +1,1 @@
+%0 = operator.scan_parquet "/home/daan/workspace/duckdb/duckdb_benchmark_data/tpch_sf1_parquet/lineitem.parquet" : table<i32>
