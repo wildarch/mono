@@ -1,3 +1,5 @@
+#include "mlir/IR/DialectImplementation.h"
+
 #include "execution/expression/IR/ExpressionDialect.h"
 #include "execution/expression/IR/ExpressionOps.h"
 
@@ -15,4 +17,13 @@ void ExpressionDialect::initialize() {
 #define GET_OP_LIST
 #include "execution/expression/IR/ExpressionOps.cpp.inc"
       >();
+}
+
+Type ExpressionDialect::parseType(DialectAsmParser &parser) const {
+  parser.emitError(parser.getCurrentLocation(), "unknown type");
+  return nullptr;
+}
+
+void ExpressionDialect::printType(Type ty, DialectAsmPrinter &p) const {
+  p.printKeywordOrString("UNKNOWN_TYPE");
 }

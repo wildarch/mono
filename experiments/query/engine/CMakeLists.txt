@@ -41,8 +41,12 @@ list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddMLIR)
 include(HandleLLVMOptions)
 
-add_subdirectory(lib)
-add_subdirectory(cli)
-
 # MLIR dialect
 add_subdirectory(include/execution/expression/IR)
+
+# Library
+add_subdirectory(lib)
+
+# Binaries
+add_subdirectory(cli)
+add_subdirectory(query-opt)

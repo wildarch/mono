@@ -10,7 +10,7 @@
 			"path": "../../../../duckdb"
 		},
 		{
-			"path": "../../../../llvm-project-17.0.0rc3.src"
+			"path": "../../../../llvm-project-17.0.1.src"
 		}
 	],
 	"settings": {
