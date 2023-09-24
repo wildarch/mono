@@ -41,8 +41,6 @@ constexpr auto physicalColumnTypeSize(PhysicalColumnType t) {
     return sizeof(double);
   case PhysicalColumnType::STRING_PTR:
     return sizeof(StringPtr);
-  default:
-    __builtin_unreachable();
   }
 }
 

@@ -46,8 +46,6 @@ static int64_t readColumn(parquet::ColumnReader &abstractReader,
     CASE(DOUBLE)
     CASE(STRING_PTR)
 #undef CASE
-  default:
-    __builtin_unreachable();
   }
 }
 
