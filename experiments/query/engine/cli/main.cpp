@@ -16,30 +16,14 @@
 #include "execution/expression/ConstantExpression.h"
 #include "execution/expression/IR/ExpressionDialect.h"
 #include "execution/operator/IR/OperatorDialect.h"
+#include "execution/operator/IR/OperatorOps.h"
+#include "execution/operator/IR/OperatorTypes.h"
 #include "execution/operator/impl/FilterOperator.h"
 #include "execution/operator/impl/Operator.h"
 #include "execution/operator/impl/ParquetScanOperator.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
-
-constexpr int DAYS_SINCE_EPOCH_1998_09_02 = 10471;
-
-static int getColumn(parquet::ParquetFileReader &reader,
-                     std::string_view name) {
-  auto schema = reader.metadata()->schema();
-  for (int i = 0; i < schema->num_columns(); i++) {
-    auto *col = schema->Column(i);
-    if (col->name() == name) {
-      return i;
-    }
-  }
-
-  std::cerr << schema->ToString();
-
-  throw std::invalid_argument(std::string("no such column: ") +
-                              std::string(name));
-}
 
 int main(int argc, char **argv) {
   mlir::MLIRContext ctx;
@@ -72,6 +56,24 @@ int main(int argc, char **argv) {
   llvm::outs() << "root op: ";
   root->print(llvm::outs());
   llvm::outs() << "\n";
+
+  // TEMP
+  mlir::OpBuilder builder(&ctx);
+  builder.setInsertionPointAfter(root);
+  auto agg = builder.create<execution::qoperator::AggregateOp>(
+      builder.getUnknownLoc(), root->getResult(0).getType(),
+      root->getResult(0));
+  auto &aggBlock = agg.getAggregators().emplaceBlock();
+  auto arg =
+      aggBlock.addArgument(builder.getI32Type(), builder.getUnknownLoc());
+  builder.setInsertionPointToStart(&aggBlock);
+  auto key = builder.create<execution::qoperator::AggregateKeyOp>(
+      builder.getUnknownLoc(),
+      builder.getType<execution::qoperator::AggregatorType>(arg.getType()),
+      arg);
+  builder.create<execution::qoperator::AggregateReturnOp>(
+      builder.getUnknownLoc(), mlir::ValueRange{key, key});
+  agg->print(llvm::outs());
 
   auto rootImpl = execution::generateImplementation(root);
   if (!rootImpl) {

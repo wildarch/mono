@@ -18,7 +18,7 @@ mlir::LogicalResult ScanParquetOp::verify() {
   auto typedColumns = getType().getColumns().size();
   if (namedColumns != typedColumns) {
     emitOpError(llvm::formatv(
-        "named {} columns to read, but output table has {} columns",
+        "named {0} columns to read, but output table has {1} columns",
         namedColumns, typedColumns));
     return mlir::failure();
   }

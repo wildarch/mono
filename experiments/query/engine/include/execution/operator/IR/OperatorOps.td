@@ -52,4 +52,40 @@ def FilterReturnOp : Operator_Op<"filter.return", [Terminator, Pure, HasParent<"
     }];
 }
 
+def AggregateOp : Operator_Op<"aggregate", [Pure]> {
+    let summary = "Aggregates rows by a set of keys, merge values of other rows using aggregation functions.";
+
+    let arguments = (ins Operator_Table:$child);
+    let regions = (region SizedRegion<1>:$aggregators);
+    let results = (outs Operator_Table:$result);
+
+    let assemblyFormat = [{
+        $child `:` type($child) `->` type($result) attr-dict-with-keyword $aggregators
+    }];
+}
+
+def AggregateReturnOp : Operator_Op<"aggregate.return", [Terminator, Pure, HasParent<"AggregateOp">]> {
+    let summary = "return from an aggregators block";
+    let description = [{
+        Return the output column configuration for the aggregation.
+    }];
+
+    let arguments = (ins Variadic<Aggregator>:$aggregators);
+
+    let assemblyFormat = [{
+        ( `(` $aggregators^ `:` type($aggregators) `)` )? attr-dict
+    }];
+}
+
+def AggregateKeyOp : Operator_Op<"aggregate.key", [Pure]> {
+    let summary = "a key column for an aggregation";
+
+    let arguments = (ins AnyType:$column);
+    let results = (outs Aggregator:$result);
+
+    let assemblyFormat = [{
+        $column `:` type($column) `->` type($result) attr-dict
+    }];
+}
+
 #endif // OPERATOR_OPS
