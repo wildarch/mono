@@ -88,4 +88,37 @@ def AggregateKeyOp : Operator_Op<"aggregate.key", [Pure]> {
     }];
 }
 
+def AggregateSumOp : Operator_Op<"aggregate.sum", [Pure]> {
+    let summary = "a sum column for an aggregation";
+
+    let arguments = (ins AnyType:$column);
+    let results = (outs Aggregator:$result);
+
+    let assemblyFormat = [{
+        $column `:` type($column) `->` type($result) attr-dict
+    }];
+}
+
+def AggregateAvgOp : Operator_Op<"aggregate.avg", [Pure]> {
+    let summary = "an average column for an aggregation";
+
+    let arguments = (ins AnyType:$column);
+    let results = (outs Aggregator:$result);
+
+    let assemblyFormat = [{
+        $column `:` type($column) `->` type($result) attr-dict
+    }];
+}
+
+def AggregateCountOp : Operator_Op<"aggregate.count", [Pure]> {
+    let summary = "a tuple count column for an aggregation";
+
+    // TODO: builder so we don't have to set the type for the aggregator.
+    let results = (outs Aggregator:$result);
+
+    let assemblyFormat = [{
+        type($result) attr-dict
+    }];
+}
+
 #endif // OPERATOR_OPS
