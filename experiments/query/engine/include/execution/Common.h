@@ -35,28 +35,53 @@ private:
     };
   };
 
+  void cloneFrom(const SmallString &other) {
+    // deallocate old string if needed
+    if (_len > MAX_INLINE_LEN) {
+      std::free(_ptr);
+    }
+
+    _len = other._len;
+    if (_len <= MAX_INLINE_LEN) {
+      std::memcpy(_inline, other._inline, other._len);
+    } else {
+      _ptr = static_cast<uint8_t *>(std::malloc(other._len));
+      assert(_ptr != nullptr);
+
+      assert(other._len >= PREFIX_LEN);
+      std::memcpy(_prefix, other._ptr, PREFIX_LEN);
+      std::memcpy(_ptr, other._ptr, other._len);
+    }
+  }
+
 public:
-  SmallString(uint32_t len, const uint8_t *ptr) : _len(len) {
+  inline SmallString(uint32_t len, const uint8_t *ptr) : _len(len) {
     if (len <= MAX_INLINE_LEN) {
       std::memcpy(_inline, ptr, len);
     } else {
-      assert(len >= PREFIX_LEN);
 
       _ptr = static_cast<uint8_t *>(std::malloc(len));
       assert(_ptr != nullptr);
 
+      assert(len >= PREFIX_LEN);
       std::memcpy(_prefix, ptr, PREFIX_LEN);
       std::memcpy(_ptr, ptr, len);
     }
   }
+  inline SmallString(const SmallString &other) { cloneFrom(other); }
+  inline SmallString &operator=(const SmallString &other) {
+    cloneFrom(other);
+    return *this;
+  }
+  SmallString(SmallString &&) = delete;
 
-  ~SmallString() {
+  inline ~SmallString() {
     if (_len > MAX_INLINE_LEN) {
       std::free(_ptr);
     }
   }
 
-  operator std::string_view() const {
+  constexpr operator std::string_view() const {
     if (_len <= MAX_INLINE_LEN) {
       return std::string_view(_inline, _len);
     } else {
@@ -65,6 +90,8 @@ public:
   }
 };
 #pragma pack(pop)
+
+std::ostream &operator<<(std::ostream &os, const SmallString &s);
 
 static_assert(sizeof(SmallString) == 16);
 

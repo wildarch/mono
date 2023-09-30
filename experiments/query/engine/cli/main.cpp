@@ -96,8 +96,9 @@ int main(int argc, char **argv) {
   std::optional<execution::Batch> batch;
   while ((batch = rootImpl->poll())) {
     auto &column = batch->columns().at(0);
-    for (auto val : column.get<execution::PhysicalColumnType::STRING>()) {
-      std::cout << "string: " << std::string_view(val) << "\n";
+    for (const auto &val :
+         column.get<execution::PhysicalColumnType::STRING>()) {
+      std::cout << "string: " << val << "\n";
     }
   }
 

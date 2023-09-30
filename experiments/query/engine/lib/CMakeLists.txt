@@ -5,6 +5,7 @@ add_subdirectory(execution/operator/IR)
 set(
     ENGINE_SOURCE_FILES
     execution/Batch.cpp
+    execution/Common.cpp
     execution/expression/bytecode/ExpressionByteCode.cpp
     execution/expression/ExpressionEvaluator.cpp
     execution/operator/impl/ParquetScanOperator.cpp
