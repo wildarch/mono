@@ -34,7 +34,7 @@ static void copyRow(const Batch &input, uint32_t inputRow, Batch &output,
 
       CASE(INT32)
       CASE(DOUBLE)
-      CASE(STRING_PTR)
+      CASE(STRING)
 #undef CASE
     }
   }

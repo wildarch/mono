@@ -4,11 +4,12 @@
 #include <variant>
 
 #include "execution/Batch.h"
+#include "execution/Common.h"
 #include "execution/expression/Expression.h"
 
 namespace execution {
 
-using ConstantValue = std::variant<bool, int32_t, double, StringPtr>;
+using ConstantValue = std::variant<bool, int32_t, double, SmallString>;
 
 template <class... Ts> struct ConstantVisitor : Ts... {
   using Ts::operator()...;

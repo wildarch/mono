@@ -1,4 +1,6 @@
+#include <iostream>
 #include <parquet/column_reader.h>
+#include <parquet/types.h>
 
 #include "execution/Batch.h"
 #include "execution/ParquetScanner.h"
@@ -16,7 +18,7 @@ auto &castReader(parquet::ColumnReader &reader);
 
 CAST_READER_CASE(INT32, Int32Reader)
 CAST_READER_CASE(DOUBLE, DoubleReader)
-CAST_READER_CASE(STRING_PTR, ByteArrayReader)
+CAST_READER_CASE(STRING, ByteArrayReader)
 #undef CAST_READER_CASE
 
 template <PhysicalColumnType type>
@@ -25,8 +27,20 @@ static int64_t readColumn(parquet::ColumnReader &abstractReader,
   auto &reader = castReader<type>(abstractReader);
 
   int64_t valuesRead;
-  if constexpr (type == PhysicalColumnType::STRING_PTR) {
-    throw std::logic_error("Reading string columns is not yet supported");
+  if constexpr (type == PhysicalColumnType::STRING) {
+    // TODO: allocate this only once.
+    // TODO: avoid initializing this data.
+    std::vector<parquet::ByteArray> conversionBuffer(batch.rows());
+
+    reader.ReadBatch(batch.rows(), nullptr, nullptr, conversionBuffer.data(),
+                     &valuesRead);
+    conversionBuffer.resize(valuesRead);
+
+    auto *targetPtr = target.getForWrite<type>();
+    for (const auto &ba : conversionBuffer) {
+      *targetPtr = SmallString(ba.len, ba.ptr);
+      targetPtr++;
+    }
   } else {
     reader.ReadBatch(batch.rows(), nullptr, nullptr, target.getForWrite<type>(),
                      &valuesRead);
@@ -44,7 +58,7 @@ static int64_t readColumn(parquet::ColumnReader &abstractReader,
 
     CASE(INT32)
     CASE(DOUBLE)
-    CASE(STRING_PTR)
+    CASE(STRING)
 #undef CASE
   }
 }

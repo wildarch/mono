@@ -1,5 +1,6 @@
 #pragma once
 
+#include "execution/Common.h"
 #include <cassert>
 #include <cstdint>
 #include <span>
@@ -10,11 +11,7 @@ namespace execution {
 enum class PhysicalColumnType {
   INT32,
   DOUBLE,
-  STRING_PTR,
-};
-
-class StringPtr {
-  const char *_ptr;
+  STRING,
 };
 
 template <PhysicalColumnType type> struct StoredType;
@@ -27,8 +24,8 @@ template <> struct StoredType<PhysicalColumnType::DOUBLE> {
   using type = double;
 };
 
-template <> struct StoredType<PhysicalColumnType::STRING_PTR> {
-  using type = StringPtr;
+template <> struct StoredType<PhysicalColumnType::STRING> {
+  using type = SmallString;
 };
 
 template <PhysicalColumnType t> using CType = StoredType<t>::type;
@@ -39,8 +36,8 @@ constexpr auto physicalColumnTypeSize(PhysicalColumnType t) {
     return sizeof(int32_t);
   case PhysicalColumnType::DOUBLE:
     return sizeof(double);
-  case PhysicalColumnType::STRING_PTR:
-    return sizeof(StringPtr);
+  case PhysicalColumnType::STRING:
+    return sizeof(SmallString);
   }
 }
 
@@ -97,7 +94,7 @@ public:
 
 CASE(INT32, int32_t)
 CASE(DOUBLE, double)
-CASE(STRING_PTR, StringPtr)
+CASE(STRING, SmallString)
 
 #undef CASE
 

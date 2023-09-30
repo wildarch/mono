@@ -41,7 +41,7 @@ ConstantValue evaluate(const Expression &expr, const Batch &batch,
     break;
           CASE(INT32)
           CASE(DOUBLE)
-          CASE(STRING_PTR)
+          CASE(STRING)
 #undef CASE
         }
         throw std::logic_error("invalid enum");

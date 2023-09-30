@@ -9,6 +9,7 @@
 #include "execution/ImplementationGenerator.h"
 #include "execution/ParquetScanner.h"
 #include "execution/operator/IR/OperatorOps.h"
+#include "execution/operator/IR/OperatorTypes.h"
 #include "execution/operator/impl/FilterOperator.h"
 #include "execution/operator/impl/Operator.h"
 #include "execution/operator/impl/ParquetScanOperator.h"
@@ -72,6 +73,10 @@ execution::PhysicalColumnType
 ImplementationGenerator::convert(mlir::Type type) {
   if (type.isInteger(/*width=*/32)) {
     return execution::PhysicalColumnType::INT32;
+  }
+
+  if (type.isa<execution::qoperator::VarcharType>()) {
+    return execution::PhysicalColumnType::STRING;
   }
 
   type.dump();

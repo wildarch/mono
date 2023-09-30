@@ -81,6 +81,7 @@ int main(int argc, char **argv) {
     return -1;
   }
 
+  /*
   int64_t sum = 0;
   std::optional<execution::Batch> batch;
   while ((batch = rootImpl->poll())) {
@@ -89,8 +90,16 @@ int main(int argc, char **argv) {
       sum += val;
     }
   }
-
   std::cout << "sum: " << sum << "\n";
+  */
+
+  std::optional<execution::Batch> batch;
+  while ((batch = rootImpl->poll())) {
+    auto &column = batch->columns().at(0);
+    for (auto val : column.get<execution::PhysicalColumnType::STRING>()) {
+      std::cout << "string: " << std::string_view(val) << "\n";
+    }
+  }
 
   return 0;
 }
