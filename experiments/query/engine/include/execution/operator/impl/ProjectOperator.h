@@ -7,13 +7,13 @@
 
 namespace execution {
 
-class FilterOperator : public SingleChildOperator {
+class ProjectOperator : public SingleChildOperator {
 private:
-  qoperator::FilterReturnOp _expr;
+  qoperator::ProjectReturnOp _expr;
 
 public:
-  inline FilterOperator(OperatorPtr child, qoperator::FilterReturnOp expr)
-      : SingleChildOperator(OperatorKind::FILTER, child), _expr(expr) {}
+  inline ProjectOperator(OperatorPtr child, qoperator::ProjectReturnOp expr)
+      : SingleChildOperator(OperatorKind::PROJECT, child), _expr(expr) {}
 
   std::optional<Batch> poll() override;
 };

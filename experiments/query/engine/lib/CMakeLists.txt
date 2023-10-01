@@ -11,6 +11,7 @@ set(
     execution/operator/impl/AggregateOperator.cpp
     execution/operator/impl/FilterOperator.cpp
     execution/operator/impl/ParquetScanOperator.cpp
+    execution/operator/impl/ProjectOperator.cpp
     execution/ImplementationGenerator.cpp
     execution/ParquetScanner.cpp
 )

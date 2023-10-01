@@ -23,8 +23,8 @@ def Operator_Table : Operator_Type<"Table", "table"> {
 def Aggregator : Operator_Type<"Aggregator", "aggregator"> {
     let summary = "Aggregation function";
     let description = "Output column configuration for an aggregation operators. Either a key column or an monoid";
-    let parameters = (ins "mlir::Type":$type);
-    let assemblyFormat = "`aggregator` `<` $type `>`";
+    let parameters = (ins "mlir::Type":$elementType);
+    let assemblyFormat = "`aggregator` `<` $elementType `>`";
 }
 
 def Varchar : Operator_Type<"Varchar", "varchar"> {

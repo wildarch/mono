@@ -1,10 +1,13 @@
 #pragma once
 
-#include "execution/Common.h"
 #include <cassert>
 #include <cstdint>
 #include <span>
 #include <vector>
+
+#include "execution/Common.h"
+#include "execution/operator/IR/OperatorTypes.h"
+#include "mlir/IR/Types.h"
 
 namespace execution {
 
@@ -46,6 +49,22 @@ constexpr auto physicalColumnTypeSize(PhysicalColumnType t) {
   case PhysicalColumnType::STRING:
     return sizeof(SmallString);
   }
+}
+
+inline PhysicalColumnType mlirToPhysicalType(mlir::Type type) {
+  if (type.isInteger(/*width=*/32)) {
+    return PhysicalColumnType::INT32;
+  }
+  if (type.isInteger(/*width=*/64)) {
+    return PhysicalColumnType::INT64;
+  }
+  if (type.isF64()) {
+    return PhysicalColumnType::DOUBLE;
+  }
+  if (type.isa<qoperator::VarcharType>()) {
+    return PhysicalColumnType::STRING;
+  }
+  llvm_unreachable("not implemented");
 }
 
 class Batch {

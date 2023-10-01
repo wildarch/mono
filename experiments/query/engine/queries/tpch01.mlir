@@ -62,9 +62,6 @@
 
     %sum_discount = operator.aggregate.sum %discount : i64 -> aggregator<i64>
 
-    %avg_qty = operator.aggregate.avg %quantity : i64 -> aggregator<i64>
-    %avg_price = operator.aggregate.avg %extendedprice : i64 -> aggregator<i64>
-    %avg_disc = operator.aggregate.avg %discount : i64 -> aggregator<i64>
     %count_order = operator.aggregate.count aggregator<i64>
 
     operator.aggregate.return (

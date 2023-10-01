@@ -68,7 +68,7 @@ public:
       std::memcpy(_ptr, ptr, len);
     }
   }
-  inline SmallString(const SmallString &other) { cloneFrom(other); }
+  inline SmallString(const SmallString &other) : _len(0) { cloneFrom(other); }
   inline SmallString &operator=(const SmallString &other) {
     cloneFrom(other);
     return *this;
@@ -94,6 +94,10 @@ public:
 static_assert(sizeof(SmallString) == 16);
 
 std::ostream &operator<<(std::ostream &os, const SmallString &s);
+
+constexpr bool operator==(const SmallString &a, const SmallString &b) {
+  return std::string_view(a) == std::string_view(b);
+}
 
 } // namespace execution
 

@@ -70,6 +70,7 @@ def AggregateReturnOp : Operator_Op<"aggregate.return", [Terminator, Pure, HasPa
         Return the output column configuration for the aggregation.
     }];
 
+    // TODO: validate that keys come first
     let arguments = (ins Variadic<Aggregator>:$aggregators);
 
     let assemblyFormat = [{
@@ -90,17 +91,6 @@ def AggregateKeyOp : Operator_Op<"aggregate.key", [Pure]> {
 
 def AggregateSumOp : Operator_Op<"aggregate.sum", [Pure]> {
     let summary = "a sum column for an aggregation";
-
-    let arguments = (ins AnyType:$column);
-    let results = (outs Aggregator:$result);
-
-    let assemblyFormat = [{
-        $column `:` type($column) `->` type($result) attr-dict
-    }];
-}
-
-def AggregateAvgOp : Operator_Op<"aggregate.avg", [Pure]> {
-    let summary = "an average column for an aggregation";
 
     let arguments = (ins AnyType:$column);
     let results = (outs Aggregator:$result);

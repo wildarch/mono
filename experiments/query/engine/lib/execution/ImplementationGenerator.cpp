@@ -14,6 +14,7 @@
 #include "execution/operator/impl/FilterOperator.h"
 #include "execution/operator/impl/Operator.h"
 #include "execution/operator/impl/ParquetScanOperator.h"
+#include "execution/operator/impl/ProjectOperator.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 
@@ -48,6 +49,12 @@ execution::OperatorPtr ImplementationGenerator::implement(mlir::Operation *op) {
         return std::make_shared<execution::FilterOperator>(child, expr);
       })
       .Case<ScanParquetOp>([this](ScanParquetOp op) { return implement(op); })
+      .Case<ProjectOp>([this](ProjectOp op) {
+        auto child = implement(op.getChild().getDefiningOp());
+        auto expr = llvm::cast<ProjectReturnOp>(
+            op.getProjections().front().getTerminator());
+        return std::make_shared<execution::ProjectOperator>(child, expr);
+      })
       .Default([](mlir::Operation *op) {
         op->emitOpError("cannot implement");
         return nullptr;
