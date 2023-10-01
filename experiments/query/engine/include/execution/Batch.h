@@ -10,6 +10,7 @@ namespace execution {
 
 enum class PhysicalColumnType {
   INT32,
+  INT64,
   DOUBLE,
   STRING,
 };
@@ -18,6 +19,10 @@ template <PhysicalColumnType type> struct StoredType;
 
 template <> struct StoredType<PhysicalColumnType::INT32> {
   using type = int32_t;
+};
+
+template <> struct StoredType<PhysicalColumnType::INT64> {
+  using type = int64_t;
 };
 
 template <> struct StoredType<PhysicalColumnType::DOUBLE> {
@@ -34,6 +39,8 @@ constexpr auto physicalColumnTypeSize(PhysicalColumnType t) {
   switch (t) {
   case PhysicalColumnType::INT32:
     return sizeof(int32_t);
+  case PhysicalColumnType::INT64:
+    return sizeof(int64_t);
   case PhysicalColumnType::DOUBLE:
     return sizeof(double);
   case PhysicalColumnType::STRING:
@@ -93,6 +100,7 @@ public:
   }
 
 CASE(INT32, int32_t)
+CASE(INT64, int64_t)
 CASE(DOUBLE, double)
 CASE(STRING, SmallString)
 

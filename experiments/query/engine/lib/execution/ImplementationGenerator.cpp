@@ -10,6 +10,7 @@
 #include "execution/ParquetScanner.h"
 #include "execution/operator/IR/OperatorOps.h"
 #include "execution/operator/IR/OperatorTypes.h"
+#include "execution/operator/impl/AggregateOperator.h"
 #include "execution/operator/impl/FilterOperator.h"
 #include "execution/operator/impl/Operator.h"
 #include "execution/operator/impl/ParquetScanOperator.h"
@@ -34,6 +35,12 @@ public:
 execution::OperatorPtr ImplementationGenerator::implement(mlir::Operation *op) {
   using namespace execution::qoperator;
   return llvm::TypeSwitch<mlir::Operation *, execution::OperatorPtr>(op)
+      .Case<AggregateOp>([this](AggregateOp op) {
+        auto child = implement(op.getChild().getDefiningOp());
+        auto expr = llvm::cast<AggregateReturnOp>(
+            op.getAggregators().front().getTerminator());
+        return std::make_shared<execution::AggregateOperator>(child, expr);
+      })
       .Case<FilterOp>([this](FilterOp op) {
         auto child = implement(op.getChild().getDefiningOp());
         auto expr = llvm::cast<FilterReturnOp>(
@@ -73,6 +80,9 @@ execution::PhysicalColumnType
 ImplementationGenerator::convert(mlir::Type type) {
   if (type.isInteger(/*width=*/32)) {
     return execution::PhysicalColumnType::INT32;
+  }
+  if (type.isInteger(/*width=*/64)) {
+    return execution::PhysicalColumnType::INT64;
   }
 
   if (type.isa<execution::qoperator::VarcharType>()) {

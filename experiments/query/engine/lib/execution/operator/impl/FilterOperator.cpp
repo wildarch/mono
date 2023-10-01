@@ -33,6 +33,7 @@ static void copyRow(const Batch &input, uint32_t inputRow, Batch &output,
     break;
 
       CASE(INT32)
+      CASE(INT64)
       CASE(DOUBLE)
       CASE(STRING)
 #undef CASE

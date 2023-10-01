@@ -17,6 +17,7 @@ auto &castReader(parquet::ColumnReader &reader);
   }
 
 CAST_READER_CASE(INT32, Int32Reader)
+CAST_READER_CASE(INT64, Int64Reader)
 CAST_READER_CASE(DOUBLE, DoubleReader)
 CAST_READER_CASE(STRING, ByteArrayReader)
 #undef CAST_READER_CASE
@@ -57,6 +58,7 @@ static int64_t readColumn(parquet::ColumnReader &abstractReader,
     return readColumn<PhysicalColumnType::v>(abstractReader, batch, target);
 
     CASE(INT32)
+    CASE(INT64)
     CASE(DOUBLE)
     CASE(STRING)
 #undef CASE

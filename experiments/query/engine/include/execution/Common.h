@@ -91,8 +91,14 @@ public:
 };
 #pragma pack(pop)
 
-std::ostream &operator<<(std::ostream &os, const SmallString &s);
-
 static_assert(sizeof(SmallString) == 16);
 
+std::ostream &operator<<(std::ostream &os, const SmallString &s);
+
 } // namespace execution
+
+template <> struct std::hash<execution::SmallString> {
+  std::size_t operator()(const execution::SmallString &s) const noexcept {
+    return hash<string_view>{}(s);
+  }
+};

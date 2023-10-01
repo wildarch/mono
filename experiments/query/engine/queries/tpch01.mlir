@@ -35,9 +35,7 @@
         i64,                // sum_base_price
         i64,                // sum_disc_price
         i64,                // sum_charge
-        i64,                // avg_qty
-        i64,                // avg_price
-        i64,                // avg_disc
+        i64,                // sum_discount
         i64                 // count_order
         > {
     ^bb0 (
@@ -62,6 +60,8 @@
     %3 = arith.muli %disc_price, %2 : i64                                       // TODO: decimal
     %sum_charge = operator.aggregate.sum %3 : i64 -> aggregator<i64>
 
+    %sum_discount = operator.aggregate.sum %discount : i64 -> aggregator<i64>
+
     %avg_qty = operator.aggregate.avg %quantity : i64 -> aggregator<i64>
     %avg_price = operator.aggregate.avg %extendedprice : i64 -> aggregator<i64>
     %avg_disc = operator.aggregate.avg %discount : i64 -> aggregator<i64>
@@ -74,9 +74,7 @@
         %sum_base_price,
         %sum_disc_price,
         %sum_charge,
-        %avg_qty,
-        %avg_price,
-        %avg_disc,
+        %sum_discount,
         %count_order: 
             !operator<aggregator aggregator<!operator.varchar>>,    // returnflag
             !operator<aggregator aggregator<!operator.varchar>>,    // linestatus
@@ -84,11 +82,56 @@
             !operator<aggregator aggregator<i64>>,                  // sum_base_price
             !operator<aggregator aggregator<i64>>,                  // sum_disc_price
             !operator<aggregator aggregator<i64>>,                  // sum_charge
-            !operator<aggregator aggregator<i64>>,                  // avg_qty
-            !operator<aggregator aggregator<i64>>,                  // avg_price
-            !operator<aggregator aggregator<i64>>,                  // avg_disc
+            !operator<aggregator aggregator<i64>>,                  // sum_discount
             !operator<aggregator aggregator<i64>>)                  // count_order
 }
+%3 = operator.project %2 : table<!operator.varchar, !operator.varchar, i64, i64, i64, i64, i64, i64> -> table<
+        !operator.varchar,  // l_returnflag
+        !operator.varchar,  // l_linestatus
+        i64,                // sum_qty
+        i64,                // sum_base_price
+        i64,                // sum_disc_price
+        i64,                // sum_charge
+        i64,                // avg_qty
+        i64,                // avg_price
+        i64,                // avg_disc
+        i64                 // count_order
+        > {
+    ^bb0 (
+        %returnflag:!operator.varchar,
+        %linestatus:!operator.varchar,
+        %sum_qty:i64,
+        %sum_base_price:i64,
+        %sum_disc_price:i64,
+        %sum_charge:i64,
+        %sum_discount:i64,
+        %count_order:i64):
+    %avg_qty = arith.divsi %sum_qty, %count_order : i64                         // TODO: decimal
+    %avg_price = arith.divsi %sum_base_price, %count_order : i64                // TODO: decimal
+    %avg_disc = arith.divsi %sum_discount, %count_order : i64                   // TODO: decimal
+    operator.project.return (
+        %returnflag, 
+        %linestatus,
+        %sum_qty,
+        %sum_base_price,
+        %sum_disc_price,
+        %sum_charge,
+        %avg_qty,
+        %avg_price,
+        %avg_disc,
+        %count_order: 
+            !operator.varchar,    // returnflag
+            !operator.varchar,    // linestatus
+            i64,                  // sum_qty
+            i64,                  // sum_base_price
+            i64,                  // sum_disc_price
+            i64,                  // sum_charge
+            i64,                  // avg_qty
+            i64,                  // avg_price
+            i64,                  // avg_disc
+            i64)                  // count_order
+}
+
+
 // TODO: rest of the query
-// - group by: add non-key columns
 // - order by

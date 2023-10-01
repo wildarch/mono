@@ -121,4 +121,27 @@ def AggregateCountOp : Operator_Op<"aggregate.count", [Pure]> {
     }];
 }
 
+def ProjectOp : Operator_Op<"project", [Pure]> {
+    let summary = "restricts the set of columns returned, and applies arithmetic to tuples";
+
+    let arguments = (ins Operator_Table:$child);
+    // TODO: validate that the block args match the columns
+    let regions = (region SizedRegion<1>:$projections);
+    let results = (outs Operator_Table:$result);
+
+    let assemblyFormat = [{
+        $child `:` type($child) `->` type($result) attr-dict-with-keyword $projections
+    }];
+}
+
+def ProjectReturnOp : Operator_Op<"project.return", [Terminator, Pure, HasParent<"ProjectOp">]> {
+    let summary = "return a set of projections";
+
+    let arguments = (ins Variadic<AnyType>:$projections);
+
+    let assemblyFormat = [{
+        ( `(` $projections^ `:` type($projections) `)` )? attr-dict
+    }];
+}
+
 #endif // OPERATOR_OPS

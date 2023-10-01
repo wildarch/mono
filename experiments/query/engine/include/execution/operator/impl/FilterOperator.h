@@ -14,7 +14,7 @@ private:
 
 public:
   inline FilterOperator(OperatorPtr child, qoperator::FilterReturnOp expr)
-      : SingleChildOperator(OperatorKind::PARQUET_SCAN, child), _expr(expr) {}
+      : SingleChildOperator(OperatorKind::FILTER, child), _expr(expr) {}
 
   std::optional<Batch> poll() override;
 };

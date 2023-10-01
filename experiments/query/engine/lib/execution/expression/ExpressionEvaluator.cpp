@@ -40,6 +40,7 @@ ConstantValue evaluate(const Expression &expr, const Batch &batch,
         .get<PhysicalColumnType::t>()[row];                                    \
     break;
           CASE(INT32)
+          CASE(INT64)
           CASE(DOUBLE)
           CASE(STRING)
 #undef CASE

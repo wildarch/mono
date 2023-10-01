@@ -8,8 +8,9 @@ set(
     execution/Common.cpp
     execution/expression/bytecode/ExpressionByteCode.cpp
     execution/expression/ExpressionEvaluator.cpp
-    execution/operator/impl/ParquetScanOperator.cpp
+    execution/operator/impl/AggregateOperator.cpp
     execution/operator/impl/FilterOperator.cpp
+    execution/operator/impl/ParquetScanOperator.cpp
     execution/ImplementationGenerator.cpp
     execution/ParquetScanner.cpp
 )

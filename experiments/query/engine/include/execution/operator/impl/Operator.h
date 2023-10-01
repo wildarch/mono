@@ -9,6 +9,8 @@ namespace execution {
 
 enum class OperatorKind {
   PARQUET_SCAN,
+  FILTER,
+  AGGREGATE,
 };
 
 class Operator;

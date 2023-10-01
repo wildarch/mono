@@ -9,7 +9,7 @@
 
 namespace execution {
 
-using ConstantValue = std::variant<bool, int32_t, double, SmallString>;
+using ConstantValue = std::variant<bool, int32_t, int64_t, double, SmallString>;
 
 template <class... Ts> struct ConstantVisitor : Ts... {
   using Ts::operator()...;
