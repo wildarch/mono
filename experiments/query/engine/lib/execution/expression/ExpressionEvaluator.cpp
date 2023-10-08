@@ -49,6 +49,10 @@ template <typename T> static T muli(AnyValue lhs, AnyValue rhs) {
   return std::get<T>(lhs) * std::get<T>(rhs);
 }
 
+template <typename T> static T divsi(AnyValue lhs, AnyValue rhs) {
+  return std::get<T>(lhs) / std::get<T>(rhs);
+}
+
 AnyValue evaluate(mlir::Operation *op, const Batch &batch, uint32_t row) {
   using namespace qoperator;
   return llvm::TypeSwitch<mlir::Operation *, AnyValue>(op)
@@ -97,6 +101,18 @@ AnyValue evaluate(mlir::Operation *op, const Batch &batch, uint32_t row) {
           return muli<int32_t>(lhs, rhs);
         } else if (op.getType().isInteger(/*width=*/64)) {
           return muli<int64_t>(lhs, rhs);
+        } else {
+          op->emitOpError("execution not supported");
+          llvm_unreachable("execution not supported");
+        }
+      })
+      .Case<mlir::arith::DivSIOp>([&](mlir::arith::DivSIOp op) -> AnyValue {
+        auto lhs = evaluate(op.getLhs(), batch, row);
+        auto rhs = evaluate(op.getRhs(), batch, row);
+        if (op.getType().isInteger(/*width=*/32)) {
+          return divsi<int32_t>(lhs, rhs);
+        } else if (op.getType().isInteger(/*width=*/64)) {
+          return divsi<int64_t>(lhs, rhs);
         } else {
           op->emitOpError("execution not supported");
           llvm_unreachable("execution not supported");

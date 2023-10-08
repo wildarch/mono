@@ -1,5 +1,6 @@
 #pragma once
 
+#include "execution/Batch.h"
 #include "execution/operator/IR/OperatorOps.h"
 #include "mlir/IR/Operation.h"
 
@@ -10,10 +11,10 @@ namespace execution {
 class ProjectOperator : public SingleChildOperator {
 private:
   qoperator::ProjectReturnOp _expr;
+  std::vector<PhysicalColumnType> _outputColumnTypes;
 
 public:
-  inline ProjectOperator(OperatorPtr child, qoperator::ProjectReturnOp expr)
-      : SingleChildOperator(OperatorKind::PROJECT, child), _expr(expr) {}
+  ProjectOperator(OperatorPtr child, qoperator::ProjectReturnOp expr);
 
   std::optional<Batch> poll() override;
 };

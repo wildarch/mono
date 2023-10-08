@@ -71,6 +71,7 @@ int main(int argc, char **argv) {
   builder.create<execution::qoperator::AggregateReturnOp>(
       builder.getUnknownLoc(), mlir::ValueRange{key, key});
   agg->print(llvm::outs());
+  llvm::outs() << "\n";
 
   auto rootImpl = execution::generateImplementation(root);
   if (!rootImpl) {
@@ -91,11 +92,18 @@ int main(int argc, char **argv) {
   */
 
   std::optional<execution::Batch> batch;
+  llvm::outs() << "returnFlag,lineStatus,countOrder\n";
   while ((batch = rootImpl->poll())) {
-    auto &column = batch->columns().at(0);
-    for (const auto &val :
-         column.get<execution::PhysicalColumnType::STRING>()) {
-      std::cout << "string: " << val << "\n";
+    for (uint32_t row = 0; row < batch->rows(); row++) {
+      auto returnFlag =
+          batch->columns()[0].get<execution::PhysicalColumnType::STRING>()[row];
+      auto lineStatus =
+          batch->columns()[1].get<execution::PhysicalColumnType::STRING>()[row];
+      auto countOrder = batch->columns()
+                            .back()
+                            .get<execution::PhysicalColumnType::INT64>()[row];
+      llvm::outs() << returnFlag << "," << lineStatus << "," << countOrder
+                   << "\n";
     }
   }
 

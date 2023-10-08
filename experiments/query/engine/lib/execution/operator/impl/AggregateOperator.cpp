@@ -98,7 +98,6 @@ void AggregateOperator::handleInputRow(const Batch &input, size_t row) {
 }
 
 void AggregateOperator::handleInputBatch(const Batch &input) {
-  std::cout << "Block\n";
   for (size_t row = 0; row < input.rows(); row++) {
     handleInputRow(input, row);
   }
@@ -120,8 +119,7 @@ std::optional<Batch> AggregateOperator::poll() {
     _aggregateIter = _aggregate.begin();
   }
 
-  auto aggIt = *_aggregateIter;
-  if (aggIt == _aggregate.end()) {
+  if (*_aggregateIter == _aggregate.end()) {
     return std::nullopt;
   }
 
@@ -131,7 +129,7 @@ std::optional<Batch> AggregateOperator::poll() {
   Batch batch(_outputColumnTypes, batchSize);
 
   for (size_t row = 0; row < batchSize; row++) {
-    const auto &[keys, values] = *aggIt;
+    const auto &[keys, values] = **_aggregateIter;
     size_t keyIdx = 0;
     size_t valIdx = 0;
     for (size_t col = 0; col < _outputColumnTypes.size(); col++) {
@@ -163,9 +161,10 @@ std::optional<Batch> AggregateOperator::poll() {
       }
     }
 
-    llvm_unreachable("not implemented");
+    (*_aggregateIter)++;
   }
 
+  _rowsSubmitted += batchSize;
   return batch;
 }
 
