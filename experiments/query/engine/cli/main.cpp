@@ -92,18 +92,34 @@ int main(int argc, char **argv) {
   */
 
   std::optional<execution::Batch> batch;
-  llvm::outs() << "returnFlag,lineStatus,countOrder\n";
+  llvm::outs() << "l_returnflag"
+               << ",l_linestatus"
+               << ",sum_qty"
+               << ",sum_base_price"
+               << ",sum_disc_price"
+               << ",sum_charge"
+               << ",count_order"
+               << "\n";
   while ((batch = rootImpl->poll())) {
     for (uint32_t row = 0; row < batch->rows(); row++) {
       auto returnFlag =
           batch->columns()[0].get<execution::PhysicalColumnType::STRING>()[row];
       auto lineStatus =
           batch->columns()[1].get<execution::PhysicalColumnType::STRING>()[row];
+      auto sumQty =
+          batch->columns()[2].get<execution::PhysicalColumnType::INT64>()[row];
+      auto sumBasePrice =
+          batch->columns()[3].get<execution::PhysicalColumnType::INT64>()[row];
+      auto sumDiscPrice =
+          batch->columns()[4].get<execution::PhysicalColumnType::INT64>()[row];
+      auto sumCharge =
+          batch->columns()[5].get<execution::PhysicalColumnType::INT64>()[row];
       auto countOrder = batch->columns()
                             .back()
                             .get<execution::PhysicalColumnType::INT64>()[row];
-      llvm::outs() << returnFlag << "," << lineStatus << "," << countOrder
-                   << "\n";
+      llvm::outs() << returnFlag << "," << lineStatus << "," << sumQty << ","
+                   << sumBasePrice << "," << sumDiscPrice << "," << sumCharge
+                   << "," << countOrder << "\n";
     }
   }
 

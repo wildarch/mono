@@ -51,13 +51,15 @@
     %sum_qty = operator.aggregate.sum %quantity : i64 -> aggregator<i64>
     %sum_base_price = operator.aggregate.sum %extendedprice : i64 -> aggregator<i64>
 
+    // at decimal scale -2 we get 1 => 1*10^2 = 100
+    %c100 = arith.constant 100 : i64
     %one = arith.constant 1 : i64
-    %0 = arith.subi %one, %discount : i64                                       // TODO: decimal
-    %disc_price = arith.muli %extendedprice, %0 : i64                           // TODO: decimal
+    %0 = arith.subi %c100, %discount : i64
+    %disc_price = arith.muli %extendedprice, %0 : i64
     %sum_disc_price = operator.aggregate.sum %disc_price : i64 -> aggregator<i64>
 
-    %2 = arith.addi %one, %tax : i64                                            // TODO: decimal
-    %3 = arith.muli %disc_price, %2 : i64                                       // TODO: decimal
+    %2 = arith.addi %c100, %tax : i64
+    %3 = arith.muli %disc_price, %2 : i64
     %sum_charge = operator.aggregate.sum %3 : i64 -> aggregator<i64>
 
     %sum_discount = operator.aggregate.sum %discount : i64 -> aggregator<i64>
