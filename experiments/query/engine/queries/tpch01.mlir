@@ -91,7 +91,7 @@
         i64,                // sum_base_price
         i64,                // sum_disc_price
         i64,                // sum_charge
-        i64,                // avg_qty
+        f64,                // avg_qty
         i64,                // avg_price
         i64,                // avg_disc
         i64                 // count_order
@@ -105,7 +105,11 @@
         %sum_charge:i64,
         %sum_discount:i64,
         %count_order:i64):
-    %avg_qty = arith.divsi %sum_qty, %count_order : i64                         // TODO: decimal
+    %sum_qty_f64_unscaled = arith.sitofp %sum_qty : i64 to f64
+    %c100 = arith.constant 100.0 : f64
+    %sum_qty_f64 = arith.divf %sum_qty_f64_unscaled, %c100 : f64
+    %count_order_f64 = arith.sitofp %count_order : i64 to f64
+    %avg_qty = arith.divf %sum_qty_f64, %count_order_f64 : f64
     %avg_price = arith.divsi %sum_base_price, %count_order : i64                // TODO: decimal
     %avg_disc = arith.divsi %sum_discount, %count_order : i64                   // TODO: decimal
     operator.project.return (
@@ -125,7 +129,7 @@
             i64,                  // sum_base_price
             i64,                  // sum_disc_price
             i64,                  // sum_charge
-            i64,                  // avg_qty
+            f64,                  // avg_qty
             i64,                  // avg_price
             i64,                  // avg_disc
             i64)                  // count_order

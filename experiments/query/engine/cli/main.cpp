@@ -64,6 +64,7 @@ int main(int argc, char **argv) {
                << ",sum_base_price"
                << ",sum_disc_price"
                << ",sum_charge"
+               << ",avg_qty"
                << ",count_order"
                << "\n";
   while ((batch = rootImpl->poll())) {
@@ -80,12 +81,14 @@ int main(int argc, char **argv) {
           batch->columns()[4].get<execution::PhysicalColumnType::INT64>()[row];
       auto sumCharge =
           batch->columns()[5].get<execution::PhysicalColumnType::INT64>()[row];
+      auto avgQty =
+          batch->columns()[6].get<execution::PhysicalColumnType::DOUBLE>()[row];
       auto countOrder = batch->columns()
                             .back()
                             .get<execution::PhysicalColumnType::INT64>()[row];
       llvm::outs() << returnFlag << "," << lineStatus << "," << sumQty << ","
                    << sumBasePrice << "," << sumDiscPrice << "," << sumCharge
-                   << "," << countOrder << "\n";
+                   << "," << avgQty << "," << countOrder << "\n";
     }
   }
 

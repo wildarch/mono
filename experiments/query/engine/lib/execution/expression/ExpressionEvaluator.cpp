@@ -49,7 +49,7 @@ template <typename T> static T muli(AnyValue lhs, AnyValue rhs) {
   return std::get<T>(lhs) * std::get<T>(rhs);
 }
 
-template <typename T> static T divsi(AnyValue lhs, AnyValue rhs) {
+template <typename T> static T div(AnyValue lhs, AnyValue rhs) {
   return std::get<T>(lhs) / std::get<T>(rhs);
 }
 
@@ -69,6 +69,15 @@ AnyValue evaluate(mlir::Operation *op, const Batch &batch, uint32_t row) {
               op->emitOpError("execution not supported");
               llvm_unreachable("execution not supported");
             }
+          })
+      .Case<mlir::arith::ConstantFloatOp>(
+          [&](mlir::arith::ConstantFloatOp op) -> AnyValue {
+            if (!op.getType().isF64()) {
+              op->emitOpError("execution not supported");
+              llvm_unreachable("execution not supported");
+            }
+
+            return op.value().convertToDouble();
           })
       .Case<mlir::arith::AddIOp>([&](mlir::arith::AddIOp op) -> AnyValue {
         auto lhs = evaluate(op.getLhs(), batch, row);
@@ -110,9 +119,19 @@ AnyValue evaluate(mlir::Operation *op, const Batch &batch, uint32_t row) {
         auto lhs = evaluate(op.getLhs(), batch, row);
         auto rhs = evaluate(op.getRhs(), batch, row);
         if (op.getType().isInteger(/*width=*/32)) {
-          return divsi<int32_t>(lhs, rhs);
+          return div<int32_t>(lhs, rhs);
         } else if (op.getType().isInteger(/*width=*/64)) {
-          return divsi<int64_t>(lhs, rhs);
+          return div<int64_t>(lhs, rhs);
+        } else {
+          op->emitOpError("execution not supported");
+          llvm_unreachable("execution not supported");
+        }
+      })
+      .Case<mlir::arith::DivFOp>([&](mlir::arith::DivFOp op) -> AnyValue {
+        auto lhs = evaluate(op.getLhs(), batch, row);
+        auto rhs = evaluate(op.getRhs(), batch, row);
+        if (op.getType().isF64()) {
+          return div<double>(lhs, rhs);
         } else {
           op->emitOpError("execution not supported");
           llvm_unreachable("execution not supported");
@@ -128,6 +147,16 @@ AnyValue evaluate(mlir::Operation *op, const Batch &batch, uint32_t row) {
           op->emitOpError("execution not supported");
           llvm_unreachable("execution not supported");
         }
+      })
+      .Case<mlir::arith::SIToFPOp>([&](mlir::arith::SIToFPOp op) -> AnyValue {
+        if (!op.getIn().getType().isInteger(/*width=*/64) ||
+            !op.getType().isF64()) {
+          op->emitOpError("execution not supported");
+          llvm_unreachable("execution not supported");
+        }
+
+        auto in = std::get<int64_t>(evaluate(op.getIn(), batch, row));
+        return double(in);
       })
       .Case<FilterReturnOp>([&](FilterReturnOp op) {
         return evaluate(op.getCondition(), batch, row);
