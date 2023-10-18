@@ -50,46 +50,12 @@ int main(int argc, char **argv) {
     llvm::errs() << "No root operator\n";
     return -1;
   }
-  llvm::outs() << "root op: ";
-  root->print(llvm::outs());
-  llvm::outs() << "\n";
-
-  // TEMP
-  mlir::OpBuilder builder(&ctx);
-  builder.setInsertionPointAfter(root);
-  auto agg = builder.create<execution::qoperator::AggregateOp>(
-      builder.getUnknownLoc(), root->getResult(0).getType(),
-      root->getResult(0));
-  auto &aggBlock = agg.getAggregators().emplaceBlock();
-  auto arg =
-      aggBlock.addArgument(builder.getI32Type(), builder.getUnknownLoc());
-  builder.setInsertionPointToStart(&aggBlock);
-  auto key = builder.create<execution::qoperator::AggregateKeyOp>(
-      builder.getUnknownLoc(),
-      builder.getType<execution::qoperator::AggregatorType>(arg.getType()),
-      arg);
-  builder.create<execution::qoperator::AggregateReturnOp>(
-      builder.getUnknownLoc(), mlir::ValueRange{key, key});
-  agg->print(llvm::outs());
-  llvm::outs() << "\n";
 
   auto rootImpl = execution::generateImplementation(root);
   if (!rootImpl) {
     llvm::errs() << "Failed to implement query\n";
     return -1;
   }
-
-  /*
-  int64_t sum = 0;
-  std::optional<execution::Batch> batch;
-  while ((batch = rootImpl->poll())) {
-    auto &column = batch->columns().at(0);
-    for (auto val : column.get<execution::PhysicalColumnType::INT32>()) {
-      sum += val;
-    }
-  }
-  std::cout << "sum: " << sum << "\n";
-  */
 
   std::optional<execution::Batch> batch;
   llvm::outs() << "l_returnflag"
