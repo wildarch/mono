@@ -7,3 +7,9 @@
 *.mod.*
 Module.symvers
 modules.order
+
+/linux
+
+# Debian packaging
+linux-*.deb
+/linux-upstream*
