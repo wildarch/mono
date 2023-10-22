@@ -13,3 +13,5 @@ modules.order
 # Debian packaging
 linux-*.deb
 /linux-upstream*
+
+compile_commands.json

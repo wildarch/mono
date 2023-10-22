@@ -41,3 +41,4 @@ multipass mount /home/daan/workspace/mono/experiments/eudyptula/ eudyptula
 
 ## Resources
 - [The Linux Kernel Module Programming Guide](https://sysprog21.github.io/lkmpg/)
+- [Working with the kernel development community](https://www.kernel.org/doc/html/v4.19/process/index.html)
