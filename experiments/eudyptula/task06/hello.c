@@ -7,7 +7,7 @@
 MODULE_LICENSE("GPL");
 
 const char EUDYPTULA_ID[] = "7c1caf2f50d1";
-const size_t EUDYPTULA_ID_LEN = sizeof(EUDYPTULA_ID) - 1;
+#define EUDYPTULA_ID_LEN (sizeof(EUDYPTULA_ID) - 1)
 
 enum {
   CDEV_NOT_USED = 0,
@@ -48,8 +48,26 @@ eudyptula_chardev_read(struct file *filp,   /* see include/linux/fs.h   */
 static ssize_t eudyptula_chardev_write(struct file *filp,
                                        const char __user *buff, size_t len,
                                        loff_t *off) {
-  pr_alert("Sorry, this operation is not supported.\n");
-  return -EINVAL;
+  if (*off != 0 || len != EUDYPTULA_ID_LEN) {
+    pr_alert("off=%lld, len=%zu (expect %zu)\n", *off, len, EUDYPTULA_ID_LEN);
+    return -EINVAL;
+  }
+
+  // Copy the data
+  for (size_t i = 0; i < EUDYPTULA_ID_LEN; i++) {
+    char c;
+    get_user(c, &buff[i]);
+    if (c != EUDYPTULA_ID[i]) {
+      pr_alert("id mismatch at position %zu (%c != %c)\n", i, c,
+               EUDYPTULA_ID[i]);
+      return -EINVAL;
+    }
+  }
+
+  pr_info("Id match!");
+
+  *off = 0;
+  return EUDYPTULA_ID_LEN;
 }
 
 static int eudyptula_chardev_open(struct inode *inode, struct file *file) {
