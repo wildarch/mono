@@ -46,26 +46,8 @@ sudo lsmod | grep hello
 # Load it
 sudo insmod hello.ko
 
-# Should return the loaded module
-sudo lsmod | grep hello
+# Read the device
+sudo cat /dev/eudyptula
 
-# Unload it
-sudo rmmod hello
-
-# Check the logs
-sudo journalctl --since "1 hour ago" | grep kernel
-```
-
-The logs should contain something like:
-
-```
-Oct 22 15:19:43 eudyptula kernel: Hello World!
-```
-
-You may also see messages about the kernel being tainted, which is not a problem:
-
-```
-Oct 22 15:18:39 eudyptula kernel: hello: loading out-of-tree module taints kernel.
-Oct 22 15:18:39 eudyptula kernel: hello: module verification failed: signature and/or required key missing - tainting kernel
-Oct 22 15:19:43 eudyptula kernel: Hello World!
-```
+# Write to the device
+echo -n 7c1caf2f50d1 | sudo tee /dev/eudyptula
