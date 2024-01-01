@@ -8,7 +8,7 @@ Serves: 5.
 - 1 onion
 - 3 cloves garlic
 - 3 sticks celery
-- 1 large carrot
+- 1 large winter carrot
 - 375g vegetarian mince
 - 70g tin tomato puree
 - 150ml red wine
@@ -49,7 +49,7 @@ Serves: 5.
    4. bechamel sauce
    5. grated parmesan
 
-   Ideally you should be able to perform this sequence 3 times, and top it with two extra layers of bechamel and grated parmesan.
+   Repeat layers 2 to 5 three more times.
 
 8. Bake in the oven for 25-35 minutes, until the top is deeply browned.
 
