@@ -20,11 +20,14 @@ Do not use too much water too avoid diluting the starch in the pasta water.
 Cook over medium heat until garlic is very lightly golden, about 5 minutes. 
 (Adjust heat as necessary to keep it gently sizzling.)
 
-3. Add tomatoes, stir to combine, and bring to a bare simmer. 
+3. Cut the bell pepper into bite-size chunks, and add to the pan.
+   Fry for a few minutes until slightly softened but not fully cooked.
+
+4. Add tomatoes, stir to combine, and bring to a bare simmer. 
 When pasta is ready, transfer it to sauce using a strainer or slotted spoon. 
 (Alternatively, drain pasta through a colander, reserving 1 cup of cooking water. Add drained pasta to sauce.)
 
-4. Add about 30ml pasta water to sauce and increase heat to bring pasta and sauce to a vigorous simmer. 
+5. Add about 30ml pasta water to sauce and increase heat to bring pasta and sauce to a vigorous simmer. 
 Cook, stirring and shaking the pan and adding more pasta water as necessary to keep sauce loose, until pasta is perfectly al dente, 1 to 2 minutes longer. 
 (The pasta will cook more slowly in the sauce than it did in the water.)
 

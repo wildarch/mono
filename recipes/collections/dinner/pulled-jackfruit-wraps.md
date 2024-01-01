@@ -12,8 +12,8 @@ Serves: 2.
 - 2 tsp chipotle hot sauce
 - 1 tbsp apple cider vinegar
 - 4 tbsp BBQ sauce
-- 200g can chopped tomato
-- 400g can jackfruit
+- 400g can chopped tomato
+- 550g can jackfruit
 
 ### Wraps
 - 1 lime
