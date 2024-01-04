@@ -18,8 +18,8 @@ exports_files([
 # Raspberry Pi image
 http_file(
     name = "raspberry_pi_os_lite",
-    sha256 = "72c773781a0a57160eb3fa8bb2a927642fe60c3af62bc980827057bcecb7b98b",
-    urls = ["https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2022-09-26/2022-09-22-raspios-bullseye-arm64-lite.img.xz"],
+    sha256 = "5df1850573c5e1418f70285c96deea2cfa87105cca976262f023c49b31cdd52b",
+    urls = ["https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2023-12-11/2023-12-11-raspios-bookworm-armhf-lite.img.xz"],
 )
 
 # ANTLR
