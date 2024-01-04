@@ -34,65 +34,6 @@ load("@rules_antlr//antlr:repositories.bzl", "rules_antlr_dependencies")
 
 rules_antlr_dependencies("4.8")
 
-# Maven
-RULES_JVM_EXTERNAL_TAG = "4.2"
-
-RULES_JVM_EXTERNAL_SHA = "cd1a77b7b02e8e008439ca76fd34f5b07aecb8c752961f9640dea15e9e5ba1ca"
-
-http_archive(
-    name = "rules_jvm_external",
-    sha256 = RULES_JVM_EXTERNAL_SHA,
-    strip_prefix = "rules_jvm_external-%s" % RULES_JVM_EXTERNAL_TAG,
-    url = "https://github.com/bazelbuild/rules_jvm_external/archive/%s.zip" % RULES_JVM_EXTERNAL_TAG,
-)
-
-load("@rules_jvm_external//:repositories.bzl", "rules_jvm_external_deps")
-
-rules_jvm_external_deps()
-
-load("@rules_jvm_external//:setup.bzl", "rules_jvm_external_setup")
-
-rules_jvm_external_setup()
-
-load("@rules_jvm_external//:defs.bzl", "maven_install")
-
-maven_install(
-    artifacts = [
-        "junit:junit:4.12",
-        "com.google.truth:truth:1.1.3",
-        "org.commonmark:commonmark:0.18.1",
-        # Ktor
-        "io.ktor:ktor-server-core-jvm:2.1.0",
-        "io.ktor:ktor-server-netty-jvm:2.1.0",
-        "io.ktor:ktor-server-html-builder-jvm:2.1.0",
-        "io.ktor:ktor-utils-jvm:2.1.0",
-        "io.ktor:ktor-http:2.1.0",
-        "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.6.4",
-        "org.jetbrains.kotlinx:kotlinx-html-jvm:0.8.0",
-        # OCI SDK
-        "com.oracle.oci.sdk:oci-java-sdk-core:2.40.0",
-        "com.oracle.oci.sdk:oci-java-sdk-objectstorage:2.40.0",
-    ],
-    repositories = [
-        "https://maven.google.com",
-        "https://repo1.maven.org/maven2",
-    ],
-)
-
-# rules_pkg
-http_archive(
-    name = "rules_pkg",
-    sha256 = "8a298e832762eda1830597d64fe7db58178aa84cd5926d76d5b744d6558941c2",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.7.0/rules_pkg-0.7.0.tar.gz",
-        "https://github.com/bazelbuild/rules_pkg/releases/download/0.7.0/rules_pkg-0.7.0.tar.gz",
-    ],
-)
-
-load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
-
-rules_pkg_dependencies()
-
 # rust
 http_archive(
     name = "rules_rust",

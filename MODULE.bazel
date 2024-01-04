@@ -8,3 +8,33 @@ use_repo(go_deps, "com_github_chromedp_chromedp", "com_github_fsnotify_fsnotify"
 
 # Kotlin
 bazel_dep(name = "rules_kotlin", version = "1.9.0", repo_name = "io_bazel_rules_kotlin")
+
+# Maven
+bazel_dep(name = "rules_jvm_external", version = "5.3")
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    artifacts = [
+        "junit:junit:4.12",
+        "com.google.truth:truth:1.1.3",
+        "org.commonmark:commonmark:0.18.1",
+        # Ktor
+        "io.ktor:ktor-server-core-jvm:2.1.0",
+        "io.ktor:ktor-server-netty-jvm:2.1.0",
+        "io.ktor:ktor-server-html-builder-jvm:2.1.0",
+        "io.ktor:ktor-utils-jvm:2.1.0",
+        "io.ktor:ktor-http:2.1.0",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.6.4",
+        "org.jetbrains.kotlinx:kotlinx-html-jvm:0.8.0",
+        # OCI SDK
+        "com.oracle.oci.sdk:oci-java-sdk-core:2.40.0",
+        "com.oracle.oci.sdk:oci-java-sdk-objectstorage:2.40.0",
+    ],
+    repositories = [
+        "https://maven.google.com",
+        "https://repo1.maven.org/maven2",
+    ],
+)
+use_repo(maven, "maven")
+
+# Packaging rules (deb)
+bazel_dep(name = "rules_pkg", version = "0.9.1")
