@@ -8,6 +8,6 @@
 - name: Add Zotero APT repository 
   become: true
   apt_repository:
-    repo: deb [arch=amd64] https://zotero.retorque.re/file/apt-package-archive ./
+    repo: deb [signed-by=/usr/share/keyrings/zotero-archive-keyring.gpg by-hash=force] https://zotero.retorque.re/file/apt-package-archive ./
     state: present
     filename: zotero 

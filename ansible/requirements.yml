@@ -5,4 +5,3 @@ roles:
   - name: gantsign.visual-studio-code
   - name: gantsign.golang
   - name: geerlingguy.docker
-  - name: gantsign.intellij

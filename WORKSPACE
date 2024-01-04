@@ -1,7 +1,6 @@
 workspace(name = "com_github_wildarch_mono")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
-load("//package/zoom:zoom.bzl", "ZOOM_SHA256", "ZOOM_URL")
 
 # System binaries
 new_local_repository(
@@ -21,12 +20,6 @@ http_file(
     name = "raspberry_pi_os_lite",
     sha256 = "72c773781a0a57160eb3fa8bb2a927642fe60c3af62bc980827057bcecb7b98b",
     urls = ["https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2022-09-26/2022-09-22-raspios-bullseye-arm64-lite.img.xz"],
-)
-
-http_file(
-    name = "zoom_deb",
-    sha256 = ZOOM_SHA256,
-    urls = [ZOOM_URL],
 )
 
 # ANTLR

@@ -12,7 +12,7 @@
           - golang.Go
           - james-yu.latex-workshop
           - rust-lang.rust-analyzer
-          - znck.grammarly
+          - valentjn.vscode-ltex
           - llvm-vs-code-extensions.vscode-clangd
           - mike-lischke.vscode-antlr4
         visual_studio_code_settings: {
@@ -24,20 +24,12 @@
           }
         }
   - role: gantsign.golang
-    golang_version: '1.20.4'
+    golang_version: '1.21.5'
   - role: geerlingguy.docker
     become: true
     docker_install_compose: false
     docker_users:
     - daan
-  - role: gantsign.intellij
-    users:
-    - username: daan
-      intellij_jdks:
-      - name: Default JDK
-        home: '/usr/lib/jvm/default-java'
-      intellij_plugins:
-      - 'com.google.idea.bazel.ijwb'
 
   tasks:
   # TODO: DisplayLink apt repository
