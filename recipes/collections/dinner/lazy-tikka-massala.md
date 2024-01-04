@@ -12,8 +12,8 @@ Serves: 10.
 - 165g jar tikka massala paste
 - 2 red bell peppers
 - 500g vegetarian alternative to chicken
-- 2 400g tins chopped tomato
-- 2 140g tins tomato paste
+- 800g tinned chopped tomato
+- 280g tinned tomato paste
 - 3 tbsp mango chutney
 - 250ml double cream
 - fresh koriander
