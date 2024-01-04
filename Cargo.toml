@@ -1,4 +1,0 @@
-[workspace]
-members = [
-    "experiments/dblp/dblp-rs"
-]
