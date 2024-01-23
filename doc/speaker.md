@@ -1,20 +1,16 @@
 # Living room speaker
-Documents how to set up the living room speaker
+Documents how to set up the living room speaker.
 
-## Imaging the SD card
-Insert a micro-SD card and run `bazel run //pimage` to create a new boot volume.
-The password chosen in this step is only temporary, we will erase it later on when running the ansible playbook.
+## Imaging the SD Card
+Use `rpi-imager`. It is installed from the regular repositories:
 
-## Bootstrapping
-Power on the pi and find its IP address.
-
-Now set the hostname and reboot:
-
-``` shell
-ssh <ip>
-sudo hostnamectl set-hostname speaker
-sudo reboot
+```bash
+sudo apt install rpi-imager
 ```
+
+Set hostname `speaker`, username `daan`, copy the SSH key and configure the Wi-Fi credentials.
+The automatic Wi-Fi configuration did not work for me.
+I had to connect a screen and keyboard and configure it using `raspi-config` after first boot.
 
 ## Provisioning
 Optionally verify the pi is reachable under hostname `speaker`:
@@ -26,5 +22,5 @@ ssh speaker.local
 Run the playbook:
 
 ```shell
-ansible-playbook -k ansible/speaker.yml
+ansible-playbook ansible/speaker.yml
 ```

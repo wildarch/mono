@@ -15,13 +15,6 @@ exports_files([
     path = "/usr/bin",
 )
 
-# Raspberry Pi image
-http_file(
-    name = "raspberry_pi_os_lite",
-    sha256 = "5df1850573c5e1418f70285c96deea2cfa87105cca976262f023c49b31cdd52b",
-    urls = ["https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2023-12-11/2023-12-11-raspios-bookworm-armhf-lite.img.xz"],
-)
-
 # ANTLR
 http_archive(
     name = "rules_antlr",
