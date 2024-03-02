@@ -1,0 +1,6 @@
+include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${MLIR_INCLUDE_DIRS})
+
+add_mlir_dialect({{.DialectName}}Ops {{.DialectLibName}})
+add_mlir_doc({{.DialectName}}Dialect {{.DialectName}}Dialect {{.DialectName}}/ -gen-dialect-doc)
+add_mlir_doc({{.DialectName}}Ops {{.DialectName}}Ops {{.DialectName}}/ -gen-op-doc)

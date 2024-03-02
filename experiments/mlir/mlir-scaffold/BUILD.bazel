@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "mlir-scaffold_lib",
+    srcs = ["main.go"],
+    embedsrcs = [
+        "templates/CMakeLists.txt.template",
+        "templates/include/CMakeLists.txt.template",
+        "templates/include/ScaffoldDialect.h.template",
+        "templates/include/ScaffoldDialect.td.template",
+        "templates/include/ScaffoldOps.h.template",
+        "templates/include/ScaffoldOps.td.template",
+        "templates/lib/CMakeLists.txt.template",
+        "templates/lib/ScaffoldDialect.cpp.template",
+        "templates/lib/ScaffoldOps.cpp.template",
+        "templates/opt/CMakeLists.txt.template",
+        "templates/opt/opt.cpp.template",
+    ],
+    importpath = "github.com/wildarch/mono/experiments/mlir-scaffold",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "mlir-scaffold",
+    embed = [":mlir-scaffold_lib"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,20 @@
+#ifndef {{.DialectNameScream}}_DIALECT
+#define {{.DialectNameScream}}_DIALECT
+
+include "mlir/IR/OpBase.td"
+
+def {{.DialectName}}_Dialect : Dialect {
+    let name = "{{.DialectLibName}}";
+    let summary = "Scaffolded dialect '{{.DialectName}}'";
+    let description = [{
+        TODO: describe this
+    }];
+    let cppNamespace = "::{{.Namespace}}";
+
+    let useDefaultTypePrinterParser = 1;
+}
+
+class {{.DialectName}}_Op<string mnemonic, list<Trait> traits = []> :
+        Op<{{.DialectName}}_Dialect, mnemonic, traits>;
+
+#endif // {{.DialectNameScream}}_DIALECT

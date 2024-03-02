@@ -1,0 +1,20 @@
+#include "mlir/Tools/mlir-opt/MlirOptMain.h"
+
+#include "PhysicalPlanDialect.h"
+
+int main(int argc, char **argv) {
+  // TODO: Register custom passes here.
+  // physicalplan::PhysicalPlan::registerPasses();
+  // Or all the built-ins
+  // mlir::registerAllPasses();
+
+  mlir::DialectRegistry registry;
+  registry.insert<physicalplan::PhysicalPlanDialect>();
+  // Add the following to include *all* MLIR Core dialects, or selectively
+  // include what you need like above. You only need to register dialects that
+  // will be *parsed* by the tool, not the one generated
+  // registerAllDialects(registry);
+
+  return mlir::asMainReturnCode(
+      mlir::MlirOptMain(argc, argv, "Optimizer driver for PhysicalPlan dialect\n", registry));
+}

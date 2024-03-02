@@ -1,0 +1,29 @@
+#include "mlir/IR/DialectImplementation.h"
+
+#include "{{.DialectName}}Ops.h"
+#include "{{.DialectName}}Dialect.h"
+
+using namespace mlir;
+using namespace {{.Namespace}};
+
+#include "{{.DialectName}}OpsDialect.cpp.inc"
+
+//===----------------------------------------------------------------------===//
+// {{.DialectName}} dialect.
+//===----------------------------------------------------------------------===//
+
+void {{.DialectName}}Dialect::initialize() {
+  addOperations<
+#define GET_OP_LIST
+#include "{{.DialectName}}Ops.cpp.inc"
+      >();
+}
+
+Type {{.DialectName}}Dialect::parseType(DialectAsmParser &parser) const {
+  parser.emitError(parser.getCurrentLocation(), "unknown type");
+  return nullptr;
+}
+
+void {{.DialectName}}Dialect::printType(Type ty, DialectAsmPrinter &p) const {
+  p.printKeywordOrString("UNKNOWN_TYPE");
+}
