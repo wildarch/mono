@@ -21,12 +21,3 @@ void {{.DialectName}}Dialect::initialize() {
 
   registerTypes();
 }
-
-Type {{.DialectName}}Dialect::parseType(DialectAsmParser &parser) const {
-  parser.emitError(parser.getCurrentLocation(), "unknown type");
-  return nullptr;
-}
-
-void {{.DialectName}}Dialect::printType(Type ty, DialectAsmPrinter &p) const {
-  p.printKeywordOrString("UNKNOWN_TYPE");
-}

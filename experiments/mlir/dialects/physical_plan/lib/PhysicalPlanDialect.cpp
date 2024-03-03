@@ -1,7 +1,7 @@
 #include "mlir/IR/DialectImplementation.h"
 
-#include "PhysicalPlanOps.h"
 #include "PhysicalPlanDialect.h"
+#include "PhysicalPlanOps.h"
 #include "PhysicalPlanTypes.h"
 
 using namespace mlir;
@@ -20,13 +20,4 @@ void PhysicalPlanDialect::initialize() {
       >();
 
   registerTypes();
-}
-
-Type PhysicalPlanDialect::parseType(DialectAsmParser &parser) const {
-  parser.emitError(parser.getCurrentLocation(), "unknown type");
-  return nullptr;
-}
-
-void PhysicalPlanDialect::printType(Type ty, DialectAsmPrinter &p) const {
-  p.printKeywordOrString("UNKNOWN_TYPE");
 }

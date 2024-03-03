@@ -1,8 +1,10 @@
 #ifndef {{.DialectNameScream}}_OPS
 #define {{.DialectNameScream}}_OPS
 
-include "{{.DialectName}}Dialect.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+
+include "{{.DialectName}}Dialect.td"
+include "{{.DialectName}}Types.td"
 
 def TestOp : {{.DialectName}}_Op<"test", [Pure]> {
     let summary = "sample op";

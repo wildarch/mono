@@ -18,4 +18,12 @@ def SampleType : PhysicalPlan_Type<"Sample", "sample"> {
     let assemblyFormat = "`sample` `<` $type `>`";
 }
 
+def BlockType : PhysicalPlan_Type<"Block", "block"> {
+    let summary = "An array of columns";
+
+    let parameters = (ins ArrayRefParameter<"mlir::Type", "column types">:$types);
+
+    let assemblyFormat = "`block` `<` $types `>`";
+}
+
 #endif // PHYSICALPLAN_TYPES
