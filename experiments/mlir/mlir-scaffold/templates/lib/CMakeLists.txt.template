@@ -1,6 +1,7 @@
 add_mlir_dialect_library(MLIR{{.DialectName}}
         {{.DialectName}}Dialect.cpp
         {{.DialectName}}Ops.cpp
+        {{.DialectName}}Types.cpp
 
         DEPENDS
         MLIR{{.DialectName}}OpsIncGen

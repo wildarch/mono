@@ -1,0 +1,22 @@
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/DialectImplementation.h"
+#include "mlir/IR/TypeSupport.h"
+#include "mlir/IR/Types.h"
+#include "llvm/ADT/TypeSwitch.h"
+
+#include "{{.DialectName}}Dialect.h"
+#include "{{.DialectName}}Types.h"
+
+#define GET_TYPEDEF_CLASSES
+#include "{{.DialectName}}OpsTypes.cpp.inc"
+
+namespace {{.Namespace}} {
+
+void {{.DialectName}}Dialect::registerTypes() {
+  addTypes<
+#define GET_TYPEDEF_LIST
+#include "{{.DialectName}}OpsTypes.cpp.inc"
+      >();
+}
+
+} // namespace {{.Namespace}}

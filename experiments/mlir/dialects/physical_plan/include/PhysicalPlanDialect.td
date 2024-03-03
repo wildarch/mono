@@ -12,6 +12,9 @@ def PhysicalPlan_Dialect : Dialect {
     let cppNamespace = "::physicalplan";
 
     let useDefaultTypePrinterParser = 1;
+    let extraClassDeclaration = [{
+        void registerTypes();
+    }];
 }
 
 class PhysicalPlan_Op<string mnemonic, list<Trait> traits = []> :

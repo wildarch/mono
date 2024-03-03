@@ -2,6 +2,7 @@
 
 #include "{{.DialectName}}Ops.h"
 #include "{{.DialectName}}Dialect.h"
+#include "{{.DialectName}}Types.h"
 
 using namespace mlir;
 using namespace {{.Namespace}};
@@ -17,6 +18,8 @@ void {{.DialectName}}Dialect::initialize() {
 #define GET_OP_LIST
 #include "{{.DialectName}}Ops.cpp.inc"
       >();
+
+  registerTypes();
 }
 
 Type {{.DialectName}}Dialect::parseType(DialectAsmParser &parser) const {

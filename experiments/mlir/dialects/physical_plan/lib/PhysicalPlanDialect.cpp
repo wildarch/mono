@@ -2,6 +2,7 @@
 
 #include "PhysicalPlanOps.h"
 #include "PhysicalPlanDialect.h"
+#include "PhysicalPlanTypes.h"
 
 using namespace mlir;
 using namespace physicalplan;
@@ -17,6 +18,8 @@ void PhysicalPlanDialect::initialize() {
 #define GET_OP_LIST
 #include "PhysicalPlanOps.cpp.inc"
       >();
+
+  registerTypes();
 }
 
 Type PhysicalPlanDialect::parseType(DialectAsmParser &parser) const {

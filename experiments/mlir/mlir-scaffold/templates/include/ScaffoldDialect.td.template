@@ -12,6 +12,9 @@ def {{.DialectName}}_Dialect : Dialect {
     let cppNamespace = "::{{.Namespace}}";
 
     let useDefaultTypePrinterParser = 1;
+    let extraClassDeclaration = [{
+        void registerTypes();
+    }];
 }
 
 class {{.DialectName}}_Op<string mnemonic, list<Trait> traits = []> :

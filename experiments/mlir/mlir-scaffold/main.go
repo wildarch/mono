@@ -25,7 +25,7 @@ var dialectName = flag.String("name", "Test", "Name for the new dialect, in Came
 var projectDescription = flag.String("project-description", "TODO: write a description", "CMake project description")
 var overwrite = flag.Bool("overwrite", false, "Overwrite existing files")
 
-//go:embed templates
+//go:embed templates templates/.gitignore.template
 var templates embed.FS
 
 func createFromTemplateIfNotExists(config *DialectConfig, path string) error {
@@ -77,15 +77,20 @@ func main() {
 	}
 
 	files := []string{
+		".gitignore",
 		"CMakeLists.txt",
+		"configure.sh",
 		"include/CMakeLists.txt",
 		"include/ScaffoldDialect.h",
 		"include/ScaffoldDialect.td",
 		"include/ScaffoldOps.h",
 		"include/ScaffoldOps.td",
+		"include/ScaffoldTypes.h",
+		"include/ScaffoldTypes.td",
 		"lib/CMakeLists.txt",
 		"lib/ScaffoldDialect.cpp",
 		"lib/ScaffoldOps.cpp",
+		"lib/ScaffoldTypes.cpp",
 		"opt/CMakeLists.txt",
 		"opt/opt.cpp",
 	}

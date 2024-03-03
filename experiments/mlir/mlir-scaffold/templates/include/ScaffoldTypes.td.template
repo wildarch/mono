@@ -1,0 +1,21 @@
+#ifndef {{.DialectNameScream}}_TYPES
+#define {{.DialectNameScream}}_TYPES
+
+include "mlir/IR/AttrTypeBase.td"
+include "{{.DialectName}}Dialect.td"
+
+class {{.DialectName}}_Type<string name, string typeMnemonic, list<Trait> traits = []>
+    : TypeDef<{{.DialectName}}_Dialect, name, traits> {
+  let mnemonic = typeMnemonic;
+}
+
+def SampleType : {{.DialectName}}_Type<"Sample", "sample"> {
+    let summary = "sample type";
+    let description = "TODO: describe";
+
+    let parameters = (ins "mlir::Type":$type);
+    
+    let assemblyFormat = "`sample` `<` $type `>`";
+}
+
+#endif // {{.DialectNameScream}}_TYPES
