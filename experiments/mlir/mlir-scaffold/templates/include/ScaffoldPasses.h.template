@@ -1,0 +1,18 @@
+#pragma once
+
+#include <memory>
+
+#include "mlir/Pass/Pass.h"
+
+#include "{{.DialectName}}Dialect.h"
+#include "{{.DialectName}}Ops.h"
+
+namespace {{.Namespace}} {
+
+#define GEN_PASS_DECL
+#include "{{.DialectName}}Passes.h.inc"
+
+#define GEN_PASS_REGISTRATION
+#include "{{.DialectName}}Passes.h.inc"
+
+}

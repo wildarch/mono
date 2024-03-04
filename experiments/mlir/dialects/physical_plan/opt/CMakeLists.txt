@@ -11,5 +11,7 @@ target_link_libraries(opt-physicalplan
     MLIROptLib
     MLIRArithDialect
 )
+target_compile_options(opt-physicalplan PRIVATE -fsanitize=address)
+target_link_options(opt-physicalplan PRIVATE -fsanitize=address)
 
 mlir_check_all_link_libraries(opt-physicalplan)

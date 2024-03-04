@@ -2,12 +2,16 @@ add_mlir_dialect_library(MLIRPhysicalPlan
         PhysicalPlanDialect.cpp
         PhysicalPlanOps.cpp
         PhysicalPlanTypes.cpp
+        VectorizePipelines.cpp
 
         DEPENDS
         MLIRPhysicalPlanOpsIncGen
+        MLIRPhysicalPlanPassesIncGen
 
         LINK_LIBS PUBLIC
         MLIRIR
+        MLIRPass
+        MLIRTransforms
 )
 target_include_directories(
         MLIRPhysicalPlan

@@ -85,6 +85,8 @@ func main() {
 		"include/ScaffoldDialect.td",
 		"include/ScaffoldOps.h",
 		"include/ScaffoldOps.td",
+		"include/ScaffoldPasses.h",
+		"include/ScaffoldPasses.td",
 		"include/ScaffoldTypes.h",
 		"include/ScaffoldTypes.td",
 		"lib/CMakeLists.txt",

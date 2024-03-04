@@ -20,6 +20,8 @@ go_library(
         "templates/include/ScaffoldTypes.td.template",
         "templates/lib/ScaffoldTypes.cpp.template",
         "templates/.gitignore.template",
+        "templates/include/ScaffoldPasses.h.template",
+        "templates/include/ScaffoldPasses.td.template",
     ],
     importpath = "github.com/wildarch/mono/experiments/mlir/mlir-scaffold",
     visibility = ["//visibility:private"],

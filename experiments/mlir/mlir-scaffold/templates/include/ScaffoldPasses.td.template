@@ -1,0 +1,10 @@
+#ifndef {{.DialectNameScream}}_PASSES
+#define {{.DialectNameScream}}_PASSES
+
+include "mlir/Pass/PassBase.td"
+
+def DummyPass : Pass<"dummy-pass", "::mlir::ModuleOp"> {
+    let summary = "Dummy pass";
+}
+
+#endif // {{.DialectNameScream}}_PASSES

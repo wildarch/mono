@@ -2,12 +2,14 @@
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 
 #include "PhysicalPlanDialect.h"
+#include "PhysicalPlanPasses.h"
 
 int main(int argc, char **argv) {
   // TODO: Register custom passes here.
   // physicalplan::PhysicalPlan::registerPasses();
   // Or all the built-ins
   // mlir::registerAllPasses();
+  physicalplan::registerPasses();
 
   mlir::DialectRegistry registry;
   registry
