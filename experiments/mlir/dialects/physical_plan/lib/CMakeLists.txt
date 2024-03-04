@@ -2,6 +2,7 @@ add_mlir_dialect_library(MLIRPhysicalPlan
         PhysicalPlanDialect.cpp
         PhysicalPlanOps.cpp
         PhysicalPlanTypes.cpp
+        VectorizeCompute.cpp
         VectorizePipelines.cpp
 
         DEPENDS

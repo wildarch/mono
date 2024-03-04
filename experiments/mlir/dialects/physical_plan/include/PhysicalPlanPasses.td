@@ -3,6 +3,10 @@
 
 include "mlir/Pass/PassBase.td"
 
+def VectorizeCompute : Pass<"vectorize-compute", "::mlir::ModuleOp"> {
+    let summary = "Vectorize compute bodies";
+}
+
 def VectorizePipelines : Pass<"vectorize-pipelines", "::mlir::ModuleOp"> {
     let summary = "Vectorize pipeline ops";
 }
