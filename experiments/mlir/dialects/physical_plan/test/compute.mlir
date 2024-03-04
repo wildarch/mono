@@ -1,7 +1,7 @@
 physicalplan.scan ntuples 1024 at [0xDEADBEEF1, 0xDEADBEEF2] {
 ^bb0(%0: !physicalplan<block block<i64, i64>> ):
     %3 = physicalplan.compute %0 : block<i64, i64> -> block<i64, i64, i64> {
-    ^bb0(%a:i64, %b:i64, %c:i1):
+    ^bb0(%a:i64, %b:i64):
         %d = arith.addi %a, %b : i64
         physicalplan.compute.return %d : i64
     }
