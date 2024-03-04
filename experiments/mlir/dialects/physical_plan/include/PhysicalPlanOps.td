@@ -128,31 +128,6 @@ def VectorizedWriteArrayOp : PhysicalPlan_Op<"write_array_vec", [Pure, Terminato
     // - same number output pointers as selected columns
 }
 
-def VectorizeOp : PhysicalPlan_Op<"vectorize", [Pure]> {
-    let summary = "Vectorize operations over scalars";
-
-    let arguments = (ins Variadic<AnyVector>:$inputs);
-    let regions = (region SizedRegion<1>:$body);
-    let results = (outs Variadic<AnyVector>:$results);
-
-    let assemblyFormat = [{
-        $inputs `:` type($inputs) `->` type($results) $body attr-dict
-    }];
-}
-
-def VectorizeReturnOp : PhysicalPlan_Op<"vectorize.return", [
-        Pure,
-        //HasParent<"VectorizeOp">,
-        Terminator]> {
-    let summary = "Return the computed column value";
-
-    let arguments = (ins AnyType:$input);
-
-    let assemblyFormat = [{
-        $input `:` type($input) attr-dict
-    }];
-}
-
 def PackVectorsOp : PhysicalPlan_Op<"pack_vec", [Pure]> {
     let summary = "pack vectors into one object";
 
@@ -167,17 +142,5 @@ def UnpackVectorsOp : PhysicalPlan_Op<"unpack_vec", [Pure]> {
     let arguments = (ins AnyType:$inputs);
     let results = (outs Variadic<AnyVector>:$result);
 }
-
-/*
-def MemRefDeclOp : PhysicalPlan_Op<"memref_decl"> {
-    let summary = "Declares a reference to an array";
-    let arguments = (ins I64Attr:$base);
-    let results = (outs AnyMemRef:$result);
-
-    let assemblyFormat = [{
-        type($result) `at` $base attr-dict
-    }];
-}
-*/
 
 #endif // PHYSICALPLAN_OPS

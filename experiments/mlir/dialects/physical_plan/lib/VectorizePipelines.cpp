@@ -62,23 +62,6 @@ class WriteArrayOpConversion : public mlir::OpConversionPattern<WriteArrayOp> {
                   mlir::ConversionPatternRewriter &rewriter) const override;
 };
 
-class AddIOpConversion : public mlir::OpConversionPattern<mlir::arith::AddIOp> {
-  using mlir::OpConversionPattern<mlir::arith::AddIOp>::OpConversionPattern;
-
-  mlir::LogicalResult
-  matchAndRewrite(mlir::arith::AddIOp op, OpAdaptor adaptor,
-                  mlir::ConversionPatternRewriter &rewriter) const override;
-};
-
-class ComputeReturnOpConversion
-    : public mlir::OpConversionPattern<ComputeReturnOp> {
-  using mlir::OpConversionPattern<ComputeReturnOp>::OpConversionPattern;
-
-  mlir::LogicalResult
-  matchAndRewrite(ComputeReturnOp op, OpAdaptor adaptor,
-                  mlir::ConversionPatternRewriter &rewriter) const override;
-};
-
 } // namespace
 
 static mlir::FailureOr<mlir::ValueRange> getInputVectors(mlir::Value input) {
@@ -93,9 +76,15 @@ static mlir::FailureOr<mlir::ValueRange> getInputVectors(mlir::Value input) {
 }
 
 static mlir::Value replaceWithVectors(mlir::Operation *origOp,
+                                      mlir::ValueRange vectors,
+                                      mlir::PatternRewriter &rewriter) {
+  return rewriter.replaceOpWithNewOp<PackVectorsOp>(origOp, vectors);
+}
+
+static mlir::Value replaceWithVectors(mlir::Operation *origOp,
                                       mlir::Operation *vecOp,
-                                      mlir::PatternRewriter &builder) {
-  return builder.replaceOpWithNewOp<PackVectorsOp>(origOp, vecOp->getResults());
+                                      mlir::PatternRewriter &rewriter) {
+  replaceWithVectors(origOp, vecOp->getResults(), rewriter);
 }
 
 mlir::LogicalResult ScanOpConversion::matchAndRewrite(
@@ -135,21 +124,41 @@ mlir::LogicalResult ComputeOpConversion::matchAndRewrite(
     return mlir::failure();
   }
 
-  llvm::SmallVector<mlir::Type> resultTypes;
-  if (mlir::failed(typeConverter->convertTypes(mlir::TypeRange{op.getType()},
-                                               resultTypes))) {
-    return mlir::failure();
+  /**
+   * Inline the body
+   */
+  // Inputs are propagated.
+  llvm::SmallVector<mlir::Value> results(*inputs);
+  // Map block arguments.
+  mlir::IRMapping mapping;
+  for (auto [arg, input] :
+       llvm::zip_equal(op.getBody().getArguments(), *inputs)) {
+    if (arg.getType() != input.getType()) {
+      return op->emitError("cannot inline because the block arguments do not "
+                           "match the input types");
+    }
+    mapping.map(arg, input);
   }
 
-  auto vecOp = rewriter.create<VectorizeOp>(op->getLoc(), resultTypes, *inputs);
-  rewriter.inlineRegionBefore(op.getBody(), vecOp.getBody(),
-                              vecOp.getBody().end());
-  if (mlir::failed(
-          rewriter.convertRegionTypes(&vecOp.getBody(), *typeConverter))) {
-    return mlir::failure();
+  // Clone the body ops.
+  bool foundReturnOp = false;
+  for (auto &op : op.getBody().front()) {
+    if (auto retOp = llvm::dyn_cast<ComputeReturnOp>(op)) {
+      results.emplace_back(mapping.lookup(retOp.getInput()));
+      foundReturnOp = true;
+      break;
+    }
+
+    auto newOp = rewriter.clone(op, mapping);
+    mapping.map(&op, newOp);
   }
 
-  replaceWithVectors(op, vecOp, rewriter);
+  // Check that the return types are OK.
+  if (!foundReturnOp) {
+    return op->emitError("Could not find return op");
+  }
+
+  replaceWithVectors(op, results, rewriter);
   return mlir::success();
 }
 
@@ -167,75 +176,6 @@ mlir::LogicalResult WriteArrayOpConversion::matchAndRewrite(
   return mlir::success();
 }
 
-mlir::LogicalResult AddIOpConversion::matchAndRewrite(
-    mlir::arith::AddIOp op, OpAdaptor adaptor,
-    mlir::ConversionPatternRewriter &rewriter) const {
-  rewriter.replaceOpWithNewOp<mlir::arith::AddIOp>(op, adaptor.getLhs(),
-                                                   adaptor.getRhs());
-  return mlir::success();
-}
-
-mlir::LogicalResult ComputeReturnOpConversion::matchAndRewrite(
-    ComputeReturnOp op, OpAdaptor adaptor,
-    mlir::ConversionPatternRewriter &rewriter) const {
-  rewriter.replaceOpWithNewOp<VectorizeReturnOp>(op, adaptor.getInput());
-  return mlir::success();
-}
-
-static mlir::LogicalResult inlineVectorizeOp(VectorizeOp op,
-                                             mlir::PatternRewriter &rewriter) {
-  if (!llvm::isa_and_nonnull<VectorizeReturnOp>(
-          op.getBody().front().getTerminator())) {
-    // Need to convert return op first.
-    return mlir::failure();
-  }
-
-  // Inputs are propagated.
-  llvm::SmallVector<mlir::Value> results(op.getInputs());
-
-  // Inline the body
-  mlir::IRMapping mapping;
-  for (auto [arg, input] :
-       llvm::zip_equal(op.getBody().getArguments(), op.getInputs())) {
-    mapping.map(arg, input);
-  }
-  bool foundReturnOp = false;
-  for (auto &op : op.getBody().front()) {
-    if (auto retOp = llvm::dyn_cast<VectorizeReturnOp>(op)) {
-      results.emplace_back(mapping.lookup(retOp.getInput()));
-      foundReturnOp = true;
-      break;
-    }
-
-    auto newOp = rewriter.clone(op, mapping);
-    mapping.map(&op, newOp);
-  }
-
-  if (!foundReturnOp) {
-    return op->emitError("Could not find return op");
-  }
-
-  llvm::SmallVector<mlir::Type> resultTypes;
-  for (auto r : results) {
-    resultTypes.emplace_back(r.getType());
-  }
-
-  // Sanity check.
-  if (!llvm::equal(resultTypes, op->getResultTypes())) {
-    return op->emitError("Op results incompatible with replacement values: ")
-           << op.getResultTypes() << " vs. " << results;
-  }
-
-  rewriter.replaceOp(op, results);
-  return mlir::success();
-}
-
-bool hasVectorOperands(mlir::Operation *op) {
-  return llvm::all_of(op->getOperandTypes(), [](mlir::Type t) {
-    return llvm::isa<mlir::VectorType>(t);
-  });
-}
-
 static std::optional<mlir::LogicalResult>
 blockToVectors(BlockType blockType,
                llvm::SmallVectorImpl<mlir::Type> &outputTypes) {
@@ -244,10 +184,6 @@ blockToVectors(BlockType blockType,
   }
 
   return mlir::success();
-}
-
-static mlir::Type scalarToVectors(mlir::IntegerType type) {
-  return mlir::VectorType::get(VECTOR_SHAPE, type);
 }
 
 static mlir::LogicalResult erasePack(PackVectorsOp op,
@@ -263,18 +199,15 @@ static mlir::LogicalResult erasePack(PackVectorsOp op,
 void VectorizePipelines::runOnOperation() {
   mlir::ConversionTarget target(getContext());
   target.addLegalDialect<mlir::BuiltinDialect>();
-  // target.addLegalDialect<mlir::arith::ArithDialect>();
-  target.addDynamicallyLegalOp<mlir::arith::AddIOp>(hasVectorOperands);
+  // Should have been converted in the Vectorize Compute pass.
+  target.addLegalDialect<mlir::arith::ArithDialect>();
 
   //  Vectorized ops are allowed.
   target.addLegalOp<VectorizedScanOp>();
   target.addLegalOp<VectorizedWriteArrayOp>();
-  // target.addLegalOp<VectorizeOp>();
-  // target.addLegalOp<VectorizeReturnOp>();
 
   mlir::TypeConverter blockConverter;
   blockConverter.addConversion(blockToVectors);
-  blockConverter.addConversion(scalarToVectors);
 
   mlir::RewritePatternSet patterns(&getContext());
 
@@ -282,11 +215,6 @@ void VectorizePipelines::runOnOperation() {
   patterns.add<ScanOpConversion>(blockConverter, &getContext());
   patterns.add<WriteArrayOpConversion>(blockConverter, &getContext());
   patterns.add<ComputeOpConversion>(blockConverter, &getContext());
-  patterns.add(inlineVectorizeOp);
-
-  // Converts scalar ops.
-  patterns.add<AddIOpConversion>(blockConverter, &getContext());
-  patterns.add<ComputeReturnOpConversion>(blockConverter, &getContext());
 
   // Cleanup
   patterns.add(erasePack);
