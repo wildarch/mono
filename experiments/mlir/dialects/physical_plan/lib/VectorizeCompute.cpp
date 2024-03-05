@@ -2,9 +2,11 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/MLIRContext.h"
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "PhysicalPlanPasses.h"
+#include "llvm/ADT/ArrayRef.h"
 #include <llvm-17/llvm/Support/Casting.h>
 
 namespace physicalplan {
@@ -46,6 +48,18 @@ class AddIOpConversion : public mlir::OpConversionPattern<mlir::arith::AddIOp> {
                   mlir::ConversionPatternRewriter &rewriter) const override;
 };
 
+template <typename SourceOp>
+class ArithOpConversion : public mlir::ConversionPattern {
+public:
+  ArithOpConversion(mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx)
+      : mlir::ConversionPattern(typeConverter, SourceOp::getOperationName(),
+                                /*benefit=*/1, ctx) {}
+
+  mlir::LogicalResult
+  matchAndRewrite(mlir::Operation *op, llvm::ArrayRef<mlir::Value> operands,
+                  mlir::ConversionPatternRewriter &rewriter) const override;
+};
+
 } // namespace
 
 static constexpr std::array<std::int64_t, 1> VECTOR_SHAPE{
@@ -66,7 +80,7 @@ static bool operandsAreVectors(mlir::Operation *op) {
 }
 
 static std::optional<mlir::Type> scalarToVectors(mlir::Type type) {
-  if (!type.isSignlessIntOrFloat()) {
+  if (!type.isIntOrFloat()) {
     return std::nullopt;
   }
   return mlir::VectorType::get(VECTOR_SHAPE, type);
@@ -106,6 +120,23 @@ mlir::LogicalResult AddIOpConversion::matchAndRewrite(
   return mlir::success();
 }
 
+template <typename T>
+mlir::LogicalResult ArithOpConversion<T>::matchAndRewrite(
+    mlir::Operation *op, llvm::ArrayRef<mlir::Value> operands,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  rewriter.updateRootInPlace(op, [&]() {
+    // Replace operands
+    op->setOperands(operands);
+
+    // Set result types
+    for (auto res : op->getResults()) {
+      res.setType(typeConverter->convertType(res.getType()));
+    }
+  });
+
+  return mlir::success();
+}
+
 mlir::LogicalResult ComputeReturnOpConversion::matchAndRewrite(
     ComputeReturnOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
@@ -124,9 +155,10 @@ void VectorizeCompute::runOnOperation() {
   typeConverter.addConversion(blockToBlock);
 
   mlir::RewritePatternSet patterns(&getContext());
-  patterns.add<ComputeOpConversion>(typeConverter, &getContext());
-  patterns.add<ComputeReturnOpConversion>(typeConverter, &getContext());
-  patterns.add<AddIOpConversion>(typeConverter, &getContext());
+  patterns.add<ComputeOpConversion, ComputeReturnOpConversion,
+               ArithOpConversion<mlir::arith::AddIOp>,
+               ArithOpConversion<mlir::arith::CmpIOp>>(typeConverter,
+                                                       &getContext());
 
   // Top-level ops.
 

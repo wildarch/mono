@@ -81,12 +81,6 @@ static mlir::Value replaceWithVectors(mlir::Operation *origOp,
   return rewriter.replaceOpWithNewOp<PackVectorsOp>(origOp, vectors);
 }
 
-static mlir::Value replaceWithVectors(mlir::Operation *origOp,
-                                      mlir::Operation *vecOp,
-                                      mlir::PatternRewriter &rewriter) {
-  replaceWithVectors(origOp, vecOp->getResults(), rewriter);
-}
-
 mlir::LogicalResult ScanOpConversion::matchAndRewrite(
     ScanOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
