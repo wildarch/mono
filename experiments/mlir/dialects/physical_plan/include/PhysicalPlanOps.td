@@ -5,7 +5,7 @@ include "PhysicalPlanDialect.td"
 include "PhysicalPlanTypes.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-def ScanOp : PhysicalPlan_Op<"scan", [Pure]> {
+def ScanOp : PhysicalPlan_Op<"scan"> {
     let summary = "Scan in-memory columns";
 
     let arguments = (ins 
@@ -105,7 +105,7 @@ def VectorizedScanOp : PhysicalPlan_Op<"scan_vec"> {
     }];
 }
 
-def VectorizedWriteArrayOp : PhysicalPlan_Op<"write_array_vec", [Pure, Terminator]> {
+def VectorizedWriteArrayOp : PhysicalPlan_Op<"write_array_vec", [Terminator]> {
     let summary = "Write to in-memory buffers";
 
     let arguments = (ins 

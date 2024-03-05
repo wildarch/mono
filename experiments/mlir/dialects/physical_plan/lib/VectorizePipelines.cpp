@@ -110,6 +110,45 @@ mlir::LogicalResult ScanOpConversion::matchAndRewrite(
   return mlir::success();
 }
 
+static mlir::LogicalResult
+inlineBlock(mlir::Block &block, mlir::ValueRange inputs,
+            mlir::ConversionPatternRewriter &rewriter,
+            llvm::SmallVector<mlir::Value> &results) {
+  // Map inputs to block arguments.
+  mlir::IRMapping mapping;
+  for (auto [arg, input] : llvm::zip_equal(block.getArguments(), inputs)) {
+    if (arg.getType() != input.getType()) {
+      return block.getParentOp()->emitError(
+          "cannot inline because the block arguments do not "
+          "match the input types");
+    }
+    mapping.map(arg, input);
+  }
+
+  // Clone the body ops.
+  bool foundTerminator = false;
+  auto terminator = block.getTerminator();
+  for (auto &op : block) {
+    if (&op == terminator) {
+      for (auto oper : op.getOperands()) {
+        results.emplace_back(mapping.lookup(oper));
+      }
+
+      foundTerminator = true;
+      break;
+    }
+
+    auto newOp = rewriter.clone(op, mapping);
+    mapping.map(&op, newOp);
+  }
+
+  if (!foundTerminator) {
+    return block.getParentOp()->emitError("Could not find return op");
+  }
+
+  return mlir::success();
+}
+
 mlir::LogicalResult ComputeOpConversion::matchAndRewrite(
     ComputeOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
@@ -118,38 +157,12 @@ mlir::LogicalResult ComputeOpConversion::matchAndRewrite(
     return mlir::failure();
   }
 
-  /**
-   * Inline the body
-   */
   // Inputs are propagated.
   llvm::SmallVector<mlir::Value> results(*inputs);
-  // Map block arguments.
-  mlir::IRMapping mapping;
-  for (auto [arg, input] :
-       llvm::zip_equal(op.getBody().getArguments(), *inputs)) {
-    if (arg.getType() != input.getType()) {
-      return op->emitError("cannot inline because the block arguments do not "
-                           "match the input types");
-    }
-    mapping.map(arg, input);
-  }
-
-  // Clone the body ops.
-  bool foundReturnOp = false;
-  for (auto &op : op.getBody().front()) {
-    if (auto retOp = llvm::dyn_cast<ComputeReturnOp>(op)) {
-      results.emplace_back(mapping.lookup(retOp.getInput()));
-      foundReturnOp = true;
-      break;
-    }
-
-    auto newOp = rewriter.clone(op, mapping);
-    mapping.map(&op, newOp);
-  }
-
-  // Check that the return types are OK.
-  if (!foundReturnOp) {
-    return op->emitError("Could not find return op");
+  // Inline body ops.
+  if (mlir::failed(
+          inlineBlock(op.getBody().front(), *inputs, rewriter, results))) {
+    return mlir::failure();
   }
 
   replaceWithVectors(op, results, rewriter);

@@ -1,5 +1,6 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
+#include "mlir/Transforms/Passes.h"
 
 #include "PhysicalPlanDialect.h"
 #include "PhysicalPlanPasses.h"
@@ -10,6 +11,7 @@ int main(int argc, char **argv) {
   // Or all the built-ins
   // mlir::registerAllPasses();
   physicalplan::registerPasses();
+  mlir::registerCanonicalizer();
 
   mlir::DialectRegistry registry;
   registry

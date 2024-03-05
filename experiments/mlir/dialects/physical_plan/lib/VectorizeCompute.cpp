@@ -1,7 +1,10 @@
 #include "PhysicalPlanOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Transforms/DialectConversion.h"
 
@@ -60,6 +63,15 @@ public:
                   mlir::ConversionPatternRewriter &rewriter) const override;
 };
 
+class ConstantOpConversion
+    : public mlir::OpConversionPattern<mlir::arith::ConstantOp> {
+  using mlir::OpConversionPattern<mlir::arith::ConstantOp>::OpConversionPattern;
+
+  mlir::LogicalResult
+  matchAndRewrite(mlir::arith::ConstantOp op, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const override;
+};
+
 } // namespace
 
 static constexpr std::array<std::int64_t, 1> VECTOR_SHAPE{
@@ -87,6 +99,12 @@ static std::optional<mlir::Type> scalarToVectors(mlir::Type type) {
 }
 
 static std::optional<mlir::Type> blockToBlock(BlockType type) { return type; }
+
+static bool onlyUsedForBroadcast(mlir::arith::ConstantOp op) {
+  return llvm::all_of(op->getUsers(), [](auto *op) {
+    return llvm::isa<mlir::vector::BroadcastOp>(op);
+  });
+}
 
 // ============================================================================
 // ============================ matchAndRewrite ===============================
@@ -137,6 +155,18 @@ mlir::LogicalResult ArithOpConversion<T>::matchAndRewrite(
   return mlir::success();
 }
 
+mlir::LogicalResult ConstantOpConversion::matchAndRewrite(
+    mlir::arith::ConstantOp op, OpAdaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  // TODO: make dense constant op.
+  auto clonedOp = rewriter.create<mlir::arith::ConstantOp>(
+      op->getLoc(), op.getType(), op.getValue());
+  auto vectorType = mlir::VectorType::get(VECTOR_SHAPE, op.getType());
+  rewriter.replaceOpWithNewOp<mlir::vector::BroadcastOp>(op, vectorType,
+                                                         clonedOp);
+  return mlir::success();
+}
+
 mlir::LogicalResult ComputeReturnOpConversion::matchAndRewrite(
     ComputeReturnOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
@@ -147,8 +177,9 @@ mlir::LogicalResult ComputeReturnOpConversion::matchAndRewrite(
 void VectorizeCompute::runOnOperation() {
   mlir::ConversionTarget target(getContext());
   target.addDynamicallyLegalOp<ComputeOp>(blockArgsAreVectors);
-  target.addDynamicallyLegalOp<mlir::arith::AddIOp, ComputeReturnOp>(
-      operandsAreVectors);
+  target.addDynamicallyLegalOp<mlir::arith::AddIOp, mlir::arith::CmpIOp,
+                               ComputeReturnOp>(operandsAreVectors);
+  target.addDynamicallyLegalOp<mlir::arith::ConstantOp>(onlyUsedForBroadcast);
 
   mlir::TypeConverter typeConverter;
   typeConverter.addConversion(scalarToVectors);
@@ -156,7 +187,7 @@ void VectorizeCompute::runOnOperation() {
 
   mlir::RewritePatternSet patterns(&getContext());
   patterns.add<ComputeOpConversion, ComputeReturnOpConversion,
-               ArithOpConversion<mlir::arith::AddIOp>,
+               ConstantOpConversion, ArithOpConversion<mlir::arith::AddIOp>,
                ArithOpConversion<mlir::arith::CmpIOp>>(typeConverter,
                                                        &getContext());
 

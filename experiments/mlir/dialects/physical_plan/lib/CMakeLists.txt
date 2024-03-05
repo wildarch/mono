@@ -13,6 +13,7 @@ add_mlir_dialect_library(MLIRPhysicalPlan
         MLIRIR
         MLIRPass
         MLIRTransforms
+        MLIRVectorDialect
 )
 target_include_directories(
         MLIRPhysicalPlan
