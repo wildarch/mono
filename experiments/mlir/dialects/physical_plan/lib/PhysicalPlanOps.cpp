@@ -11,9 +11,10 @@
 namespace physicalplan {
 
 void PackVectorsOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
-                          mlir::ValueRange inputs) {
+                          mlir::ValueRange inputs, mlir::Value mask) {
   build(builder, state,
-        mlir::TupleType::get(builder.getContext(), inputs.getTypes()), inputs);
+        mlir::TupleType::get(builder.getContext(), inputs.getTypes()), inputs,
+        mask);
 }
 
 } // namespace physicalplan

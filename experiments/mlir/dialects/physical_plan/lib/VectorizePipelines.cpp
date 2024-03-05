@@ -2,6 +2,7 @@
 #include <llvm-17/llvm/Support/Casting.h>
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -54,6 +55,14 @@ class ComputeOpConversion : public mlir::OpConversionPattern<ComputeOp> {
                   mlir::ConversionPatternRewriter &rewriter) const override;
 };
 
+class FilterOpConversion : public mlir::OpConversionPattern<FilterOp> {
+  using mlir::OpConversionPattern<FilterOp>::OpConversionPattern;
+
+  mlir::LogicalResult
+  matchAndRewrite(FilterOp op, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const override;
+};
+
 class WriteArrayOpConversion : public mlir::OpConversionPattern<WriteArrayOp> {
   using mlir::OpConversionPattern<WriteArrayOp>::OpConversionPattern;
 
@@ -62,14 +71,20 @@ class WriteArrayOpConversion : public mlir::OpConversionPattern<WriteArrayOp> {
                   mlir::ConversionPatternRewriter &rewriter) const override;
 };
 
+struct InputVectors {
+  mlir::ValueRange inputs;
+  mlir::Value mask;
+};
+
 } // namespace
 
-static mlir::FailureOr<mlir::ValueRange> getInputVectors(mlir::Value input) {
+static mlir::FailureOr<InputVectors>
+getInputVectors(mlir::Value input, mlir::PatternRewriter &rewriter) {
   if (auto packOp = input.getDefiningOp<PackVectorsOp>()) {
-    return packOp.getInputs();
+    return InputVectors{packOp.getInputs(), packOp.getMask()};
   } else if (auto castOp =
                  input.getDefiningOp<mlir::UnrealizedConversionCastOp>()) {
-    return castOp.getInputs();
+    return InputVectors{castOp.getInputs(), mlir::Value()};
   }
 
   return mlir::failure();
@@ -77,8 +92,9 @@ static mlir::FailureOr<mlir::ValueRange> getInputVectors(mlir::Value input) {
 
 static mlir::Value replaceWithVectors(mlir::Operation *origOp,
                                       mlir::ValueRange vectors,
+                                      mlir::Value mask,
                                       mlir::PatternRewriter &rewriter) {
-  return rewriter.replaceOpWithNewOp<PackVectorsOp>(origOp, vectors);
+  return rewriter.replaceOpWithNewOp<PackVectorsOp>(origOp, vectors, mask);
 }
 
 mlir::LogicalResult ScanOpConversion::matchAndRewrite(
@@ -152,34 +168,54 @@ inlineBlock(mlir::Block &block, mlir::ValueRange inputs,
 mlir::LogicalResult ComputeOpConversion::matchAndRewrite(
     ComputeOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
-  auto inputs = getInputVectors(adaptor.getInput());
+  auto inputs = getInputVectors(adaptor.getInput(), rewriter);
   if (mlir::failed(inputs)) {
     return mlir::failure();
   }
 
   // Inputs are propagated.
-  llvm::SmallVector<mlir::Value> results(*inputs);
+  llvm::SmallVector<mlir::Value> results(inputs->inputs);
   // Inline body ops.
-  if (mlir::failed(
-          inlineBlock(op.getBody().front(), *inputs, rewriter, results))) {
+  if (mlir::failed(inlineBlock(op.getBody().front(), inputs->inputs, rewriter,
+                               results))) {
     return mlir::failure();
   }
 
-  replaceWithVectors(op, results, rewriter);
+  replaceWithVectors(op, results, inputs->mask, rewriter);
+  return mlir::success();
+}
+
+mlir::LogicalResult FilterOpConversion::matchAndRewrite(
+    FilterOp op, OpAdaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  auto inputs = getInputVectors(adaptor.getInput(), rewriter);
+  if (mlir::failed(inputs)) {
+    return mlir::failure();
+  }
+
+  // Merge masks
+  assert(op.getColumn() < inputs->inputs.size());
+  auto mask = inputs->inputs[op.getColumn()];
+  if (inputs->mask) {
+    mask =
+        rewriter.create<mlir::arith::AndIOp>(op->getLoc(), inputs->mask, mask);
+  }
+
+  replaceWithVectors(op, inputs->inputs, mask, rewriter);
   return mlir::success();
 }
 
 mlir::LogicalResult WriteArrayOpConversion::matchAndRewrite(
     WriteArrayOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
-  auto inputs = getInputVectors(adaptor.getInput());
+  auto inputs = getInputVectors(adaptor.getInput(), rewriter);
   if (mlir::failed(inputs)) {
     return mlir::failure();
   }
 
   rewriter.replaceOpWithNewOp<VectorizedWriteArrayOp>(
-      op, *inputs, op.getOutputColumnPointers(), op.getOffsetPointer(),
-      op.getCapacity());
+      op, inputs->inputs, inputs->mask, op.getOutputColumnPointers(),
+      op.getOffsetPointer(), op.getCapacity());
   return mlir::success();
 }
 
@@ -206,6 +242,7 @@ static mlir::LogicalResult erasePack(PackVectorsOp op,
 void VectorizePipelines::runOnOperation() {
   mlir::ConversionTarget target(getContext());
   target.addLegalDialect<mlir::BuiltinDialect>();
+  target.addLegalDialect<mlir::vector::VectorDialect>();
   // Should have been converted in the Vectorize Compute pass.
   target.addLegalDialect<mlir::arith::ArithDialect>();
 
@@ -222,6 +259,7 @@ void VectorizePipelines::runOnOperation() {
   patterns.add<ScanOpConversion>(blockConverter, &getContext());
   patterns.add<WriteArrayOpConversion>(blockConverter, &getContext());
   patterns.add<ComputeOpConversion>(blockConverter, &getContext());
+  patterns.add<FilterOpConversion>(blockConverter, &getContext());
 
   // Cleanup
   patterns.add(erasePack);

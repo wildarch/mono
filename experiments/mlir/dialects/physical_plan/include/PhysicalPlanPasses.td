@@ -13,6 +13,10 @@ def VectorizeCompute : Pass<"vectorize-compute", "::mlir::ModuleOp"> {
 
 def VectorizePipelines : Pass<"vectorize-pipelines", "::mlir::ModuleOp"> {
     let summary = "Vectorize pipeline ops";
+
+    let dependentDialects = [
+        "mlir::vector::VectorDialect",
+    ];
 }
 
 #endif // PHYSICALPLAN_PASSES

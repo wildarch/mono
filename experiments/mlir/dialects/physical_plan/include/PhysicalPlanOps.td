@@ -5,7 +5,7 @@ include "PhysicalPlanDialect.td"
 include "PhysicalPlanTypes.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-def ScanOp : PhysicalPlan_Op<"scan"> {
+def ScanOp : PhysicalPlan_Op<"scan", [IsolatedFromAbove]> {
     let summary = "Scan in-memory columns";
 
     let arguments = (ins 
@@ -92,7 +92,7 @@ def WriteArrayOp : PhysicalPlan_Op<"write_array", [Pure, Terminator]> {
 // ============================================================================
 // ============================ Vectorized Ops ================================
 // ============================================================================
-def VectorizedScanOp : PhysicalPlan_Op<"scan_vec"> {
+def VectorizedScanOp : PhysicalPlan_Op<"scan_vec", [IsolatedFromAbove]> {
     let summary = "Scan in-memory columns using vectorized ops";
 
     let arguments = (ins 
@@ -105,11 +105,12 @@ def VectorizedScanOp : PhysicalPlan_Op<"scan_vec"> {
     }];
 }
 
-def VectorizedWriteArrayOp : PhysicalPlan_Op<"write_array_vec", [Terminator]> {
+def VectorizedWriteArrayOp : PhysicalPlan_Op<"write_array_vec", [Terminator, AttrSizedOperandSegments]> {
     let summary = "Write to in-memory buffers";
 
     let arguments = (ins 
         Variadic<AnyVector>:$inputs,
+        Optional<VectorOf<[I1]>>:$mask,
         DenseI64ArrayAttr:$outputColumnPointers,
         I64Attr:$offsetPointer,
         I64Attr:$capacity
@@ -117,6 +118,7 @@ def VectorizedWriteArrayOp : PhysicalPlan_Op<"write_array_vec", [Terminator]> {
 
     let assemblyFormat = [{
         $inputs `:` type($inputs) 
+        (`mask` $mask^ `:` type($mask))?
         `to` $outputColumnPointers 
         `offptr` $offsetPointer 
         `capacity` $capacity
@@ -128,11 +130,11 @@ def VectorizedWriteArrayOp : PhysicalPlan_Op<"write_array_vec", [Terminator]> {
     // - same number output pointers as selected columns
 }
 
-def PackVectorsOp : PhysicalPlan_Op<"pack_vec", [Pure]> {
+def PackVectorsOp : PhysicalPlan_Op<"pack_vec", [Pure, AttrSizedOperandSegments]> {
     let summary = "pack vectors into one object";
 
-    let arguments = (ins Variadic<AnyVector>:$inputs);
-    let builders = [OpBuilder<(ins "mlir::ValueRange":$inputs)>];
+    let arguments = (ins Variadic<AnyVector>:$inputs, Optional<VectorOf<[I1]>>:$mask);
+    let builders = [OpBuilder<(ins "mlir::ValueRange":$inputs, "mlir::Value":$mask)>];
     let results = (outs AnyType:$result);
 }
 
