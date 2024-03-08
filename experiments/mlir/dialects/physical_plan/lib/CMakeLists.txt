@@ -4,6 +4,7 @@ add_mlir_dialect_library(MLIRPhysicalPlan
         PhysicalPlanTypes.cpp
         VectorizeCompute.cpp
         VectorizePipelines.cpp
+        PlanToSCF.cpp
 
         DEPENDS
         MLIRPhysicalPlanOpsIncGen
@@ -14,6 +15,7 @@ add_mlir_dialect_library(MLIRPhysicalPlan
         MLIRPass
         MLIRTransforms
         MLIRVectorDialect
+        MLIRSCFDialect
 )
 target_include_directories(
         MLIRPhysicalPlan

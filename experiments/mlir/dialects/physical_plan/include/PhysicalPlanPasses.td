@@ -19,4 +19,12 @@ def VectorizePipelines : Pass<"vectorize-pipelines", "::mlir::ModuleOp"> {
     ];
 }
 
+def PlanToSCF : Pass<"plan-to-scf", "::mlir::ModuleOp"> {
+    let summary = "Lower physical plan to SCF ops";
+
+    let dependentDialects = [
+        "mlir::scf::SCFDialect",
+    ];
+}
+
 #endif // PHYSICALPLAN_PASSES

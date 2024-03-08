@@ -214,7 +214,6 @@ mlir::LogicalResult WriteArrayOpConversion::matchAndRewrite(
     return mlir::failure();
   }
 
-  /*
   llvm::SmallVector<mlir::Value> selectedInputs;
   for (auto col :
        op.getSelectedColumns().getAsValueRange<mlir::IntegerAttr>()) {
@@ -226,49 +225,6 @@ mlir::LogicalResult WriteArrayOpConversion::matchAndRewrite(
   rewriter.replaceOpWithNewOp<VectorizedWriteArrayOp>(
       op, selectedInputs, inputs->mask, op.getOutputColumnPointers(),
       op.getOffsetPointer(), op.getCapacity());
-  return mlir::success();
-  */
-
-  /**
-  1. Get number of values to write (assume 8 for now, no mask)
-  2. ClaimSliceOp
-  3. Vector store
-   */
-
-  auto selectedColumns =
-      op.getSelectedColumns().getAsValueRange<mlir::IntegerAttr>();
-  for (auto [i, col] : llvm::enumerate(selectedColumns)) {
-    auto inputIdx = col.getZExtValue();
-    assert(inputIdx < inputs->inputs.size());
-    auto input = inputs->inputs[inputIdx];
-
-    auto claimSize = rewriter.create<mlir::arith::ConstantIntOp>(
-        op->getLoc(), VECTOR_SHAPE[0], rewriter.getI64Type());
-    auto offsetPtr = rewriter.create<mlir::arith::ConstantIntOp>(
-        op->getLoc(), op.getOffsetPointer(), rewriter.getI64Type());
-    auto capacity = rewriter.create<mlir::arith::ConstantIntOp>(
-        op->getLoc(), op.getCapacity(), rewriter.getI64Type());
-    auto claimOp = rewriter.create<ClaimSliceOp>(
-        op->getLoc(), rewriter.getIndexType(), rewriter.getI1Type(), claimSize,
-        offsetPtr, capacity);
-    // TODO: check error status
-
-    // Create base memref
-    auto basePtr = rewriter.create<mlir::arith::ConstantIntOp>(
-        op->getLoc(), op.getOutputColumnPointers()[i], rewriter.getI64Type());
-    auto inputType = llvm::cast<mlir::VectorType>(input.getType());
-    auto baseType = mlir::MemRefType::get(
-        std::array<std::int64_t, 1>{mlir::ShapedType::kDynamic},
-        inputType.getElementType());
-    mlir::Value base =
-        rewriter.create<DeclMemRefOp>(op.getLoc(), baseType, basePtr);
-
-    // Make the store happen.
-    rewriter.create<mlir::vector::StoreOp>(
-        op->getLoc(), input, base, mlir::ValueRange{claimOp.getOffset()});
-  }
-
-  rewriter.replaceOpWithNewOp<VectorizedScanReturnOp>(op);
   return mlir::success();
 }
 
@@ -302,10 +258,6 @@ void VectorizePipelines::runOnOperation() {
   //  Vectorized ops are allowed.
   target.addLegalOp<VectorizedScanOp>();
   target.addLegalOp<VectorizedWriteArrayOp>();
-  // Low-level ops are allowed.
-  target.addLegalOp<DeclMemRefOp>();
-  target.addLegalOp<ClaimSliceOp>();
-  target.addLegalOp<VectorizedScanReturnOp>();
 
   mlir::TypeConverter blockConverter;
   blockConverter.addConversion(blockToVectors);
