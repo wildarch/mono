@@ -138,11 +138,37 @@ def PackVectorsOp : PhysicalPlan_Op<"pack_vec", [Pure, AttrSizedOperandSegments]
     let results = (outs AnyType:$result);
 }
 
-def UnpackVectorsOp : PhysicalPlan_Op<"unpack_vec", [Pure]> {
-    let summary = "unpack vectors";
+def DeclMemRefOp : PhysicalPlan_Op<"decl_memref", [Pure]> {
+    let summary = "Declare a memref at the given address";
 
-    let arguments = (ins AnyType:$inputs);
-    let results = (outs Variadic<AnyVector>:$result);
+    let arguments = (ins I64:$basePtr);
+    let results = (outs AnyMemRef:$result);
+
+    let assemblyFormat = [{
+        type($result) `at` $basePtr attr-dict
+    }];
+}
+
+def ClaimSliceOp : PhysicalPlan_Op<"claim_slice"> {
+    let summary = "Claim a slice of a target array";
+
+    let description = [{
+        If enough of the total capacity of the array is left, allocates $claimSize elements in the target array by incrementing the value at $offsetPtr.
+        On success, the base offset at which to start writing to the array is returned as $offset.
+        $errorNoCapacity is set to true if for the offset (dereferenced from $offsetPtr) we have offset + $claimSize >= $capacity.
+    }];
+
+    let arguments = (ins I64:$claimSize, I64:$offsetPtr, I64:$capacity);
+
+    let results = (outs Index:$offset, I1:$errorNoCapacity);
+
+    let assemblyFormat = [{
+        `claim` $claimSize `at` $offsetPtr `capacity` $capacity attr-dict
+    }];
+}
+
+def VectorizedScanReturnOp : PhysicalPlan_Op<"scan_vec.return", [Pure, Terminator]> {
+    let summary = "return from a vectorized scan of a single vector";
 }
 
 #endif // PHYSICALPLAN_OPS
