@@ -1,6 +1,7 @@
 #include <array>
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinDialect.h"
@@ -35,6 +36,73 @@ public:
 
 } // namespace
 
+static mlir::LogicalResult scanLowering(VectorizedScanOp op,
+                                        mlir::PatternRewriter &rewriter) {
+  const std::int64_t VECTOR_SIZE = 8;
+
+  // Declare the memrefs for the columns.
+  llvm::SmallVector<mlir::Value> columns;
+  for (auto [ptr, argTy] : llvm::zip_equal(op.getColumnPointers(),
+                                           op.getBody().getArgumentTypes())) {
+    auto vecTy = llvm::cast<mlir::VectorType>(argTy);
+    assert(vecTy.getShape().front() == VECTOR_SIZE);
+    auto memRefTy = mlir::MemRefType::get(
+        std::array<std::int64_t, 1>{std::int64_t(op.getNumberOfTuples())},
+        vecTy.getElementType());
+    auto ptrOp = rewriter.create<mlir::arith::ConstantIntOp>(
+        op->getLoc(), ptr, rewriter.getI64Type());
+    columns.emplace_back(
+        rewriter.create<DeclMemRefOp>(op->getLoc(), memRefTy, ptrOp));
+  }
+
+  // Loop over the input
+  auto zeroOp = rewriter.create<mlir::arith::ConstantIndexOp>(op->getLoc(), 0);
+  auto nrofTuplesOp = rewriter.create<mlir::arith::ConstantIndexOp>(
+      op->getLoc(), op.getNumberOfTuples());
+  auto stepOp =
+      rewriter.create<mlir::arith::ConstantIndexOp>(op->getLoc(), VECTOR_SIZE);
+  auto forOp = rewriter.create<mlir::scf::ForOp>(op->getLoc(), zeroOp,
+                                                 nrofTuplesOp, stepOp);
+  auto &forBlock = forOp.getLoopBody().front();
+  {
+    mlir::OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&forBlock);
+
+    // Erase dummy yield op
+    rewriter.eraseOp(&forBlock.back());
+
+    // Load the vectors
+    llvm::SmallVector<mlir::vector::LoadOp> loadOps;
+    for (auto column : columns) {
+      auto columnType = llvm::cast<mlir::MemRefType>(column.getType());
+      auto vecType =
+          mlir::VectorType::get(std::array<std::int64_t, 1>{VECTOR_SIZE},
+                                columnType.getElementType());
+      loadOps.emplace_back(rewriter.create<mlir::vector::LoadOp>(
+          op->getLoc(), vecType, column,
+          mlir::ValueRange{forOp.getInductionVar()}));
+    }
+
+    // Inline the scan body.
+    mlir::IRMapping mapping;
+    for (auto [arg, loadOp] :
+         llvm::zip_equal(op.getBody().getArguments(), loadOps)) {
+      assert(arg.getType() == loadOp.getType());
+      mapping.map(arg, loadOp);
+    }
+
+    for (auto &vecOp : op.getBody().front()) {
+      auto *newOp = rewriter.clone(vecOp, mapping);
+      mapping.map(&vecOp, newOp);
+    }
+  }
+
+  // forOp replaces the old op.
+  rewriter.eraseOp(op);
+
+  return mlir::success();
+}
+
 static mlir::LogicalResult writeArrayLowering(VectorizedWriteArrayOp op,
                                               mlir::PatternRewriter &rewriter) {
   for (auto [i, input] : llvm::enumerate(op.getInputs())) {
@@ -64,7 +132,8 @@ static mlir::LogicalResult writeArrayLowering(VectorizedWriteArrayOp op,
         op->getLoc(), input, base, mlir::ValueRange{claimOp.getOffset()});
   }
 
-  rewriter.replaceOpWithNewOp<VectorizedScanReturnOp>(op);
+  // rewriter.replaceOpWithNewOp<VectorizedScanReturnOp>(op);
+  rewriter.replaceOpWithNewOp<mlir::scf::YieldOp>(op);
   return mlir::success();
 }
 
@@ -72,16 +141,15 @@ void PlanToSCF::runOnOperation() {
   mlir::ConversionTarget target(getContext());
   target.addLegalDialect<mlir::arith::ArithDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
+  target.addLegalDialect<mlir::scf::SCFDialect>();
   target.addIllegalDialect<PhysicalPlanDialect>();
   // Low-level ops are allowed.
   target.addLegalOp<DeclMemRefOp>();
   target.addLegalOp<ClaimSliceOp>();
-  // Temp
-  target.addLegalOp<VectorizedScanOp>();
-  target.addLegalOp<VectorizedScanReturnOp>();
 
   mlir::RewritePatternSet patterns(&getContext());
   patterns.add(writeArrayLowering);
+  patterns.add(scanLowering);
 
   if (mlir::failed(mlir::applyPartialConversion(getOperation(), target,
                                                 std::move(patterns)))) {

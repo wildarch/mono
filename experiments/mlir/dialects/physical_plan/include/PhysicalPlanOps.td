@@ -167,8 +167,4 @@ def ClaimSliceOp : PhysicalPlan_Op<"claim_slice"> {
     }];
 }
 
-def VectorizedScanReturnOp : PhysicalPlan_Op<"scan_vec.return", [Pure, Terminator]> {
-    let summary = "return from a vectorized scan of a single vector";
-}
-
 #endif // PHYSICALPLAN_OPS
