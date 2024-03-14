@@ -27,4 +27,13 @@ def PlanToSCF : Pass<"plan-to-scf", "::mlir::ModuleOp"> {
     ];
 }
 
+def PlanToLLVM : Pass<"plan-to-llvm", "::mlir::ModuleOp"> {
+    let summary = "Lower physical plan to LLVM";
+
+    let dependentDialects = [
+        "mlir::LLVM::LLVMDialect",
+        "mlir::cf::ControlFlowDialect",
+    ];
+}
+
 #endif // PHYSICALPLAN_PASSES
