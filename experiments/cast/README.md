@@ -10,7 +10,7 @@ I regularly watch videos from these services:
 - NPO (Dutch public broadcaster)
 - Netflix. Very sporadic, but I do have an account.
 
-All of these have Chromecast integration, and I have happen to have a Chromecast plugged into my TV already, so that covers most of my needs.
+All of these have Chromecast integration, and I happen to have a Chromecast plugged into my TV already, so that covers most of my needs.
 
 The one problem with this setup is that YouTube shows way too many Ads. 
 Now for the occasional video I could live with it, but it is annoying when watching Taskmaster.
