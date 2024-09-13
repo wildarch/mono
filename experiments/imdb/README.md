@@ -28,6 +28,9 @@ time ./experiments/imdb/step1.py ~/Downloads/imdb/title.principals.tsv.gz
 
 ## 2. Rust
 A reasonably idiomatic Rust implementation.
+* `flate2` library for decoding gzip
+* `serde` for tsv deserialization. 
+  We also borrow list decoding from `serde_json`.
 
 ```bash
 time cargo run --release --bin step2 ~/Downloads/imdb/title.principals.tsv.gz
@@ -39,4 +42,31 @@ time cargo run --release --bin step2 ~/Downloads/imdb/title.principals.tsv.gz
 Already a big improvement, almost 4x faster.
 
 ## 3. Bring out Perf
-TODO: run perf to find bottlenecks.
+We need some additional setup to enable effective profiling with perf.
+Following [The Rust Performance Book](https://nnethercote.github.io/perf-book/profiling.html), we enable debug symbols in release binaries by adding to `Cargo.toml`:
+
+```toml
+[profile.release]
+debug = 1
+```
+
+Enable running perf without root (global but temporary setting):
+
+```bash
+sudo sysctl -w kernel.perf_event_paranoid=1
+```
+
+Now we can record some perf data:
+
+```bash
+cargo build --release
+perf record --call-graph dwarf target/release/step2 ~/Downloads/imdb/title.principals.tsv.gz
+```
+
+This writes perf logs to a file `perf.data`.
+
+I like to use the [Hotspot](https://github.com/KDAB/hotspot) GUI for viewing perf logs:
+
+```bash
+hotspot ./perf.data
+```

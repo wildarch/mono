@@ -61,18 +61,36 @@ mlir::LogicalResult DeclMemRefOpConversion::matchAndRewrite(
   auto offsetOp = rewriter.create<mlir::LLVM::ConstantOp>(
       op->getLoc(), rewriter.getI64Type(), 0);
   auto shape = rewriter.getDenseI64ArrayAttr(op.getType().getShape());
+  /*
+  auto shapeType =
+      rewriter.getType<mlir::LLVM::LLVMArrayType>(rewriter.getI64Type(), 1);
+  /*
   auto shapeOp = rewriter.create<mlir::LLVM::ConstantOp>(
       op->getLoc(),
       rewriter.getType<mlir::LLVM::LLVMArrayType>(rewriter.getI64Type(), 1),
       shape);
+  */
   auto stride = rewriter.getDenseI64ArrayAttr(std::array<std::int64_t, 1>{1});
+  /*
   auto strideOp = rewriter.create<mlir::LLVM::ConstantOp>(
       op->getLoc(),
       rewriter.getType<mlir::LLVM::LLVMArrayType>(rewriter.getI64Type(), 1),
       stride);
+  */
   auto structType = typeConverter->convertType(op.getType());
-  rewriter.replaceOpWithNewOp<mlir::LLVM::UndefOp>(op, structType);
+  /*
+  auto structVal =
+      rewriter.replaceOpWithNewOp<mlir::LLVM::UndefOp>(op, structType);
+  */
+  auto oneOp = rewriter.create<mlir::LLVM::ConstantOp>(
+      op->getLoc(), rewriter.getI64Type(), 1);
+  auto structVal =
+      rewriter.replaceOpWithNewOp<mlir::LLVM::AllocaOp>(op, structType, oneOp);
   // TODO: actually populate
+  auto shapePtr = rewriter.create<mlir::LLVM::GEPOp>(
+      op->getLoc(), mlir::LLVM::LLVMPointerType::get(rewriter.getI64Type()),
+      structVal.getType(), structVal, std::array<mlir::LLVM::GEPArg, 2>{3, 0},
+      /*inbounds=*/true);
   return mlir::success();
 }
 
