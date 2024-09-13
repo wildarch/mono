@@ -20,7 +20,7 @@
 ### Pico de Gallo
 - 0.5 small onion
 - 1 clove garlic
-- 200-250g sweet tomatoes
+- 250g sweet tomatoes
 - 1 jalapeño
 - 5g coriander
 - 1 tbsp lime juice
