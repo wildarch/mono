@@ -1,6 +1,6 @@
 # This playbook requires an extra variable 'caddy_auth_password_hashed' for a basic auth password.
 # Generate it using `ssh oracle caddy hash-password`.
-# Then run the playbook with an extra flag `--extra-vars='caddy_auth_password_hashed=<hash>'`
+# Then run the playbook with an extra flag `-e 'caddy_auth_password_hashed=<hash>'`
 ---
 - name: Set up oracle VM
   hosts: oracle
@@ -68,12 +68,12 @@
     become: false
     delegate_to: 127.0.0.1
     ansible.builtin.command:
-      cmd: "bazel build //experiments/cast/backend:backend_deb"
-      creates: "../../bazel-bin/experiments/cast/backend/cast-backend_0.0.1_all.deb"
+      cmd: "bazel build //cast/backend:backend_deb"
+      creates: "../../bazel-bin/cast/backend/cast-backend_0.0.1_all.deb"
 
   - name: Transfer cast backend
     ansible.posix.synchronize:
-      src: "../../bazel-bin/experiments/cast/backend/cast-backend_0.0.1_all.deb"
+      src: "../../bazel-bin/cast/backend/cast-backend_0.0.1_all.deb"
       dest: "/tmp/cast-backend.deb"
 
   - name: Install cast backend

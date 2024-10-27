@@ -1,0 +1,12 @@
+"""
+A dummy test that always succeeds.
+
+This ensures `bazel test //...` does not complain about running all tests in 
+the repo when there are no tests (yet).
+"""
+
+sh_test(
+    name = "dummy-test",
+    size = "small",
+    srcs = ["dummy-test.sh"],
+)

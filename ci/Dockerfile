@@ -5,9 +5,20 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
   ansible \
   git \
   gpg \
+  sudo \
   && rm -rf /var/lib/apt/lists/*
 
-COPY . /mono
+# Bazel does not like running as root
+RUN useradd -ms /bin/bash ubuntu
 
-WORKDIR "/mono"
+# Allow executing commands as root using sudo
+RUN echo ubuntu ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/ubuntu \
+    && chmod 0440 /etc/sudoers.d/ubuntu
+
+COPY . /home/ubuntu/mono
+
+WORKDIR "/home/ubuntu/mono"
+
+
+USER ubuntu
 ENTRYPOINT ["ci/run.sh"]

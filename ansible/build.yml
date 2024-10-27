@@ -1,6 +1,6 @@
 ---
 - name: Setup system for building the monorepo 
-  hosts: yoga
+  hosts: local
   tasks:
   - include_tasks: tasks/bazel.yml
 
@@ -10,7 +10,5 @@
       update_cache: true
       cache_valid_time: 3600
       pkg:
-      - rclone
-      - shellcheck
       - bazel
       - default-jdk

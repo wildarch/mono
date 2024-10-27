@@ -1,0 +1,49 @@
+load("@rules_pkg//:pkg.bzl", "pkg_deb", "pkg_tar")
+load("@rules_pkg//:mappings.bzl", "pkg_files")
+
+pkg_files(
+    name = "backend_jar_files",
+    srcs = ["//src/main/java/dev/wildarch/cast/backend:backend_deploy.jar"],
+    renames = {
+        "//src/main/java/dev/wildarch/cast/backend:backend_deploy.jar": "cast_backend.jar",
+    },
+)
+
+pkg_tar(
+    name = "backend_jar_tar",
+    srcs = [":backend_jar_files"],
+    package_dir = "/usr/share/java",
+)
+
+pkg_tar(
+    name = "systemd_tar",
+    srcs = [
+        "cast-backend.service",
+    ],
+    mode = "0644",
+    package_dir = "/usr/lib/systemd/system",
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "debian_data",
+    extension = "tar.gz",
+    deps = [
+        ":backend_jar_tar",
+        ":systemd_tar",
+    ],
+)
+
+pkg_deb(
+    name = "backend_deb",
+    data = ":debian_data",
+    depends = [
+        "java-runtime-headless",
+    ],
+    description = "Backend for media casting server",
+    maintainer = "Daan de Graaf <daandegraaf9@gmail.com>",
+    package = "cast-backend",
+    postinst = "postinst.sh",
+    prerm = "prerm.sh",
+    version = "0.0.1",
+)

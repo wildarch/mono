@@ -1,9 +1,0 @@
-#!/bin/bash
-#
-# Watches for changes in files that the given target depends on, 
-# and rebuilds or tests given target as necessary.
-
-WATCHER_BIN="bazel-bin/experiments/watcher/watcher_/watcher"
-
-bazel build //experiments/watcher
-"$WATCHER_BIN" --root="$(pwd)" $@

@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-if [ ! -f "WORKSPACE" ]; then
-    echo "Must be run inside the WORKSPACE"
+if [ ! -f "ansible/build.yml" ]; then
+    echo "Must be run from the repository root"
     exit 1
 fi
 

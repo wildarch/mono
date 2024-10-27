@@ -1,12 +1,4 @@
-load("//rules:shell.bzl", "sh_binary")
-
 sh_binary(
     name = "configsync",
     srcs = ["configsync.sh"],
-    data = [
-        "@system-bin//:rclone",
-    ],
-    env = {
-        "RCLONE": "$(execpath @system-bin//:rclone)",
-    },
 )

@@ -1,6 +1,0 @@
-#pragma once
-
-#include "{{.DialectName}}Dialect.h"
-
-#define GET_TYPEDEF_CLASSES
-#include "{{.DialectName}}OpsTypes.h.inc"

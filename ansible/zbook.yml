@@ -1,6 +1,6 @@
 ---
 - name: Setup ZBook laptop
-  hosts: zbook
+  hosts: local
   roles:
   - role: gantsign.visual-studio-code
     users:
@@ -42,6 +42,7 @@
       update_cache: true
       cache_valid_time: 3600
       pkg:
+      - rclone
       - google-chrome-stable
       - build-essential
       - default-jdk

@@ -1,2 +1,0 @@
-common --jvmopt=-Djava.security.manager=allow
-build --action_env=BAZEL_CXXOPTS="-std=c++20"
