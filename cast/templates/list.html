@@ -1,0 +1,27 @@
+{{define "list"}}
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medialib</title>
+  <link href="https://cdn.simplecss.org/simple.min.css" rel="stylesheet">
+</head>
+
+<body>
+  <h2>Media</h2>
+
+  <ul>
+    {{range $obj := .Objects}}
+    <li>
+      <a href="/cast/play?file={{.Name}}">
+        {{.Name}}
+      </a>
+    </li>
+    {{end}}
+  </ul>
+</body>
+
+</html>
+{{end}}

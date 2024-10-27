@@ -6,9 +6,7 @@ After=syslog.target network.target
 User=ubuntu
 Group=ubuntu
 Type=simple
-Environment="CAST_BACKEND_PREFIX=/cast"
-Environment="CAST_BACKEND_PORT=8001"
-ExecStart=/usr/bin/java -jar /usr/share/java/cast_backend.jar
+ExecStart=/usr/bin/cast-backend
 ExecStop=/bin/kill -15 $MAINPID
 SuccessExitStatus=143
 

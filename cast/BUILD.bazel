@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "cast_lib",
+    srcs = ["main.go"],
+    embedsrcs = [
+        "templates/list.html",
+        "templates/play.html",
+    ],
+    importpath = "github.com/wildarch/mono/cast",
+    visibility = ["//visibility:private"],
+    deps = [
+        "@com_github_oracle_oci_go_sdk_v65//common",
+        "@com_github_oracle_oci_go_sdk_v65//objectstorage",
+    ],
+)
+
+go_binary(
+    name = "cast",
+    embed = [":cast_lib"],
+    visibility = ["//visibility:public"],
+)

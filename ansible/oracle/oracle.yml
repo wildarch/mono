@@ -68,12 +68,12 @@
     become: false
     delegate_to: 127.0.0.1
     ansible.builtin.command:
-      cmd: "bazel build //cast/backend:backend_deb"
-      creates: "../../bazel-bin/cast/backend/cast-backend_0.0.1_all.deb"
+      cmd: "bazel build //cast/package"
+      creates: "../../bazel-bin/cast/package/cast-backend_0.0.1_arm64.deb"
 
   - name: Transfer cast backend
     ansible.posix.synchronize:
-      src: "../../bazel-bin/cast/backend/cast-backend_0.0.1_all.deb"
+      src: "../../bazel-bin/cast/package/cast-backend_0.0.1_arm64.deb"
       dest: "/tmp/cast-backend.deb"
 
   - name: Install cast backend

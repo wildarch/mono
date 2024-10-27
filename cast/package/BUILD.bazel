@@ -1,18 +1,33 @@
 load("@rules_pkg//:pkg.bzl", "pkg_deb", "pkg_tar")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes")
 load("@rules_pkg//:mappings.bzl", "pkg_files")
+load("@rules_go//go:def.bzl", "go_cross_binary")
+
+go_cross_binary(
+    name = "cast_arm64",
+    platform = "@rules_go//go/toolchain:linux_arm64",
+    target = "//cast",
+)
 
 pkg_files(
-    name = "backend_jar_files",
-    srcs = ["//src/main/java/dev/wildarch/cast/backend:backend_deploy.jar"],
+    name = "binary",
+    srcs = [
+        ":cast_arm64",
+    ],
+    attributes = pkg_attributes(
+        group = "root",
+        mode = "0755",
+        owner = "root",
+    ),
     renames = {
-        "//src/main/java/dev/wildarch/cast/backend:backend_deploy.jar": "cast_backend.jar",
+        ":cast_arm64": "cast-backend",
     },
 )
 
 pkg_tar(
-    name = "backend_jar_tar",
-    srcs = [":backend_jar_files"],
-    package_dir = "/usr/share/java",
+    name = "binary_tar",
+    srcs = [":binary"],
+    package_dir = "/usr/bin",
 )
 
 pkg_tar(
@@ -20,26 +35,22 @@ pkg_tar(
     srcs = [
         "cast-backend.service",
     ],
-    mode = "0644",
     package_dir = "/usr/lib/systemd/system",
-    visibility = ["//visibility:public"],
 )
 
 pkg_tar(
     name = "debian_data",
     extension = "tar.gz",
     deps = [
-        ":backend_jar_tar",
+        ":binary_tar",
         ":systemd_tar",
     ],
 )
 
 pkg_deb(
-    name = "backend_deb",
+    name = "package",
+    architecture = "arm64",
     data = ":debian_data",
-    depends = [
-        "java-runtime-headless",
-    ],
     description = "Backend for media casting server",
     maintainer = "Daan de Graaf <daandegraaf9@gmail.com>",
     package = "cast-backend",
