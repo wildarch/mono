@@ -1,33 +1,35 @@
-# Garlic & Koriander Naan
-![](https://i3.ytimg.com/vi/zogvMiPpQrs/hqdefault.jpg)
+# Garlic Butter Naan
+![](https://www.chainbaker.com/wp-content/uploads/2024/03/IMG_6506.jpg)
 
-Makes 4 Naans.
+Makes 6 Naans.
 
 ## Ingredients
-- 250g flour
-- 1 tsp sugar
-- 1 tsp salt
-- 1 tsp baking powder
-- 2 tbsp oil
-- 100ml milk
-- 60g yoghurt
-- 8 garlic cloves
-- 2g fresh koriander
+### Dough
+- 250g white bread flour
+- 5g salt
+- 5g sugar
+- 3g instant dry yeast
+- 5g oil
+- 200g yogurt
+### Garlic butter
+- 2 tbsp butter
+- 1 clove of garlic
 
 ## Instructions
-1. Combine all ingredients into a bowl and kneed until the dough is only slightly sticky, and bounces back when your press a finger into it.
-
-2. Put the dough back into the bowl with a bit of oil to keep it from sticking. Cover with a towel for at least 30 minutes, but ideally multiple hours.
-
-3. Split the dough into 4 equal parts. Roll them out with a rolling pin, almost as thin as you can get it.
-Press 2 garlic cloves per naan and spread them over the flattened dough together with the koriander.
-Use the rolling pin to roll the toppings into the dough.
-
-4. Heat a pan (dry) over medium-high heat. 
-Hold the first naan toppings down in one hand, wet your other hand lightly and brush the underside of the naan, creating a starchy paste
-Place in the hot pan wet side down and do not disturb.
-The bottom side is done when you smell the first hint of burning, flip it over and brown the top, this will be very quick!
-Repeat for the other naan and serve.
+1. In a large bowl combine the yogurt, yeast, salt, sugar, and oil. 
+   Mix well. 
+   Add the flour and mix to a dough. 
+   Desired dough temperature around 23C (73F).
+2. Cover and ferment for 1.5 – 2 hours.
+   Divide the dough into 6 pieces and shape into balls.
+   Ferment for 30 minutes.
+3. Roll out, dock with a fork, brush with oil and stack up on a plate ready for cooking. 
+   The oil keeps the naan from sticking to each other.
+4. Make the garlic butter: soften (but do not melt) the butter. 
+   Mix in minced garlic.
+   Season with a heavy pinch of salt.
+5. Cook the flatbreads for 3 minutes on medium-high heat, flipping every 20 – 30 seconds. 
+   Brush with garlic butter as soon as they come out the pan and stack them on top of each other.
 
 ## Info
-Original recipe: https://www.youtube.com/watch?v=zogvMiPpQrs
+Original recipe: https://www.chainbaker.com/yogurt-naan/
