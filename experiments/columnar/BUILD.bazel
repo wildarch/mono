@@ -1,0 +1,69 @@
+load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library", "td_library")
+
+td_library(
+    name = "TdFiles",
+    srcs = [
+        "include/columnar/Columnar.td",
+    ],
+    includes = ["include"],
+    deps = [
+        "@llvm-project//mlir:OpBaseTdFiles",
+    ],
+)
+
+gentbl_cc_library(
+    name = "IncGen",
+    tbl_outs = [
+        (
+            ["-gen-dialect-decls"],
+            "include/columnar/Dialect.h.inc",
+        ),
+        (
+            ["-gen-dialect-defs"],
+            "include/columnar/Dialect.cpp.inc",
+        ),
+        (
+            ["-gen-typedef-decls"],
+            "include/columnar/Types.h.inc",
+        ),
+        (
+            ["-gen-typedef-defs"],
+            "include/columnar/Types.cpp.inc",
+        ),
+        (
+            ["-gen-op-decls"],
+            "include/columnar/Ops.h.inc",
+        ),
+        (
+            ["-gen-op-defs"],
+            "include/columnar/Ops.cpp.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "include/columnar/Columnar.td",
+    deps = [":TdFiles"],
+)
+
+cc_library(
+    name = "columnar",
+    srcs = [
+        "lib/Columnar.cpp",
+    ],
+    hdrs = [
+        "include/columnar/Columnar.h",
+    ],
+    includes = ["include/"],
+    deps = [
+        ":IncGen",
+        "@llvm-project//mlir:IR",
+    ],
+)
+
+cc_binary(
+    name = "mlir-opt",
+    srcs = ["mlir-opt.cpp"],
+    deps = [
+        ":columnar",
+        "@llvm-project//mlir:MlirOptLib",
+    ],
+)
