@@ -19,7 +19,22 @@ We consider the relational algebra consisting of the following operators:
 - Selection applies a filter to tuples in the input, removing all tuples that do not satisfy the predicate.
 - Union concatenates the tuples of two relations into one output relation. The input relations must have the exact same set of columns.
 
-TODO: What do our operators look like?
+They can be expressed with columnar operators as follows:
+- Access: Multiple independent `read_column` ops
+- Aggregate: `aggregate` takes in a list of group-by columns and a list of columns to aggregate. 
+  It also stored the aggregator per aggregated column.
+  Returns columns represented the post-aggregation group-by keys and aggregated values.
+- Constant: `constant` ops for individual columns.
+- Join: A list of columns for the left side, and another list of columns for the right side.
+  Returns new columns for all inputs.
+- Projection: reorders and removals are no longer necessary and can be omitted entirely.
+  Arithmetic is done with dedicated ops such as `add` to produce a new column based on two input columns.
+- Selection: `select` takes in a list of columns to filter, as well as a list of columns needed to compute that filter (these may be the same as columns to filter).
+  The filter to apply is embedded inside the op, and is composed of arithmetic expressions over columns.
+  Multiple filter conditions can be specified, which are applied conjunctively.
+  Returns new filtered columns for all columns to filter.
+- Union: Takes in two lists of columns, which must be of pair-wise equal type.
+  Return new columns that represent the concatenation of the inputs.
 
 ## Query Optimization
 Transformations to consider:
@@ -30,15 +45,42 @@ Transformations to consider:
 - Common sub expression elimination: Is largely the same as in the per-tuple case.
 
 ### Predicate Pushdown
-TODO
+Given the child operator, pushdown is possible under the following conditions:
+- Access: Never
+- Aggregate: All columns are in the group-by clause.
+- Constant: Directly apply the filter to the constant. Note: Not part of a classical pushdown.
+- Join: The filter exclusively uses columns from a single side of the join. 
+  Otherwise, it is a join condition and belongs directly after the join.
+- Projection: Always possible, by including the projection body in the predicate. 
+  May be undesirable if the computation is expensive, but it seems possible to fix that with CSE later.
+- Selection: Can be merged into a combined `SelectOp` with both predicates.
+- Union: Duplicate and apply to all children. 
+
+The predicates are stored inside the `SelectOp`, so they are moved with the op itself automatically.
 
 ### Projection Pull-up 
-TODO
+In our IR, projection pull-up corresponds to arithmetic over columns.
+We can delay such an operation `A` if the output appears as an input to:
+- Access: N/A, has no children.
+- Aggregate: If `A` is used by an aggregator it cannot be pulled up further. 
+  If the output of `A` is a group-by key, then we can instead put its input columns into the group-by key, and place `A` after the aggregation. 
+  This is generally if it does not make the group-by key much larger, i.e. `A` should not have too many input columns.  
+- Constant: N/A, has no children.
+- Join: Useful if the output of `A` is not used in the join predicate.
+  If it is part of the predicate, we can still do the pull-up, but it will offer little benefit, similar to the case with Aggregate.
+- Selection: This is equivalent to predicate pushdown.
+- Union: Only possible if all children include the same operation, and has not perf. benefit. 
+  We ignore it.
 
 ### Common Sub Expression Elimination
-TODO
+Common sub expressions may occur between arithmetic to produce columns and selection predicates. 
+This can be resolved once selection vectors are made explicit.
 
-## Execution Plans
+A standard _available expressions_ dataflow analysis suffices in most cases.
+This could be extended with detection of common operations across union children.
+
+## Lowering
+TODO: What is the set of low-level primitives that suffice to express the IR ops?
 
 ## References
 - https://voltrondata.com/blog/what-is-substrait-high-level-primer
