@@ -7,7 +7,9 @@ td_library(
     ],
     includes = ["include"],
     deps = [
+        "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
         "@llvm-project//mlir:OpBaseTdFiles",
+        "@llvm-project//mlir:SideEffectInterfacesTdFiles",
     ],
 )
 
@@ -21,6 +23,22 @@ gentbl_cc_library(
         (
             ["-gen-dialect-defs"],
             "include/columnar/Dialect.cpp.inc",
+        ),
+        (
+            ["-gen-enum-decls"],
+            "include/columnar/Enums.h.inc",
+        ),
+        (
+            ["-gen-enum-defs"],
+            "include/columnar/Enums.cpp.inc",
+        ),
+        (
+            ["-gen-attrdef-decls"],
+            "include/columnar/Attrs.h.inc",
+        ),
+        (
+            ["-gen-attrdef-defs"],
+            "include/columnar/Attrs.cpp.inc",
         ),
         (
             ["-gen-typedef-decls"],
@@ -56,6 +74,8 @@ cc_library(
     deps = [
         ":IncGen",
         "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:InferTypeOpInterface",
+        "@llvm-project//mlir:SideEffectInterfaces",
     ],
 )
 
