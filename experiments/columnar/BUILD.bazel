@@ -87,3 +87,17 @@ cc_binary(
         "@llvm-project//mlir:MlirOptLib",
     ],
 )
+
+cc_proto_library(
+    name = "libpg_query_cc_proto",
+    deps = ["@libpg_query//:proto"],
+)
+
+cc_binary(
+    name = "sql",
+    srcs = ["sql.cpp"],
+    deps = [
+        ":libpg_query_cc_proto",
+        "@libpg_query",
+    ],
+)
