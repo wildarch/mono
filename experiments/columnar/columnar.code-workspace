@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"path": "../../../llvm-project-18.1.8.src"
+		}
+	],
+	"settings": {
+		"clangd.arguments": [
+			"--header-insertion=never",
+			"--compile-commands-dir=${workspaceFolder}/",
+			"--query-driver=**"
+		]
+	}
+}
