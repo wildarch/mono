@@ -20,3 +20,13 @@ git_override(
     remote = "https://github.com/hedronvision/bazel-compile-commands-extractor.git",
     commit = "4f28899228fb3ad0126897876f147ca15026151e",
 )
+
+bazel_dep(name = "libpg_query")
+archive_override(
+    module_name = "libpg_query",
+    urls = ["https://github.com/pganalyze/libpg_query/archive/refs/tags/17-6.0.0.tar.gz"],
+    strip_prefix = "libpg_query-17-6.0.0",
+    patches = ["libpg_query.patch"],
+    patch_strip = 1,
+    integrity = "sha256-mM9hjslFldUwxf3/Icd8skAxh/1mCZOuq0rXPKBrur0=",
+)
