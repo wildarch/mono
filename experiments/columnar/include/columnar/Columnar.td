@@ -129,4 +129,25 @@ def AggregateOp : Columnar_Op<"aggregate", [
     let hasVerifier = 1;
 } 
 
+// TODO: ConstantOp
+
+def JoinOp : Columnar_Op<"join", [
+        Pure, 
+        AttrSizedOperandSegments, 
+        InferTypeOpAdaptor]> {
+    let summary = "Cartesian product of two sets of columns";
+
+    let arguments = (ins
+        Variadic<Column>:$lhs,
+        Variadic<Column>:$rhs);
+    
+    let results = (outs Variadic<Column>:$results);
+
+    let assemblyFormat = [{
+        ` ` `(` $lhs `)` `(` $rhs `)`
+        `:` `(` type($lhs) `)` `(` type($rhs) `)`
+        attr-dict
+    }];
+}
+
 #endif // COLUMNAR
