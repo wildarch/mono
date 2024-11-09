@@ -97,4 +97,18 @@ mlir::LogicalResult AggregateOp::verify() {
   return mlir::success();
 }
 
+mlir::LogicalResult JoinOp::inferReturnTypes(
+    mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
+    Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  for (auto col : adaptor.getLhs()) {
+    inferredReturnTypes.push_back(col.getType());
+  }
+
+  for (auto col : adaptor.getRhs()) {
+    inferredReturnTypes.push_back(col.getType());
+  }
+
+  return mlir::success();
+}
+
 } // namespace columnar
