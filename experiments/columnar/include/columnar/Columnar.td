@@ -30,12 +30,28 @@ class Columnar_Attr<string name, string attrMnemonic, list<Trait> traits = []>
     let mnemonic = attrMnemonic;
 }
 
+// TODO: define as a ContainerType<..>
 def Column : Columnar_Type<"Column", "col"> {
     let parameters = (ins TypeParameter<"::mlir::Type", "element type">:$elementType);
+
+    let builders = [
+        TypeBuilderWithInferredContext<(ins "Type":$type), [{
+            return Base::get(type.getContext(), type);
+        }]>,
+    ];
 
     let assemblyFormat = [{
         `<` $elementType `>`
     }];
+}
+
+class ColumnOf<Type type> 
+        : ConfinedType<Column, [
+            SubstLeaves<"$_self", "::llvm::cast<ColumnType>($_self).getElementType()", type.predicate>],
+            "column type with " # type.summary # " elements",
+            "ColumnType">
+        , SameBuildabilityAs<type, "ColumnType::get($_builder.get" # type # "Type())"> {
+    Type elementType = type;
 }
 
 // Attributes
@@ -147,6 +163,34 @@ def JoinOp : Columnar_Op<"join", [
         ` ` `(` $lhs `)` `(` $rhs `)`
         `:` `(` type($lhs) `)` `(` type($rhs) `)`
         attr-dict
+    }];
+}
+
+def SelectOp : Columnar_Op<"select", [
+        Pure, 
+        AttrSizedOperandSegments,
+        AllTypesMatch<["propagate", "results"]>]> {
+    let arguments = (ins 
+        Variadic<Column>:$propagate,
+        Variadic<Column>:$predicateInputs);
+
+    let regions = (region SizedRegion<1>:$body);
+
+    let results = (outs Variadic<Column>:$results);
+
+    let assemblyFormat = [{
+        $propagate `:` type($propagate) 
+        `predicate` $predicateInputs `:` type($predicateInputs)
+        $body 
+        attr-dict
+    }];
+}
+
+def SelectReturnOp : Columnar_Op<"select.return", [Pure, Terminator]> {
+    let arguments = (ins Variadic<ColumnOf<I1>>:$predicates);
+
+    let assemblyFormat = [{
+        $predicates attr-dict
     }];
 }
 
