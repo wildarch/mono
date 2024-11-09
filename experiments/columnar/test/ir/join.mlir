@@ -13,5 +13,5 @@ columnar.query {
         , !columnar.col<si64>
         , !columnar.col<f32>
         , !columnar.col<f64>
-        ["key0", "key1", "sum", "count"]
+        ["a", "b", "c", "d"]
 }
