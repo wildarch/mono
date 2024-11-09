@@ -194,4 +194,17 @@ def SelectReturnOp : Columnar_Op<"select.return", [Pure, Terminator]> {
     }];
 }
 
+def UnionOp : Columnar_Op<"union", [
+        Pure, 
+        SameVariadicOperandSize,
+        AllTypesMatch<["lhs", "rhs", "results"]>]> {
+    let arguments = (ins Variadic<Column>:$lhs, Variadic<Column>:$rhs);
+
+    let results = (outs Variadic<Column>:$results);
+
+    let assemblyFormat = [{
+        ` ` `(` $lhs `)` `(` $rhs `)` `:` type($results) attr-dict
+    }];
+}
+
 #endif // COLUMNAR
