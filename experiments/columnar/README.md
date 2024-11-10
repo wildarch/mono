@@ -72,6 +72,13 @@ We can delay such an operation `A` if the output appears as an input to:
 - Union: Only possible if all children include the same operation, and has not perf. benefit. 
   We ignore it.
 
+### Join Order Optimization
+We start by looking for equi-join possibilities: Cases where the join can be expressed using a set of equality predicates between columns on the left-hand side and the right-hand side.
+This will cover almost all common joins (the remaining cases can fall back to a simple cartesian product).
+In some cases a bit of arithmetic (basically preprocessing one of the join sides) is needed before we can compare the columns: this computation needs to be moved outside the join tree first.
+
+We can then extract the join tree and run any standard optimizer algorithm on it.
+
 ### Common Sub Expression Elimination
 Common sub expressions may occur between arithmetic to produce columns and selection predicates. 
 This can be resolved once selection vectors are made explicit.
@@ -80,7 +87,12 @@ A standard _available expressions_ dataflow analysis suffices in most cases.
 This could be extended with detection of common operations across union children.
 
 ## Lowering
-TODO: What is the set of low-level primitives that suffice to express the IR ops?
+Steps:
+1. Make selection vectors explicit (`select` is removed)
+2. Make nulls explicit
+3. Split pipeline breakers into source/sink side (`join`, `aggregate` and `union`)
+4. Group into pipelines
+5. Lower pipeline to `func` over `memref`. Body uses `arith` and `vector`.
 
 ## References
 - https://voltrondata.com/blog/what-is-substrait-high-level-primer
