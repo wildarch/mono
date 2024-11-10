@@ -1,6 +1,4 @@
 # NOTE: Based on the LLVM bazel config
-# Set the default compiler to the `clang` binary on the `PATH`.
-#build --repo_env=CC=clang
 
 # C++17 standard version is required.
 build --cxxopt=-std=c++17 --host_cxxopt=-std=c++17
@@ -17,7 +15,6 @@ build --copt=-Wno-misleading-indentation --host_copt=-Wno-misleading-indentation
 
 # Hide deprecated APIs used inside the LLVM project, which we cannot fix.
 build --copt=-Wno-deprecated --host_copt=-Wno-deprecated
-
 
 # lld links faster than other linkers.
 build --linkopt=-fuse-ld=lld --host_linkopt=-fuse-ld=lld

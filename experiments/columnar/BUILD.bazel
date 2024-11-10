@@ -85,6 +85,7 @@ cc_binary(
     deps = [
         ":columnar",
         "@llvm-project//mlir:MlirOptLib",
+        "@llvm-project//mlir:Transforms",
     ],
 )
 
