@@ -12,3 +12,4 @@
       pkg:
       - bazel
       - default-jdk
+      - lld

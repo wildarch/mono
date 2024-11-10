@@ -54,6 +54,10 @@ class ColumnOf<Type type>
     Type elementType = type;
 }
 
+def String : Columnar_Type<"String", "str"> {
+    let summary = "Variable-length string";
+}
+
 // Attributes
 def StringArray : ArrayOfAttr<
         Columnar_Dialect,
@@ -78,6 +82,14 @@ def AggregatorArray : ArrayOfAttr<
         "AggregatorArray",
         "aggregators",
         "Aggregator">;
+
+def CmpPredicate : I64EnumAttr<
+    "CmpPredicate", "",
+    [
+        I64EnumAttrCase<"EQ", 0>,
+    ]> {
+    let cppNamespace = "::columnar";
+}
 
 def QueryOp : Columnar_Op<"query", [IsolatedFromAbove]> {
     let summary = "Represents a full query";
@@ -121,6 +133,18 @@ def ReadLinesOp : Columnar_Op<"read_lines", [Pure]> {
 
     let assemblyFormat = [{
         $path `:` type($result) attr-dict
+    }];
+}
+
+def ReadTableOp : Columnar_Op<"read_table", [Pure]> {
+    let summary = "Reads a column from a table";
+
+    let arguments = (ins StrAttr:$table, StrAttr:$column);
+
+    let results = (outs Column:$result);
+
+    let assemblyFormat = [{
+        $table $column `:` type($result) attr-dict
     }];
 }
 
@@ -206,5 +230,20 @@ def UnionOp : Columnar_Op<"union", [
         ` ` `(` $lhs `)` `(` $rhs `)` `:` type($results) attr-dict
     }];
 }
+
+// ============================================================================
+// ================================ PROJECTIONS ===============================
+// ============================================================================
+
+def CmpOp : Columnar_Op<"cmp", [Pure, AllTypesMatch<["lhs", "rhs"]>]> {
+    let arguments = (ins CmpPredicate:$pred, Column:$lhs, Column:$rhs);
+
+    let results = (outs ColumnOf<I1>:$result);
+
+    let assemblyFormat = [{
+        $pred $lhs `,` $rhs `:` type($lhs) attr-dict
+    }];
+}
+
 
 #endif // COLUMNAR
