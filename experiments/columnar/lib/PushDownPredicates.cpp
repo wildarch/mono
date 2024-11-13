@@ -27,8 +27,7 @@ static auto isDefinedBy(mlir::Operation *op) {
 
 static std::optional<unsigned int> inputIdxForResult(AggregateOp op,
                                                      mlir::Value v) {
-  for (auto [input, result] :
-       llvm::zip_equal(op.getOperands(), op.getResults())) {
+  for (auto [input, result] : llvm::zip(op.getGroupBy(), op.getResults())) {
     if (v == result) {
       return result.getResultNumber();
     }
