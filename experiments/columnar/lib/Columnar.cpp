@@ -113,4 +113,34 @@ mlir::LogicalResult JoinOp::inferReturnTypes(
   return mlir::success();
 }
 
+void SelectOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
+                     mlir::ValueRange inputs) {
+  build(builder, state, inputs.getTypes(), inputs);
+}
+
+mlir::Block &SelectOp::addPredicate() {
+  auto &block = getPredicates().emplaceBlock();
+
+  // Populate block arguments to match inputs.
+  for (auto input : getInputs()) {
+    block.addArgument(input.getType(), input.getLoc());
+  }
+
+  return block;
+}
+
+mlir::LogicalResult
+SelectOp::fold(FoldAdaptor adaptor,
+               llvm::SmallVectorImpl<mlir::OpFoldResult> &results) {
+  if (getPredicates().empty()) {
+    // No filters applied, remove.
+    for (auto input : getInputs()) {
+      results.push_back(input);
+    }
+    return mlir::success();
+  }
+
+  return mlir::failure();
+}
+
 } // namespace columnar
