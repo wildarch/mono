@@ -52,6 +52,8 @@ mlir::LogicalResult QueryOutputOp::verify() {
   return mlir::success();
 }
 
+mlir::OpFoldResult ConstantOp::fold(FoldAdaptor adaptor) { return getValue(); }
+
 static ColumnType aggregatorType(ColumnType input, Aggregator agg) {
   switch (agg) {
   // Same return type regardless of input.

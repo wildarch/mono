@@ -6,6 +6,7 @@
 #include "mlir/IR/Region.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "mlir/Pass/Pass.h"
 
 #include "columnar/Dialect.h.inc"
 
@@ -21,6 +22,12 @@
 #include "columnar/Ops.h.inc"
 
 namespace columnar {
+
+#define GEN_PASS_DECL
+#include "columnar/Passes.h.inc"
+
+#define GEN_PASS_REGISTRATION
+#include "columnar/Passes.h.inc"
 
 /** Element type for columns produced by a COUNT aggregator. */
 mlir::Type getCountElementType(mlir::MLIRContext *ctx);
