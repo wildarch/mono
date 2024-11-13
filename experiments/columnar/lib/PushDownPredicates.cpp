@@ -25,20 +25,22 @@ static auto isDefinedBy(mlir::Operation *op) {
   return [op](mlir::Value v) { return v.getDefiningOp() == op; };
 }
 
-static bool isGroupByResult(AggregateOp op, mlir::Value v) {
-  auto groupByResults = op->getResults().take_front(op.getGroupBy().size());
-  return llvm::is_contained(groupByResults, v);
+static std::optional<unsigned int> inputIdxForResult(AggregateOp op,
+                                                     mlir::Value v) {
+  for (auto [input, result] :
+       llvm::zip_equal(op.getOperands(), op.getResults())) {
+    if (v == result) {
+      return result.getResultNumber();
+    }
+  }
+
+  return std::nullopt;
 }
 
 static mlir::LogicalResult pushDownAggregate(SelectOp selectOp,
                                              AggregateOp aggOp,
                                              mlir::Block &block,
                                              mlir::PatternRewriter &rewriter) {
-  // 1. Skip args that are not used
-  // 2. Check that the column is an aggregate GROUP_BY result
-  // 3. Find the corresponding column on the AggregateOp input.
-  // 4. Make a new SelectOp with this predicate, and set it over the inputs of
-  // the aggregate.
   for (auto [input, arg] :
        llvm::zip_equal(selectOp.getInputs(), block.getArguments())) {
     if (arg.use_empty()) {
@@ -46,9 +48,9 @@ static mlir::LogicalResult pushDownAggregate(SelectOp selectOp,
       continue;
     }
 
-    if (!isGroupByResult(aggOp, input)) {
-      // We can only push down predicates if they exclusively depend on the
-      // group-by keys.
+    if (!inputIdxForResult(aggOp, input)) {
+      // We can only push down predicates if they exclusively depend on
+      // propagated columns.
       return mlir::failure();
     }
   }
@@ -60,33 +62,32 @@ static mlir::LogicalResult pushDownAggregate(SelectOp selectOp,
   auto newOp = rewriter.create<SelectOp>(
       selectOp.getLoc(), aggOp.getOperandTypes(), aggOp->getOperands());
 
-  // Update aggregation to use the new select as input.
-  rewriter.modifyOpInPlace(aggOp,
-                           [&]() { aggOp->setOperands(newOp->getResults()); });
-
   // Map the old block args to the new ones, where possible.
-  llvm::SmallVector<mlir::Value> argReplacements;
-
-  auto &newBlock = newOp.getPredicates().emplaceBlock();
-  for (auto [input, oldArg] :
-       llvm::zip_equal(newOp.getInputs(), block.getArguments())) {
-    // Create the new block arguments
-    auto newArg = newBlock.addArgument(input.getType(), input.getLoc());
-
-    // Map old arguments to new ones.
-    if (newArg.getType() == oldArg.getType()) {
-      argReplacements.emplace_back(newArg);
-    } else {
+  auto &newBlock = newOp.addPredicate();
+  llvm::SmallVector<mlir::Value> argReplacements(block.getArguments());
+  for (auto oldArg : block.getArguments()) {
+    // The input column for the old argument
+    auto oldInput = selectOp.getInputs()[oldArg.getArgNumber()];
+    // Which input of the aggregate, and therefore of the new select op, is
+    // mapped to the old argument.
+    auto newInputIdx = inputIdxForResult(aggOp, oldInput);
+    if (!newInputIdx) {
+      // No replacement, should not be used.
       assert(oldArg.use_empty());
-      // Need to put something with the correct type.
-      // Will not be used.
-      argReplacements.push_back(oldArg);
+      continue;
     }
+
+    argReplacements[oldArg.getArgNumber()] = newBlock.getArgument(*newInputIdx);
   }
 
   // Move predicate to the select BEFORE the aggregation
   rewriter.inlineBlockBefore(&block, &newBlock, newBlock.end(),
                              argReplacements);
+
+  // Update aggregation to use the new select as input.
+  rewriter.modifyOpInPlace(aggOp,
+                           [&]() { aggOp->setOperands(newOp->getResults()); });
+
   return mlir::success();
 }
 
