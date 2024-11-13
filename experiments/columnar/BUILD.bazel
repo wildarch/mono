@@ -9,6 +9,7 @@ td_library(
     deps = [
         "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
         "@llvm-project//mlir:OpBaseTdFiles",
+        "@llvm-project//mlir:PassBaseTdFiles",
         "@llvm-project//mlir:SideEffectInterfacesTdFiles",
     ],
 )
@@ -56,6 +57,10 @@ gentbl_cc_library(
             ["-gen-op-defs"],
             "include/columnar/Ops.cpp.inc",
         ),
+        (
+            ["-gen-pass-decls"],
+            "include/columnar/Passes.h.inc",
+        ),
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "include/columnar/Columnar.td",
@@ -66,6 +71,7 @@ cc_library(
     name = "columnar",
     srcs = [
         "lib/Columnar.cpp",
+        "lib/PushDownPredicates.cpp",
     ],
     hdrs = [
         "include/columnar/Columnar.h",
@@ -75,7 +81,9 @@ cc_library(
         ":IncGen",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:InferTypeOpInterface",
+        "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:SideEffectInterfaces",
+        "@llvm-project//mlir:Transforms",
     ],
 )
 

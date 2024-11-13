@@ -7,6 +7,7 @@ include "mlir/IR/DialectBase.td"
 include "mlir/IR/EnumAttr.td"
 include "mlir/IR/OpBase.td"
 include "mlir/IR/Traits.td"
+include "mlir/Pass/PassBase.td"
 
 def Columnar_Dialect : Dialect {
     let name = "columnar";
@@ -148,6 +149,19 @@ def ReadTableOp : Columnar_Op<"read_table", [Pure]> {
     }];
 }
 
+def ConstantOp : Columnar_Op<"constant", [Pure, ConstantLike]> {
+    let arguments = (ins AnyAttr:$value);
+
+    let results = (outs Column:$result);
+
+    let assemblyFormat = [{
+        `<` $value `>` `:` type($result) attr-dict
+    }];
+
+    // TODO: verify
+    let hasFolder = 1;
+}
+
 def AggregateOp : Columnar_Op<"aggregate", [
         Pure, 
         AttrSizedOperandSegments, 
@@ -192,29 +206,28 @@ def JoinOp : Columnar_Op<"join", [
 
 def SelectOp : Columnar_Op<"select", [
         Pure, 
-        AttrSizedOperandSegments,
-        AllTypesMatch<["propagate", "results"]>]> {
-    let arguments = (ins 
-        Variadic<Column>:$propagate,
-        Variadic<Column>:$predicateInputs);
+        IsolatedFromAbove,
+        AllTypesMatch<["inputs", "results"]>]> {
+    let arguments = (ins Variadic<Column>:$inputs);
 
-    let regions = (region SizedRegion<1>:$body);
+    let regions = (region AnyRegion:$predicates);
 
     let results = (outs Variadic<Column>:$results);
 
     let assemblyFormat = [{
-        $propagate `:` type($propagate) 
-        `predicate` $predicateInputs `:` type($predicateInputs)
-        $body 
+        $inputs `:` type($inputs)
+        $predicates 
         attr-dict
     }];
+
+    // TODO: region verify
 }
 
 def SelectReturnOp : Columnar_Op<"select.return", [Pure, Terminator]> {
-    let arguments = (ins Variadic<ColumnOf<I1>>:$predicates);
+    let arguments = (ins ColumnOf<I1>:$cond);
 
     let assemblyFormat = [{
-        $predicates attr-dict
+        $cond attr-dict
     }];
 }
 
@@ -243,6 +256,17 @@ def CmpOp : Columnar_Op<"cmp", [Pure, AllTypesMatch<["lhs", "rhs"]>]> {
     let assemblyFormat = [{
         $pred $lhs `,` $rhs `:` type($lhs) attr-dict
     }];
+}
+
+// ============================================================================
+// =================================== PASSES =================================
+// ============================================================================
+def PushDownPredicates: Pass<"push-down-predicates", "::columnar::QueryOp"> {
+    let summary = "Push down selection predicates";
+
+    let dependentDialects = [
+        "columnar::ColumnarDialect",
+    ];
 }
 
 
