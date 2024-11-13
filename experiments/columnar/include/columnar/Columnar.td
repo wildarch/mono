@@ -210,6 +210,8 @@ def SelectOp : Columnar_Op<"select", [
         AllTypesMatch<["inputs", "results"]>]> {
     let arguments = (ins Variadic<Column>:$inputs);
 
+    let builders = [OpBuilder<(ins "mlir::ValueRange":$inputs)>];
+
     let regions = (region AnyRegion:$predicates);
 
     let results = (outs Variadic<Column>:$results);
@@ -220,6 +222,11 @@ def SelectOp : Columnar_Op<"select", [
         attr-dict
     }];
 
+    let extraClassDeclaration = [{
+        mlir::Block& addPredicate();
+    }];
+
+    let hasFolder = 1;
     // TODO: region verify
 }
 
