@@ -90,6 +90,7 @@ cc_library(
 cc_binary(
     name = "mlir-opt",
     srcs = ["mlir-opt.cpp"],
+    visibility = ["//visibility:public"],
     deps = [
         ":columnar",
         "@llvm-project//mlir:MlirOptLib",
