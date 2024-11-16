@@ -3,6 +3,7 @@
 !col_f64 = !columnar.col<f64>
 
 // Basic
+// CHECK-LABEL: columnar.query {
 columnar.query {
     // CHECK: %0 = columnar.read_lines "/tmp/col0.txt" : <si64>
     // CHECK: %1 = columnar.read_lines "/tmp/col1.txt" : <si64>
@@ -37,6 +38,7 @@ columnar.query {
 }
 
 // With COUNT, changing the type of the second block arg
+// CHECK-LABEL: columnar.query {
 columnar.query {
     %0 = columnar.read_lines "/tmp/col0.txt" : <si64>
     %1 = columnar.read_lines "/tmp/col1.txt" : <f64>
@@ -66,6 +68,7 @@ columnar.query {
 }
 
 // Depends on aggregation value, no changes
+// CHECK-LABEL: columnar.query {
 columnar.query {
     %0 = columnar.read_lines "/tmp/col0.txt" : <si64>
     %1 = columnar.read_lines "/tmp/col1.txt" : <si64>
@@ -97,6 +100,7 @@ columnar.query {
 }
 
 // With swapped column order
+// CHECK-LABEL: columnar.query {
 columnar.query {
     %0 = columnar.read_lines "/tmp/col0.txt" : <si64>
     %1 = columnar.read_lines "/tmp/col1.txt" : <si64>
