@@ -58,11 +58,11 @@ static mlir::LogicalResult pushDownAggregate(SelectOp selectOp,
 
   // Insert the new select over the aggregation inputs.
   rewriter.setInsertionPoint(aggOp);
-  auto newOp = rewriter.create<SelectOp>(
+  auto newSelect = rewriter.create<SelectOp>(
       selectOp.getLoc(), aggOp.getOperandTypes(), aggOp->getOperands());
 
   // Map the old block args to the new ones, where possible.
-  auto &newBlock = newOp.addPredicate();
+  auto &newBlock = newSelect.addPredicate();
   llvm::SmallVector<mlir::Value> argReplacements(block.getArguments());
   for (auto oldArg : block.getArguments()) {
     // The input column for the old argument
@@ -83,9 +83,15 @@ static mlir::LogicalResult pushDownAggregate(SelectOp selectOp,
   rewriter.inlineBlockBefore(&block, &newBlock, newBlock.end(),
                              argReplacements);
 
-  // Update aggregation to use the new select as input.
-  rewriter.modifyOpInPlace(aggOp,
-                           [&]() { aggOp->setOperands(newOp->getResults()); });
+  // Create a new aggregation over the filtered inputs.
+  auto nGroupBy = aggOp.getGroupBy().size();
+  auto newAgg = rewriter.create<AggregateOp>(
+      aggOp.getLoc(), newSelect->getResults().take_front(nGroupBy),
+      newSelect->getResults().drop_front(nGroupBy), aggOp.getAggregators());
+
+  // Update select to use the new aggregation as input.
+  rewriter.modifyOpInPlace(
+      selectOp, [&]() { selectOp->setOperands(newAgg->getResults()); });
 
   return mlir::success();
 }
