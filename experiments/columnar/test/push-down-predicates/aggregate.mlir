@@ -101,8 +101,10 @@ columnar.query {
     %0 = columnar.read_lines "/tmp/col0.txt" : <si64>
     %1 = columnar.read_lines "/tmp/col1.txt" : <si64>
 
-    // CHECK: columnar.select %0, %1
+    // CHECK: %[[#SELECT:]]:2 = columnar.select %0, %1
     // CHECK:   columnar.cmp EQ %arg1, %4 : <si64>
+    //
+    // CHECK: %[[#AGG:]]:2 = columnar.aggregate group %[[#SELECT]]#0, %[[#SELECT]]#1
     %2:2 = columnar.aggregate 
         group %0, %1 : !col_si64, !col_si64 []
 
@@ -113,8 +115,9 @@ columnar.query {
         columnar.select.return %5
     }
 
+    // CHECK: columnar.query.output %[[#AGG]]#0, %[[#AGG]]#1
     columnar.query.output 
-        %3#0, %3#1
+        %3#1, %3#0
         : !col_si64
         , !col_si64
         ["key", "sum"]
