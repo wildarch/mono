@@ -44,6 +44,8 @@ PredicateArgMapping::PredicateArgMapping(SelectOp selectOp, AggregateOp aggOp) {
   for (auto &oper : selectOp->getOpOperands()) {
     if (auto res = llvm::dyn_cast<mlir::OpResult>(oper.get())) {
       assert(res.getOwner() == aggOp);
+      // We cannot push down predicates if they depend on aggregated values, so
+      // we only map group-by columns.
       if (res.getResultNumber() < aggOp.getGroupBy().size()) {
         mapping[oper.getOperandNumber()] = res.getResultNumber();
       }
@@ -80,6 +82,8 @@ bool PredicateArgMapping::canPushDown(mlir::Block &block) {
   return true;
 }
 
+// Inlines oldBlock into newBlock, using the mapping to remap block arguments
+// accordingly.
 void PredicateArgMapping::movePredicate(mlir::Block &oldBlock,
                                         mlir::Block &newBlock,
                                         mlir::PatternRewriter &rewriter) {
@@ -236,10 +240,40 @@ static mlir::LogicalResult pushDownJoin(SelectOp op,
   return mlir::failure();
 }
 
+static mlir::LogicalResult pushDownUnion(SelectOp op,
+                                         mlir::PatternRewriter &rewriter) {
+  // All inputs derive from one UnionOp.
+  auto unionOp = op.getInputs()[0].getDefiningOp<UnionOp>();
+  if (!unionOp || !llvm::all_of(op.getInputs(), isDefinedBy(unionOp))) {
+    return mlir::failure();
+  }
+
+  // Pushing down into unions is trivial: The inputs have the same columns as
+  // the result and in the same order, so we can simply clone the SelectOp over
+  // both sides, then union them together again.
+
+  // Clone over LHS
+  mlir::IRMapping lhsMapping;
+  lhsMapping.map(unionOp->getResults(), unionOp.getLhs());
+  auto lhsSelect = rewriter.clone(*op, lhsMapping);
+
+  // Clone over RHS
+  mlir::IRMapping rhsMapping;
+  rhsMapping.map(unionOp->getResults(), unionOp.getRhs());
+  auto rhsSelect = rewriter.clone(*op, rhsMapping);
+
+  // Union over the select
+  rewriter.replaceOpWithNewOp<UnionOp>(op, op.getResultTypes(),
+                                       lhsSelect->getResults(),
+                                       rhsSelect->getResults());
+  return mlir::success();
+}
+
 void PushDownPredicates::runOnOperation() {
   mlir::RewritePatternSet patterns(&getContext());
   patterns.add(pushDownAggregate);
   patterns.add(pushDownJoin);
+  patterns.add(pushDownUnion);
 
   if (mlir ::failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
                                                        std::move(patterns)))) {
