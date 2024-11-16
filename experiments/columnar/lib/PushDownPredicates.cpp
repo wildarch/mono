@@ -103,14 +103,22 @@ static auto isDefinedBy(mlir::Operation *op) {
   return [op](mlir::Value v) { return v.getDefiningOp() == op; };
 }
 
-static std::optional<unsigned int> inputIdxForResult(JoinOp op, mlir::Value v) {
-  for (auto result : op.getResults()) {
-    if (v == result) {
-      return result.getResultNumber();
-    }
+static void replaceChild(SelectOp op, mlir::Operation *oldChild,
+                         mlir::Operation *newChild,
+                         mlir::PatternRewriter &rewriter) {
+  // Build the mapping.
+  mlir::IRMapping inputMapping;
+  inputMapping.map(oldChild->getResults(), newChild->getResults());
+
+  // Remap all inputs.
+  llvm::SmallVector<mlir::Value> newInputs;
+  for (auto v : op.getInputs()) {
+    assert(inputMapping.contains(v) && "Not a result of oldChild");
+    newInputs.push_back(inputMapping.lookup(v));
   }
 
-  return std::nullopt;
+  rewriter.modifyOpInPlace(op,
+                           [&]() { op.getInputsMutable().assign(newInputs); });
 }
 
 static mlir::LogicalResult pushDownAggregate(SelectOp selectOp,
@@ -135,15 +143,7 @@ static mlir::LogicalResult pushDownAggregate(SelectOp selectOp,
   auto newAgg = rewriter.clone(*aggOp, inputMapping);
 
   // Update existing select to use the new aggregation as input.
-  inputMapping.map(aggOp->getResults(), newAgg->getResults());
-  rewriter.modifyOpInPlace(selectOp, [&]() {
-    llvm::SmallVector<mlir::Value> newOperands;
-    for (auto v : selectOp.getOperands()) {
-      newOperands.push_back(inputMapping.lookup(v));
-    }
-
-    selectOp->setOperands(newOperands);
-  });
+  replaceChild(selectOp, aggOp, newAgg, rewriter);
 
   return mlir::success();
 }
@@ -167,77 +167,52 @@ static mlir::LogicalResult pushDownAggregate(SelectOp op,
   return mlir::failure();
 }
 
-static mlir::LogicalResult pushDownJoin(SelectOp selectOp, JoinOp joinOp,
-                                        mlir::Block &block,
-                                        mlir::PatternRewriter &rewriter) {
-  // We can do the push-down if all predicate inputs are on one side of the
-  // join.
-  bool needLhs = false;
-  bool needRhs = false;
-
-  auto nLhs = joinOp.getLhs().size();
-  for (auto arg : block.getArguments()) {
-    if (arg.use_empty()) {
-      // Unused arg
-      continue;
-    }
-
-    auto joinInputIdx =
-        inputIdxForResult(joinOp, selectOp->getOperand(arg.getArgNumber()));
-    if (*joinInputIdx < nLhs) {
-      needLhs = true;
-    } else {
-      needRhs = true;
-    }
-  }
-
-  if (needLhs && needRhs) {
-    // Need both sides, cannot push down
+static mlir::LogicalResult pushDownJoinLHS(SelectOp selectOp, JoinOp joinOp,
+                                           mlir::Block &block,
+                                           mlir::PatternRewriter &rewriter) {
+  PredicateArgMapping predMap(selectOp, joinOp, JoinSide::LHS);
+  if (!predMap.canPushDown(block)) {
     return mlir::failure();
   }
 
-  if (!needRhs) {
-    // Push down to LHS
+  // New select over the LHS inputs
+  auto newSelect = rewriter.create<SelectOp>(
+      selectOp.getLoc(), joinOp.getLhs().getTypes(), joinOp.getLhs());
 
-    // New select over the LHS inputs
-    auto newSelect = rewriter.create<SelectOp>(
-        selectOp.getLoc(), joinOp.getLhs().getTypes(), joinOp.getLhs());
+  predMap.movePredicate(block, newSelect.addPredicate(), rewriter);
 
-    // Map the old block args to the new ones, where possible.
-    auto &newBlock = newSelect.addPredicate();
-    llvm::SmallVector<mlir::Value> argReplacements(block.getArguments());
-    for (auto oldArg : block.getArguments()) {
-      // The input column for the old argument
-      auto oldInput = selectOp.getInputs()[oldArg.getArgNumber()];
-      // Which input of the join side, and therefore of the new select op, is
-      // mapped to the old argument.
-      auto newInputIdx = inputIdxForResult(joinOp, oldInput);
-      if (!newInputIdx) {
-        // No replacement, should not be used.
-        assert(oldArg.use_empty());
-        continue;
-      }
+  // Create new join.
+  auto newJoinOp = rewriter.create<JoinOp>(
+      joinOp.getLoc(), newSelect->getResults(), joinOp.getRhs());
 
-      argReplacements[oldArg.getArgNumber()] =
-          newBlock.getArgument(*newInputIdx);
-    }
+  // Update existing select to use the new join as input.
+  replaceChild(selectOp, joinOp, newJoinOp, rewriter);
 
-    // Move predicate to the select BEFORE the join
-    rewriter.inlineBlockBefore(&block, &newBlock, newBlock.end(),
-                               argReplacements);
+  return mlir::success();
+}
 
-    auto newJoinOp = rewriter.create<JoinOp>(
-        joinOp.getLoc(), newSelect->getResults(), joinOp.getRhs());
-
-    // Update select to use the new join op
-    rewriter.modifyOpInPlace(
-        selectOp, [&]() { selectOp->setOperands(newJoinOp->getResults()); });
-    return mlir::success();
-  } else {
-    assert(!needLhs);
-
-    return selectOp->emitOpError("Push down to RHS not implemented");
+static mlir::LogicalResult pushDownJoinRHS(SelectOp selectOp, JoinOp joinOp,
+                                           mlir::Block &block,
+                                           mlir::PatternRewriter &rewriter) {
+  PredicateArgMapping predMap(selectOp, joinOp, JoinSide::RHS);
+  if (!predMap.canPushDown(block)) {
+    return mlir::failure();
   }
+
+  // New select over the RHS inputs
+  auto newSelect = rewriter.create<SelectOp>(
+      selectOp.getLoc(), joinOp.getRhs().getTypes(), joinOp.getRhs());
+
+  predMap.movePredicate(block, newSelect.addPredicate(), rewriter);
+
+  // Create new join.
+  auto newJoinOp = rewriter.create<JoinOp>(joinOp.getLoc(), joinOp.getLhs(),
+                                           newSelect->getResults());
+
+  // Update existing select to use the new join as input.
+  replaceChild(selectOp, joinOp, newJoinOp, rewriter);
+
+  return mlir::success();
 }
 
 static mlir::LogicalResult pushDownJoin(SelectOp op,
@@ -251,7 +226,9 @@ static mlir::LogicalResult pushDownJoin(SelectOp op,
   // For each predicate:
   for (auto &block : op.getPredicates()) {
     // Can we move it to one of the join children?
-    if (mlir::succeeded(pushDownJoin(op, joinOp, block, rewriter))) {
+    if (mlir::succeeded(pushDownJoinLHS(op, joinOp, block, rewriter))) {
+      return mlir::success();
+    } else if (mlir::succeeded(pushDownJoinRHS(op, joinOp, block, rewriter))) {
       return mlir::success();
     }
   }
