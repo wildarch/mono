@@ -269,11 +269,175 @@ static mlir::LogicalResult pushDownUnion(SelectOp op,
   return mlir::success();
 }
 
+static mlir::LogicalResult pushDownProjection(SelectOp op,
+                                              unsigned int operandIdx,
+                                              mlir::PatternRewriter &rewriter) {
+  auto projOp = op->getOperand(operandIdx).getDefiningOp();
+
+  llvm::SmallVector<mlir::Value> newInputs(op.getInputs());
+  // Add the projection inputs to the select.
+  auto projInputs = projOp->getOperands();
+  newInputs.append(projInputs.begin(), projInputs.end());
+
+  auto newSelect = rewriter.create<SelectOp>(op.getLoc(), newInputs);
+  rewriter.inlineRegionBefore(op.getPredicates(), newSelect.getPredicates(),
+                              newSelect.getPredicates().end());
+  // Add arguments for the operands we added
+  for (auto &block : newSelect.getPredicates()) {
+    for (auto input : projInputs) {
+      block.addArgument(input.getType(), input.getLoc());
+    }
+
+    // Recreate the op inside of predicates if needed.
+    if (!block.getArgument(operandIdx).use_empty()) {
+      mlir::OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&block);
+      mlir::IRMapping projMapping;
+      projMapping.map(projInputs,
+                      block.getArguments().take_back(projInputs.size()));
+      auto *newProj = rewriter.clone(*projOp, projMapping);
+      rewriter.replaceAllUsesWith(block.getArgument(operandIdx),
+                                  newProj->getResult(0));
+    }
+  }
+
+  // Recreate the op after the select
+  auto newProjInputs = newSelect->getResults().take_back(projInputs.size());
+  mlir::IRMapping projMapping;
+  projMapping.map(projInputs, newProjInputs);
+  auto newProj = rewriter.clone(*projOp, projMapping);
+
+  // Replace uses
+  llvm::SmallVector<mlir::Value> newResults(
+      newSelect->getResults().take_front(op->getNumResults()));
+  newResults[operandIdx] = newProj->getResult(0);
+  rewriter.replaceOp(op, newResults);
+  return mlir::success();
+}
+
+static mlir::LogicalResult pushDownProjection(SelectOp op,
+                                              mlir::PatternRewriter &rewriter) {
+  // Find an input that is a projection.
+  for (auto &input : op->getOpOperands()) {
+    auto defOp = input.get().getDefiningOp();
+    if (defOp && defOp->hasTrait<IsProjection>()) {
+      assert(defOp->getNumResults() == 1);
+      return pushDownProjection(op, input.getOperandNumber(), rewriter);
+    }
+  }
+
+  return mlir::failure();
+}
+
+// Removes input columns that have no use in either the predicates or the
+// result.
+static mlir::LogicalResult removeUnusedInputs(SelectOp op,
+                                              mlir::PatternRewriter &rewriter) {
+  // Find inputs that can be removed
+  llvm::SmallVector<unsigned int> toRemove;
+  for (auto idx : llvm::seq(op.getInputs().size())) {
+    if (!op.getResult(idx).use_empty()) {
+      // Result is used.
+      continue;
+    }
+
+    bool needForPred = false;
+    for (auto &pred : op.getPredicates()) {
+      if (!pred.getArgument(idx).use_empty()) {
+        // Needed for predicate evaluation
+        needForPred = true;
+        break;
+      }
+    }
+
+    if (needForPred) {
+      continue;
+    }
+
+    toRemove.push_back(idx);
+  }
+
+  if (toRemove.empty()) {
+    // Nothing to remove
+    return mlir::failure();
+  }
+
+  // Remove in reverse so the indices remain stable.
+  llvm::SmallVector<mlir::Value> newInputs(op.getInputs());
+  llvm::SmallVector<mlir::Value> replacedResults(op.getResults());
+  for (auto it = toRemove.rbegin(); it != toRemove.rend(); ++it) {
+    newInputs.erase(newInputs.begin() + *it);
+    replacedResults.erase(replacedResults.begin() + *it);
+
+    for (auto &pred : op.getPredicates()) {
+      pred.eraseArgument(*it);
+    }
+  }
+
+  auto newOp = rewriter.create<SelectOp>(
+      op.getLoc(), mlir::ValueRange{newInputs}.getTypes(), newInputs);
+  rewriter.inlineRegionBefore(op.getPredicates(), newOp.getPredicates(),
+                              newOp.getPredicates().end());
+  rewriter.replaceAllUsesWith(replacedResults, newOp->getResults());
+  rewriter.eraseOp(op);
+  return mlir::success();
+}
+
+// If two of the inputs are equivalent, remaps all uses to the first one.
+// Removal of the redundant input is handled by removeUnusedInputs.
+static mlir::LogicalResult
+remapDuplicateInputs(SelectOp op, mlir::PatternRewriter &rewriter) {
+  // Look for duplicates
+  llvm::SmallDenseMap<mlir::Value, unsigned int> remapColumns;
+
+  bool didRewrite = false;
+  for (auto &input : op->getOpOperands()) {
+    auto [it, newlyAdded] =
+        remapColumns.insert({input.get(), input.getOperandNumber()});
+    if (newlyAdded) {
+      // Not duplicate
+      continue;
+    }
+
+    // Duplicate
+    auto fromIdx = input.getOperandNumber();
+    auto toIdx = it->second;
+    assert(toIdx < fromIdx);
+
+    // Replace all uses of the argument in predicates
+    for (auto &pred : op.getPredicates()) {
+      if (pred.getArgument(fromIdx).use_empty()) {
+        // Not used.
+        continue;
+      }
+
+      // Replace with equivalent block argument.
+      rewriter.replaceAllUsesWith(pred.getArgument(fromIdx),
+                                  pred.getArgument(toIdx));
+      didRewrite = true;
+    }
+
+    // Replace uses of the result
+    if (!op->getResult(fromIdx).use_empty()) {
+      rewriter.replaceAllUsesWith(op->getResult(fromIdx), op->getResult(toIdx));
+      didRewrite = true;
+    }
+  }
+
+  return mlir::success(didRewrite);
+}
+
 void PushDownPredicates::runOnOperation() {
   mlir::RewritePatternSet patterns(&getContext());
+  // NOTE: must be higher priority than pushDownProjection to avoid pulling up
+  // the same projection multiple times.
+  patterns.add(removeUnusedInputs);
+  patterns.add(remapDuplicateInputs);
+
   patterns.add(pushDownAggregate);
   patterns.add(pushDownJoin);
   patterns.add(pushDownUnion);
+  patterns.add(pushDownProjection);
 
   if (mlir ::failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
                                                        std::move(patterns)))) {
