@@ -120,6 +120,11 @@ def QueryOutputOp : Columnar_Op<"query.output", [
     let hasVerifier = 1;
 }
 
+// Interfaces and Traits
+def IsProjection : NativeOpTrait<"IsProjection"> {
+    let cppNamespace = "::columnar";
+}
+
 // ============================================================================
 // ================================= CORE OPS =================================
 // ============================================================================
@@ -255,7 +260,10 @@ def UnionOp : Columnar_Op<"union", [
 // ================================ PROJECTIONS ===============================
 // ============================================================================
 
-def CmpOp : Columnar_Op<"cmp", [Pure, AllTypesMatch<["lhs", "rhs"]>]> {
+def CmpOp : Columnar_Op<"cmp", [
+        Pure, 
+        IsProjection, 
+        AllTypesMatch<["lhs", "rhs"]>]> {
     let arguments = (ins CmpPredicate:$pred, Column:$lhs, Column:$rhs);
 
     let results = (outs ColumnOf<I1>:$result);
