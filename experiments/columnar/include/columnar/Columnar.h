@@ -18,6 +18,14 @@
 #define GET_TYPEDEF_CLASSES
 #include "columnar/Types.h.inc"
 
+namespace columnar {
+
+template <typename ConcreteType>
+class IsProjection
+    : public mlir::OpTrait::TraitBase<ConcreteType, IsProjection> {};
+
+} // namespace columnar
+
 #define GET_OP_CLASSES
 #include "columnar/Ops.h.inc"
 
