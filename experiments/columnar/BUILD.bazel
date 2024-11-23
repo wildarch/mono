@@ -111,3 +111,15 @@ cc_binary(
         "@libpg_query",
     ],
 )
+
+cc_binary(
+    name = "translate",
+    srcs = ["translate.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":columnar",
+        ":libpg_query_cc_proto",
+        "@libpg_query",
+        "@llvm-project//mlir:TranslateLib",
+    ],
+)
