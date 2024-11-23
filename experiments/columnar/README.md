@@ -94,6 +94,16 @@ Steps:
 4. Group into pipelines
 5. Lower pipeline to `func` over `memref`. Body uses `arith` and `vector`.
 
+## TPC-H Coverage
+To support all TPC-H queries, we would need the following 'advanced' features:
+- `ORDER BY`: Sorting the final output
+- `LIMIT`: Top-K operator
+- Correlated sub-queries
+- `EXISTS`
+- `NOT EXISTS`
+- `SUM` inside `SUM`
+- `OUTER JOIN`
+
 ## References
 - https://voltrondata.com/blog/what-is-substrait-high-level-primer
 - https://15721.courses.cs.cmu.edu/spring2018/papers/03-compilation/shaikhha-sigmod2016.pdf
