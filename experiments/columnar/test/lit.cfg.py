@@ -5,7 +5,7 @@ config.name = "Columnar"
 
 config.test_format = lit.formats.ShTest(execute_external=False)
 
-config.suffixes = ['.mlir']
+config.suffixes = ['.mlir', '.sql']
 
 # Find common tools such as FileCheck
 llvm_config.use_default_substitutions()
@@ -13,6 +13,7 @@ llvm_config.use_default_substitutions()
 # The tools we want to use in lit test (inside RUN)
 tools = [
     "mlir-opt",
+    "translate",
 ]
 
 # Where we look for the tools
