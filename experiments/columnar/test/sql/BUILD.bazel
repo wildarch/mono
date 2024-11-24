@@ -1,0 +1,12 @@
+load("@llvm-project//llvm:lit_test.bzl", "lit_test")
+
+[
+    lit_test(
+        name = "%s.test" % src,
+        srcs = [src],
+        data = [
+            "//experiments/columnar/test:lit_data",
+        ],
+    )
+    for src in glob(["*.sql"])
+]
