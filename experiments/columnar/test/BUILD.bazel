@@ -24,6 +24,7 @@ filegroup(
         "lit.cfg.py",
         "lit.site.cfg.py",
         "//experiments/columnar:mlir-opt",
+        "//experiments/columnar:translate",
         "@llvm-project//llvm:FileCheck",
         "@llvm-project//llvm:count",
         "@llvm-project//llvm:not",
