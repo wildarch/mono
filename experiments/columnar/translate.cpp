@@ -43,23 +43,40 @@ public:
   }
 };
 
+class Catalog {
+private:
+  llvm::StringMap<columnar::TableAttr> _tables;
+
+public:
+  void addTable(columnar::TableAttr table) {
+    if (_tables.contains(table.getName())) {
+      mlir::emitError(mlir::UnknownLoc::get(table.getContext()))
+          << "Attempt to add table " << table
+          << " to catalog, but the catalog already contains "
+          << _tables.at(table.getName()) << " with the same name";
+      llvm_unreachable("Catalog already contains a table with this name");
+    }
+
+    _tables[table.getName()] = table;
+  }
+
+  columnar::TableAttr findTable(llvm::StringRef name) const {
+    return _tables.lookup(name);
+  }
+};
+
 class SQLParser {
 private:
-  struct BaseColumnRead {
-    std::string columnName;
-    mlir::Value readOp;
-  };
-  struct BaseTableRead {
-    // TODO: alias
-    std::string tableName;
-    llvm::SmallVector<BaseColumnRead> columnReads;
-  };
-
   mlir::ModuleOp _module;
+  const Catalog &_catalog;
   mlir::OpBuilder _builder;
-  llvm::SmallVector<BaseTableRead> _baseTableReads;
 
-  SQLParser(mlir::ModuleOp module);
+  // Available columns, indexed by name.
+  llvm::StringMap<mlir::Value> _columnsByName;
+  // The current set of top-level columns.
+  llvm::SmallVector<mlir::Value> _currentColumns;
+
+  SQLParser(mlir::ModuleOp module, const Catalog &catalog);
 
   void parseStmt(const pg_query::RawStmt &stmt);
   void parseSelect(const pg_query::SelectStmt &stmt, mlir::Location loc);
@@ -75,16 +92,18 @@ private:
 
   mlir::Location loc(std::int32_t l);
 
+  mlir::StringAttr columnName(mlir::Value column);
+
 public:
   static mlir::OwningOpRef<mlir::ModuleOp>
   parseQuery(mlir::MLIRContext *ctx, mlir::FileLineColLoc loc,
-             const pg_query::ParseResult &proto);
+             const pg_query::ParseResult &proto, const Catalog &catalog);
 };
 
 } // namespace
 
-SQLParser::SQLParser(mlir::ModuleOp module)
-    : _module(module), _builder(module.getContext()) {
+SQLParser::SQLParser(mlir::ModuleOp module, const Catalog &catalog)
+    : _module(module), _catalog(catalog), _builder(module.getContext()) {
   _builder.setInsertionPointToStart(module.getBody());
 }
 
@@ -100,6 +119,7 @@ void SQLParser::parseStmt(const pg_query::RawStmt &stmt) {
     return;
   }
 
+  _builder.setInsertionPointToEnd(_module.getBody());
   parseSelect(node.select_stmt(), loc(stmt.stmt_location()));
 }
 
@@ -108,6 +128,9 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt,
   auto queryOp = _builder.create<columnar::QueryOp>(loc);
   auto &body = queryOp.getBody().emplaceBlock();
   _builder.setInsertionPointToStart(&body);
+
+  _columnsByName.clear();
+  _currentColumns.clear();
 
   // Steps:
   // 1. Create table reads (FROM)
@@ -171,19 +194,25 @@ void SQLParser::parseFromRelation(const pg_query::RangeVar &rel) {
     return;
   }
 
-  auto idType = _builder.getType<columnar::ColumnType>(_builder.getI64Type());
-
-  if (rel.relname() == "part") {
-    auto &partTable = _baseTableReads.emplace_back();
-    partTable.tableName = "part";
-    partTable.columnReads.push_back(
-        BaseColumnRead{.columnName = "p_partkey",
-                       .readOp = _builder.create<columnar::ReadTableOp>(
-                           loc(rel.location()), idType, "part", "p_partkey")});
+  auto table = _catalog.findTable(rel.relname());
+  if (!table) {
+    emitError(rel.location(), rel) << "unknown relation " << rel.relname();
     return;
   }
 
-  emitError(rel.location(), rel) << "unknown relation " << rel.relname();
+  if (!_currentColumns.empty()) {
+    emitError(rel.location(), rel) << "TODO: join multiple relations";
+    return;
+  }
+
+  for (auto col : table.getColumns()) {
+    auto readOp = _builder.create<columnar::ReadTableOp>(
+        loc(rel.location()),
+        _builder.getType<columnar::ColumnType>(col.getType()), table.getName(),
+        col.getName());
+    _currentColumns.push_back(readOp);
+    _columnsByName[col.getName()] = readOp;
+  }
 }
 
 void SQLParser::parseResTarget(
@@ -208,34 +237,26 @@ void SQLParser::parseResTarget(
   }
 
   const auto &field = columnRef.fields(0);
-  if (!field.has_string()) {
+  if (field.has_a_star()) {
+    for (auto col : _currentColumns) {
+      outputValues.push_back(col);
+      outputNames.push_back(columnName(col));
+    }
+    return;
+  } else if (!field.has_string()) {
     emitError(columnRef.location(), field) << "expected a string target name";
     return;
   }
 
   const auto &name = field.string().sval();
 
-  mlir::Value readOp;
-  for (const auto &table : _baseTableReads) {
-    for (const auto &col : table.columnReads) {
-      if (name == col.columnName) {
-        if (readOp) {
-          emitError(columnRef.location(), field)
-              << "column name is ambiguous: " << name;
-        }
-
-        readOp = col.readOp;
-      }
-    }
-  }
-
-  if (!readOp) {
+  mlir::Value column = _columnsByName.lookup(name);
+  if (!column) {
     emitError(columnRef.location(), field) << "unknown column: " << name;
     return;
   }
 
-  outputValues.push_back(readOp);
-
+  outputValues.push_back(column);
   auto outputName = target.name().empty()
                         ? _builder.getStringAttr(name)
                         : _builder.getStringAttr(target.name());
@@ -260,11 +281,21 @@ mlir::Location SQLParser::loc(std::int32_t l) {
   return _builder.getUnknownLoc();
 }
 
+mlir::StringAttr SQLParser::columnName(mlir::Value column) {
+  if (auto readOp = column.getDefiningOp<columnar::ReadTableOp>()) {
+    return readOp.getColumnAttr();
+  }
+
+  // TODO: smarter impl.
+  return mlir::StringAttr::get(column.getContext(), "NO_NAME");
+}
+
 mlir::OwningOpRef<mlir::ModuleOp>
 SQLParser::parseQuery(mlir::MLIRContext *ctx, mlir::FileLineColLoc loc,
-                      const pg_query::ParseResult &proto) {
+                      const pg_query::ParseResult &proto,
+                      const Catalog &catalog) {
   mlir::OwningOpRef<mlir::ModuleOp> module(mlir::ModuleOp::create(loc));
-  SQLParser parser(*module);
+  SQLParser parser(*module, catalog);
 
   for (const auto &stmt : proto.stmts()) {
     parser.parseStmt(stmt);
@@ -288,6 +319,144 @@ parseSQLToProto(const char *query) {
   return proto;
 }
 
+static mlir::Type typeIdent(mlir::MLIRContext *ctx) {
+  return mlir::IntegerType::get(ctx, 64);
+}
+
+static mlir::Type typeString(mlir::MLIRContext *ctx) {
+  return columnar::StringType::get(ctx);
+}
+
+static mlir::Type typeInteger(mlir::MLIRContext *ctx) {
+  return mlir::IntegerType::get(ctx, 64, mlir::IntegerType::Signed);
+}
+
+static mlir::Type typeDecimal(mlir::MLIRContext *ctx) {
+  return columnar::DecimalType::get(ctx);
+}
+
+static mlir::Type typeDate(mlir::MLIRContext *ctx) {
+  return columnar::DateType::get(ctx);
+}
+
+static void initTPCHCatalog(mlir::MLIRContext *ctx, Catalog &catalog) {
+  using TypeBuilder = mlir::Type(mlir::MLIRContext * ctx);
+
+  struct ColumnDef {
+    const char *name;
+    TypeBuilder *type;
+  };
+
+  struct TableDef {
+    const char *name;
+    std::initializer_list<ColumnDef> columns;
+  };
+
+  static constexpr TableDef PART{"part",
+                                 {
+                                     {"p_partkey", typeIdent},
+                                     {"p_name", typeString},
+                                     {"p_mfgr", typeString},
+                                     {"p_brand", typeString},
+                                     {"p_size", typeInteger},
+                                     {"p_container", typeString},
+                                     {"p_retailprice", typeDecimal},
+                                     {"p_comment", typeString},
+                                 }};
+
+  static constexpr TableDef SUPPLIER{"supplier",
+                                     {
+                                         {"s_suppkey", typeIdent},
+                                         {"s_name", typeString},
+                                         {"s_address", typeString},
+                                         {"s_nationkey", typeIdent},
+                                         {"s_phone", typeString},
+                                         {"s_acctbal", typeDecimal},
+                                         {"s_comment", typeString},
+                                     }};
+
+  static constexpr TableDef PARTSUPP{"partsupp",
+                                     {
+                                         {"ps_partkey", typeIdent},
+                                         {"ps_suppkey", typeIdent},
+                                         {"ps_availqty", typeInteger},
+                                         {"ps_supplycost", typeDecimal},
+                                         {"ps_comment", typeString},
+                                     }};
+
+  static constexpr TableDef CUSTOMER{"customer",
+                                     {
+                                         {"c_custkey", typeIdent},
+                                         {"c_name", typeString},
+                                         {"c_address", typeString},
+                                         {"c_nationkey", typeIdent},
+                                         {"c_phone", typeString},
+                                         {"c_acctbal", typeDecimal},
+                                         {"c_mktsegment", typeString},
+                                         {"c_comment", typeString},
+                                     }};
+
+  static constexpr TableDef ORDERS{"orders",
+                                   {
+                                       {"o_orderkey", typeIdent},
+                                       {"o_custkey", typeIdent},
+                                       {"o_orderstatus", typeString},
+                                       {"o_totalprice", typeDecimal},
+                                       {"o_orderdate", typeDate},
+                                       {"o_orderpriority", typeString},
+                                       {"o_clerk", typeString},
+                                       {"o_shippriority", typeInteger},
+                                       {"o_comment", typeString},
+                                   }};
+
+  static constexpr TableDef LINEITEM{"lineitem",
+                                     {
+                                         {"l_orderkey", typeIdent},
+                                         {"l_partkey", typeIdent},
+                                         {"l_suppkey", typeIdent},
+                                         {"l_linenumber", typeInteger},
+                                         {"l_quantity", typeDecimal},
+                                         {"l_extendedprice", typeDecimal},
+                                         {"l_discount", typeDecimal},
+                                         {"l_tax", typeDecimal},
+                                         {"l_returnflag", typeString},
+                                         {"l_linestatus", typeString},
+                                         {"l_shipdate", typeDate},
+                                         {"l_commitdate", typeDate},
+                                         {"l_receiptdate", typeDate},
+                                         {"l_shipinstruct", typeString},
+                                         {"l_shipmode", typeString},
+                                         {"l_comment", typeString},
+                                     }};
+
+  static constexpr TableDef NATION{"nation",
+                                   {
+                                       {"n_nationkey", typeIdent},
+                                       {"n_name", typeString},
+                                       {"n_regionkey", typeIdent},
+                                       {"n_comment", typeString},
+                                   }};
+
+  static constexpr TableDef REGION{"region",
+                                   {
+                                       {"r_regionkey", typeIdent},
+                                       {"r_name", typeString},
+                                       {"r_comment", typeString},
+                                   }};
+
+  TableDef tableDefs[] = {PART,   SUPPLIER, PARTSUPP, CUSTOMER,
+                          ORDERS, LINEITEM, NATION,   REGION};
+  for (const auto &def : tableDefs) {
+    llvm::SmallVector<columnar::TableColumnAttr> columns;
+    for (const auto &col : def.columns) {
+      auto type = col.type(ctx);
+      columns.push_back(columnar::TableColumnAttr::get(ctx, col.name, type));
+    }
+
+    catalog.addTable(columnar::TableAttr::get(ctx, def.name, columns));
+  }
+}
+
 static mlir::OwningOpRef<mlir::ModuleOp>
 translateSQLToColumnar(llvm::SourceMgr &sourceMgr, mlir::MLIRContext *ctx) {
   ctx->getOrLoadDialect<columnar::ColumnarDialect>();
@@ -303,7 +472,9 @@ translateSQLToColumnar(llvm::SourceMgr &sourceMgr, mlir::MLIRContext *ctx) {
     return nullptr;
   }
 
-  return SQLParser::parseQuery(ctx, loc, *proto);
+  Catalog catalog;
+  initTPCHCatalog(ctx, catalog);
+  return SQLParser::parseQuery(ctx, loc, *proto, catalog);
 }
 
 int main(int argc, char *argv[]) {
