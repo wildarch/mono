@@ -59,6 +59,14 @@ def String : Columnar_Type<"String", "str"> {
     let summary = "Variable-length string";
 }
 
+def Decimal : Columnar_Type<"Decimal", "dec"> {
+    let summary = "Represents values between -9,999,999,999.99 and +9,999,999,999.99 in increments of 0.01";
+}
+
+def Date : Columnar_Type<"Date", "date"> {
+    let summary = "YYYY-MM-DD style date";
+}
+
 // Attributes
 def StringArray : ArrayOfAttr<
         Columnar_Dialect,
@@ -92,6 +100,32 @@ def CmpPredicate : I64EnumAttr<
     let cppNamespace = "::columnar";
 }
 
+def TableColumn : Columnar_Attr<"TableColumn", "table_col"> {
+    let parameters = (ins StringRefParameter<>:$name, "mlir::Type":$type);
+
+    let assemblyFormat = [{
+        `<`  $name `:` $type `>`
+    }];
+}
+
+def Table : Columnar_Attr<"Table", "table"> {
+    let parameters = (ins 
+            StringRefParameter<>:$name, 
+            OptionalArrayRefParameter<"TableColumnAttr">:$columns);
+    
+    let assemblyFormat = [{
+        `<` 
+        `name` `` `=` `` $name
+        `columns` `` `=` `` `[` (`]`) : ($columns^ `]`)?
+        `>`
+    }];
+}
+
+// Interfaces and Traits
+def IsProjection : NativeOpTrait<"IsProjection"> {
+    let cppNamespace = "::columnar";
+}
+
 def QueryOp : Columnar_Op<"query", [IsolatedFromAbove]> {
     let summary = "Represents a full query";
 
@@ -118,11 +152,6 @@ def QueryOutputOp : Columnar_Op<"query.output", [
     }];
 
     let hasVerifier = 1;
-}
-
-// Interfaces and Traits
-def IsProjection : NativeOpTrait<"IsProjection"> {
-    let cppNamespace = "::columnar";
 }
 
 // ============================================================================
