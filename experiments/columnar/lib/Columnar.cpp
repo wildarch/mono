@@ -54,6 +54,14 @@ mlir::LogicalResult QueryOutputOp::verify() {
 
 mlir::OpFoldResult ConstantOp::fold(FoldAdaptor adaptor) { return getValue(); }
 
+mlir::LogicalResult ConstantOp::inferReturnTypes(
+    mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
+    Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  inferredReturnTypes.push_back(
+      ColumnType::get(ctx, adaptor.getValue().getType()));
+  return mlir::success();
+}
+
 static ColumnType aggregatorType(ColumnType input, Aggregator agg) {
   switch (agg) {
   // Same return type regardless of input.

@@ -13,12 +13,12 @@ columnar.query {
     %2 = columnar.cmp EQ %0, %1 : <si64>
 
     // CHECK: %[[#SELECT:]]:2 = columnar.select %[[#A]], %[[#B]]
-    // CHECK:   %[[#CONST:]] = columnar.constant<42 : si64>
+    // CHECK:   %[[#CONST:]] = columnar.constant 42 : si64
     // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %[[#CONST]]
     // CHECK:   columnar.select.return %[[#CMP]]
     %3:2 = columnar.select %0, %2 : !col_si64, !col_i1 {
     ^bb0(%arg0: !col_si64, %arg1: !col_i1):
-        %4 = columnar.constant <42 : si64> : !col_si64
+        %4 = columnar.constant 42 : si64
         %5 = columnar.cmp EQ %arg0, %4 : !col_si64
         columnar.select.return %5
     }
