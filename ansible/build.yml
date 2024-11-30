@@ -13,3 +13,9 @@
       - bazel
       - default-jdk
       - lld
+      - python3-pip
+
+  - name: Install LLVM lit
+    pip:
+      name: lit
+      extra_args: "--break-system-packages"
