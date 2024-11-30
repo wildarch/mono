@@ -151,4 +151,12 @@ SelectOp::fold(FoldAdaptor adaptor,
   return mlir::failure();
 }
 
+mlir::OpFoldResult CastOp::fold(FoldAdaptor adaptor) {
+  if (getType() == getInput().getType()) {
+    return getInput();
+  }
+
+  return nullptr;
+}
+
 } // namespace columnar
