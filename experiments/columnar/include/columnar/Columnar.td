@@ -17,6 +17,7 @@ def Columnar_Dialect : Dialect {
     let useDefaultTypePrinterParser = 1;
     let usePropertiesForAttributes = 1;
     let useDefaultAttributePrinterParser = 1;
+    let hasConstantMaterializer = 1;
 }
 
 class Columnar_Op<string mnemonic, list<Trait> traits = []> :
@@ -120,6 +121,18 @@ def Table : Columnar_Attr<"Table", "table"> {
         `name` `` `=` `` $name
         `columns` `` `=` `` `[` (`]`) : ($columns^ `]`)?
         `>`
+    }];
+}
+
+def DecimalAttr : Columnar_Attr<"Decimal", "dec", [TypedAttrInterface]> {
+    let parameters = (ins "std::int64_t":$value);
+
+    let assemblyFormat = [{
+        $value
+    }];
+
+    let extraClassDeclaration = [{
+        mlir::Type getType();
     }];
 }
 
