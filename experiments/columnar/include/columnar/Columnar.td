@@ -301,6 +301,19 @@ def CmpOp : Columnar_Op<"cmp", [
     }];
 }
 
+def CastOp : Columnar_Op<"cast", [Pure]> {
+    let arguments = (ins Column:$input);
+
+    let results = (outs Column:$result);
+
+    let assemblyFormat = [{
+        $input `:` type($input) `->` type($result) attr-dict
+    }];
+
+    // TODO: verify cast is valid
+    let hasFolder = 1;
+}
+
 // ============================================================================
 // =================================== PASSES =================================
 // ============================================================================

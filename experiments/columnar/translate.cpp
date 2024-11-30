@@ -96,6 +96,8 @@ private:
   mlir::Value parseTupleExpr(const pg_query::ColumnRef &expr);
   mlir::Value parseTupleExpr(const pg_query::A_Const &expr);
 
+  mlir::LogicalResult tryUnifyTypes(mlir::Value &lhs, mlir::Value &rhs);
+
   mlir::InFlightDiagnostic emitError(std::int32_t loc,
                                      const google::protobuf::Message &msg);
 
@@ -348,6 +350,10 @@ mlir::Value SQLParser::parseTupleExprOp(const pg_query::A_Expr &expr) {
       return nullptr;
     }
 
+    if (mlir::failed(tryUnifyTypes(lhs, rhs))) {
+      return nullptr;
+    }
+
     return _builder.create<columnar::CmpOp>(
         loc(expr.location()), columnar::CmpPredicate::LT, lhs, rhs);
   }
@@ -392,6 +398,31 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Const &expr) {
   }
 
   return _builder.create<columnar::ConstantOp>(loc(expr.location()), attr);
+}
+
+static bool canCoerceToDecimal(mlir::Type columnType) {
+  auto type = llvm::cast<columnar::ColumnType>(columnType).getElementType();
+  return llvm::isa<columnar::DecimalType>(type) || type.isSignedInteger();
+}
+
+mlir::LogicalResult SQLParser::tryUnifyTypes(mlir::Value &lhs,
+                                             mlir::Value &rhs) {
+  if (lhs.getType() == rhs.getType()) {
+    return mlir::success();
+  }
+
+  // Promote both to decimal.
+  if (canCoerceToDecimal(lhs.getType()) && canCoerceToDecimal(rhs.getType())) {
+    auto decType = _builder.getType<columnar::ColumnType>(
+        _builder.getType<columnar::DecimalType>());
+    lhs = _builder.createOrFold<columnar::CastOp>(lhs.getLoc(), decType, lhs);
+    rhs = _builder.createOrFold<columnar::CastOp>(lhs.getLoc(), decType, rhs);
+    return mlir::success();
+  }
+
+  auto loc = _builder.getFusedLoc({lhs.getLoc(), rhs.getLoc()});
+  return mlir::emitError(loc)
+         << "cannot unify types of values " << lhs << " and " << rhs;
 }
 
 void SQLParser::parseResTarget(
