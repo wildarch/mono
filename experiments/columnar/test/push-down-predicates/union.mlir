@@ -8,12 +8,12 @@ columnar.query {
     %1 = columnar.read_table "B" "a" : <si64>
 
     // CHECK: %[[#SELECT_A:]] = columnar.select %[[#A]]
-    // CHECK:   %[[#CONST:]] = columnar.constant<42 : si64>
+    // CHECK:   %[[#CONST:]] = columnar.constant 42 : si64
     // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %[[#CONST]]
     // CHECK:   columnar.select.return %[[#CMP]]
     //
     // CHECK: %[[#SELECT_B:]] = columnar.select %[[#B]]
-    // CHECK:   %[[#CONST:]] = columnar.constant<42 : si64>
+    // CHECK:   %[[#CONST:]] = columnar.constant 42 : si64
     // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %[[#CONST]]
     // CHECK:   columnar.select.return %[[#CMP]]
     //
@@ -22,7 +22,7 @@ columnar.query {
 
     %3 = columnar.select %2 : !col_si64 {
     ^bb0(%arg0: !col_si64):
-        %4 = columnar.constant <42 : si64> : !col_si64
+        %4 = columnar.constant 42 : si64
         %5 = columnar.cmp EQ %arg0, %4 : !col_si64
         columnar.select.return %5
     }

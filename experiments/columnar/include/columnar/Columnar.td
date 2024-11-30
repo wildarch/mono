@@ -3,6 +3,7 @@
 
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/IR/BuiltinAttributeInterfaces.td"
 include "mlir/IR/DialectBase.td"
 include "mlir/IR/EnumAttr.td"
 include "mlir/IR/OpBase.td"
@@ -96,6 +97,7 @@ def CmpPredicate : I64EnumAttr<
     "CmpPredicate", "",
     [
         I64EnumAttrCase<"EQ", 0>,
+        I64EnumAttrCase<"LT", 1>,
     ]> {
     let cppNamespace = "::columnar";
 }
@@ -183,16 +185,15 @@ def ReadTableOp : Columnar_Op<"read_table", [Pure]> {
     }];
 }
 
-def ConstantOp : Columnar_Op<"constant", [Pure, ConstantLike]> {
-    let arguments = (ins AnyAttr:$value);
+def ConstantOp : Columnar_Op<"constant", [Pure, ConstantLike, InferTypeOpAdaptor]> {
+    let arguments = (ins TypedAttrInterface:$value);
 
     let results = (outs Column:$result);
 
     let assemblyFormat = [{
-        `<` $value `>` `:` type($result) attr-dict
+        $value attr-dict
     }];
 
-    // TODO: verify
     let hasFolder = 1;
 }
 
@@ -216,8 +217,6 @@ def AggregateOp : Columnar_Op<"aggregate", [
 
     let hasVerifier = 1;
 } 
-
-// TODO: ConstantOp
 
 def JoinOp : Columnar_Op<"join", [
         Pure, 
