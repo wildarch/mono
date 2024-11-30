@@ -10,7 +10,7 @@ columnar.query {
     %1 = columnar.read_table "B" "b" : <si64>
 
     // CHECK: %[[#SELECT:]] = columnar.select %[[#A]]
-    // CHECK:   %[[#CONST:]] = columnar.constant<42 : si64>
+    // CHECK:   %[[#CONST:]] = columnar.constant 42 : si64
     // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %[[#CONST]]
     // CHECK:   columnar.select.return %[[#CMP]]
     //
@@ -19,7 +19,7 @@ columnar.query {
 
     %3:2 = columnar.select %2#0, %2#1 : !col_si64, !col_si64 {
     ^bb0(%arg0: !col_si64, %arg1: !col_si64):
-        %4 = columnar.constant <42 : si64> : !col_si64
+        %4 = columnar.constant 42 : si64
         %5 = columnar.cmp EQ %arg0, %4 : !col_si64
         columnar.select.return %5
     }
@@ -41,7 +41,7 @@ columnar.query {
     %1 = columnar.read_table "B" "b" : <si64>
 
     // CHECK: %[[#SELECT:]] = columnar.select %[[#B]]
-    // CHECK:   %[[#CONST:]] = columnar.constant<42 : si64>
+    // CHECK:   %[[#CONST:]] = columnar.constant 42 : si64
     // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %[[#CONST]]
     // CHECK:   columnar.select.return %[[#CMP]]
     //
@@ -50,7 +50,7 @@ columnar.query {
 
     %3:2 = columnar.select %2#0, %2#1 : !col_si64, !col_si64 {
     ^bb0(%arg0: !col_si64, %arg1: !col_si64):
-        %4 = columnar.constant <42 : si64> : !col_si64
+        %4 = columnar.constant 42 : si64
         %5 = columnar.cmp EQ %arg1, %4 : !col_si64
         columnar.select.return %5
     }
@@ -100,7 +100,7 @@ columnar.query {
     %1 = columnar.read_table "B" "b" : <si64>
 
     // CHECK: %[[#SELECT:]] = columnar.select %[[#A]]
-    // CHECK:   %[[#CONST:]] = columnar.constant<42 : si64>
+    // CHECK:   %[[#CONST:]] = columnar.constant 42 : si64
     // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %[[#CONST]]
     // CHECK:   columnar.select.return %[[#CMP]]
     //
@@ -109,7 +109,7 @@ columnar.query {
 
     %3:2 = columnar.select %2#1, %2#0 : !col_si64, !col_si64 {
     ^bb0(%arg0: !col_si64, %arg1: !col_si64):
-        %4 = columnar.constant <42 : si64> : !col_si64
+        %4 = columnar.constant 42 : si64
         %5 = columnar.cmp EQ %arg1, %4 : !col_si64
         columnar.select.return %5
     }

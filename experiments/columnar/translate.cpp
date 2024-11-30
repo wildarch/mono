@@ -1,9 +1,11 @@
 #include <columnar/Columnar.h>
+#include <llvm/ADT/SmallString.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/SourceMgr.h>
 #include <mlir/IR/Builders.h>
 #include <mlir/IR/BuiltinOps.h>
+#include <mlir/IR/IRMapping.h>
 #include <mlir/Tools/mlir-translate/MlirTranslateMain.h>
 #include <mlir/Tools/mlir-translate/Translation.h>
 
@@ -67,7 +69,6 @@ public:
 
 class SQLParser {
 private:
-  mlir::ModuleOp _module;
   const Catalog &_catalog;
   mlir::OpBuilder _builder;
 
@@ -76,14 +77,24 @@ private:
   // The current set of top-level columns.
   llvm::SmallVector<mlir::Value> _currentColumns;
 
-  SQLParser(mlir::ModuleOp module, const Catalog &catalog);
+  SQLParser(const Catalog &catalog, mlir::OpBuilder &&builder);
 
   void parseStmt(const pg_query::RawStmt &stmt);
-  void parseSelect(const pg_query::SelectStmt &stmt, mlir::Location loc);
+  void parseSelect(const pg_query::SelectStmt &stmt);
   void parseFromRelation(const pg_query::RangeVar &rel);
+  void parseWhere(const pg_query::Node &expr);
   void parseResTarget(const pg_query::ResTarget &target,
                       llvm::SmallVectorImpl<mlir::Value> &outputValues,
                       llvm::SmallVectorImpl<mlir::StringAttr> &outputNames);
+
+  // NOTE: Called inside of selection predicate.
+  void parsePredicate(const pg_query::Node &expr);
+
+  mlir::Value parseTupleExpr(const pg_query::Node &expr);
+  mlir::Value parseTupleExpr(const pg_query::A_Expr &expr);
+  mlir::Value parseTupleExprOp(const pg_query::A_Expr &expr);
+  mlir::Value parseTupleExpr(const pg_query::ColumnRef &expr);
+  mlir::Value parseTupleExpr(const pg_query::A_Const &expr);
 
   mlir::InFlightDiagnostic emitError(std::int32_t loc,
                                      const google::protobuf::Message &msg);
@@ -91,8 +102,11 @@ private:
   mlir::InFlightDiagnostic emitError(const google::protobuf::Message &msg);
 
   mlir::Location loc(std::int32_t l);
+  mlir::Location loc(const pg_query::Node &n);
 
   mlir::StringAttr columnName(mlir::Value column);
+
+  void remapCurrentColumns(const mlir::IRMapping &mapping);
 
 public:
   static mlir::OwningOpRef<mlir::ModuleOp>
@@ -102,10 +116,8 @@ public:
 
 } // namespace
 
-SQLParser::SQLParser(mlir::ModuleOp module, const Catalog &catalog)
-    : _module(module), _catalog(catalog), _builder(module.getContext()) {
-  _builder.setInsertionPointToStart(module.getBody());
-}
+SQLParser::SQLParser(const Catalog &catalog, mlir::OpBuilder &&builder)
+    : _catalog(catalog), _builder(std::move(builder)) {}
 
 void SQLParser::parseStmt(const pg_query::RawStmt &stmt) {
   if (!stmt.has_stmt()) {
@@ -119,19 +131,14 @@ void SQLParser::parseStmt(const pg_query::RawStmt &stmt) {
     return;
   }
 
-  _builder.setInsertionPointToEnd(_module.getBody());
-  parseSelect(node.select_stmt(), loc(stmt.stmt_location()));
+  // Parse the query.
+  auto queryOp = _builder.create<columnar::QueryOp>(loc(stmt.stmt_location()));
+  auto &body = queryOp.getBody().emplaceBlock();
+  SQLParser queryParser(_catalog, _builder.atBlockBegin(&body));
+  queryParser.parseSelect(node.select_stmt());
 }
 
-void SQLParser::parseSelect(const pg_query::SelectStmt &stmt,
-                            mlir::Location loc) {
-  auto queryOp = _builder.create<columnar::QueryOp>(loc);
-  auto &body = queryOp.getBody().emplaceBlock();
-  _builder.setInsertionPointToStart(&body);
-
-  _columnsByName.clear();
-  _currentColumns.clear();
-
+void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
   // Steps:
   // 1. Create table reads (FROM)
   // 2. Join tables
@@ -144,11 +151,10 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt,
 
   // Things we do not support
   if (stmt.distinct_clause_size() || stmt.has_into_clause() ||
-      stmt.has_where_clause() || stmt.group_clause_size() ||
-      stmt.group_distinct() || stmt.has_having_clause() ||
-      stmt.window_clause_size() || stmt.values_lists_size() ||
-      stmt.sort_clause_size() || stmt.has_limit_offset() ||
-      stmt.has_limit_count() ||
+      stmt.group_clause_size() || stmt.group_distinct() ||
+      stmt.has_having_clause() || stmt.window_clause_size() ||
+      stmt.values_lists_size() || stmt.sort_clause_size() ||
+      stmt.has_limit_offset() || stmt.has_limit_count() ||
       stmt.limit_option() != pg_query::LIMIT_OPTION_DEFAULT ||
       stmt.locking_clause_size() || stmt.has_with_clause() ||
       stmt.op() != pg_query::SETOP_NONE || stmt.all() || stmt.has_larg() ||
@@ -167,11 +173,18 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt,
     parseFromRelation(from.range_var());
   }
 
-  // TODO: Join tables (FROM, JOIN)
+  // TODO: JOIN clause
+
   // TODO: apply predicates (WHERE)
+  if (stmt.has_where_clause()) {
+    parseWhere(stmt.where_clause());
+  }
+
   // TODO: aggregation
+
   // TODO: ORDER_BY/LIMIT
 
+  // Final SELECT
   llvm::SmallVector<mlir::Value> outputColumns;
   llvm::SmallVector<mlir::StringAttr> outputNames;
   for (const auto &target : stmt.target_list()) {
@@ -182,6 +195,8 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt,
     }
   }
 
+  auto queryOp = llvm::cast<columnar::QueryOp>(
+      _builder.getInsertionBlock()->getParentOp());
   _builder.create<columnar::QueryOutputOp>(queryOp.getLoc(), outputColumns,
                                            outputNames);
 }
@@ -231,6 +246,152 @@ void SQLParser::parseFromRelation(const pg_query::RangeVar &rel) {
       _columnsByName[columnName(res)] = res;
     }
   }
+}
+
+void SQLParser::parseWhere(const pg_query::Node &expr) {
+  auto selectOp =
+      _builder.create<columnar::SelectOp>(loc(expr), _currentColumns);
+  auto &body = selectOp.addPredicate();
+
+  SQLParser predParser(_catalog, _builder.atBlockBegin(&body));
+  // Refer to predicate block arguments.
+  predParser._currentColumns.append(body.getArguments().begin(),
+                                    body.getArguments().end());
+  // Remap names onto block arguments.
+  mlir::IRMapping mapping;
+  mapping.map(_currentColumns, body.getArguments());
+  for (const auto &[k, v] : _columnsByName) {
+    predParser._columnsByName[k] = mapping.lookup(v);
+  }
+
+  // Parse the predicate
+  predParser.parsePredicate(expr);
+
+  // Replace columns with the filtered ones.
+  mapping.map(_currentColumns, selectOp->getResults());
+  remapCurrentColumns(mapping);
+}
+
+void SQLParser::parsePredicate(const pg_query::Node &expr) {
+  auto val = parseTupleExpr(expr);
+  if (!val) {
+    // Default value if parseTupleExpr failed.
+    val = _builder.create<columnar::ConstantOp>(loc(expr),
+                                                _builder.getBoolAttr(false));
+  }
+
+  auto selectOp = llvm::cast<columnar::SelectOp>(
+      _builder.getInsertionBlock()->getParentOp());
+  _builder.create<columnar::SelectReturnOp>(selectOp.getLoc(), val);
+}
+
+mlir::Value SQLParser::parseTupleExpr(const pg_query::Node &expr) {
+  if (expr.has_a_expr()) {
+    return parseTupleExpr(expr.a_expr());
+  } else if (expr.has_column_ref()) {
+    return parseTupleExpr(expr.column_ref());
+  } else if (expr.has_a_const()) {
+    return parseTupleExpr(expr.a_const());
+  }
+
+  emitError(expr) << "unsupported tuple expr";
+  return nullptr;
+}
+
+mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Expr &expr) {
+  switch (expr.kind()) {
+  case pg_query::AEXPR_OP:
+    return parseTupleExprOp(expr);
+  case pg_query::A_EXPR_KIND_UNDEFINED:
+  case pg_query::AEXPR_OP_ANY:
+  case pg_query::AEXPR_OP_ALL:
+  case pg_query::AEXPR_DISTINCT:
+  case pg_query::AEXPR_NOT_DISTINCT:
+  case pg_query::AEXPR_NULLIF:
+  case pg_query::AEXPR_IN:
+  case pg_query::AEXPR_LIKE:
+  case pg_query::AEXPR_ILIKE:
+  case pg_query::AEXPR_SIMILAR:
+  case pg_query::AEXPR_BETWEEN:
+  case pg_query::AEXPR_NOT_BETWEEN:
+  case pg_query::AEXPR_BETWEEN_SYM:
+  case pg_query::AEXPR_NOT_BETWEEN_SYM:
+  case pg_query::A_Expr_Kind_INT_MIN_SENTINEL_DO_NOT_USE_:
+  case pg_query::A_Expr_Kind_INT_MAX_SENTINEL_DO_NOT_USE_:
+    break;
+  }
+
+  emitError(expr) << "unsupported kind "
+                  << pg_query::A_Expr_Kind_Name(expr.kind());
+  return nullptr;
+}
+
+mlir::Value SQLParser::parseTupleExprOp(const pg_query::A_Expr &expr) {
+  llvm::SmallString<16> fullName;
+  for (const auto &name : expr.name()) {
+    if (!name.has_string()) {
+      emitError(expr) << "op name is not a string";
+      return nullptr;
+    }
+
+    if (!fullName.empty()) {
+      fullName.push_back('.');
+    }
+
+    fullName.append(name.string().sval());
+  }
+
+  if (fullName == "<") {
+    auto lhs = parseTupleExpr(expr.lexpr());
+    auto rhs = parseTupleExpr(expr.rexpr());
+    if (!lhs || !rhs) {
+      return nullptr;
+    }
+
+    return _builder.create<columnar::CmpOp>(
+        loc(expr.location()), columnar::CmpPredicate::LT, lhs, rhs);
+  }
+
+  emitError(expr) << "unknown op '" << fullName << "'";
+  return nullptr;
+}
+
+mlir::Value SQLParser::parseTupleExpr(const pg_query::ColumnRef &expr) {
+  if (expr.fields_size() != 1) {
+    emitError(expr.location(), expr) << "expected one column field";
+    return nullptr;
+  }
+
+  const auto &field = expr.fields(0);
+  if (!field.has_string()) {
+    emitError(expr.location(), field) << "expected a string target name";
+    return nullptr;
+  }
+
+  const auto &name = field.string().sval();
+
+  mlir::Value column = _columnsByName.lookup(name);
+  if (!column) {
+    emitError(expr.location(), field) << "unknown column: " << name;
+    return nullptr;
+  }
+
+  return column;
+}
+
+mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Const &expr) {
+  mlir::TypedAttr attr;
+  if (expr.has_ival()) {
+    attr = _builder.getIntegerAttr(
+        _builder.getIntegerType(64, /*isSigned=*/true), expr.ival().ival());
+  }
+
+  if (!attr) {
+    emitError(expr) << "unsupported constant type";
+    return nullptr;
+  }
+
+  return _builder.create<columnar::ConstantOp>(loc(expr.location()), attr);
 }
 
 void SQLParser::parseResTarget(
@@ -289,13 +450,18 @@ SQLParser::emitError(std::int32_t loc, const google::protobuf::Message &msg) {
 
 mlir::InFlightDiagnostic
 SQLParser::emitError(const google::protobuf::Message &msg) {
-  auto diag = mlir::emitError(_module->getLoc());
+  auto diag = mlir::emitError(_builder.getUnknownLoc());
   diag.attachNote() << "in proto " << msg.DebugString();
   return diag;
 }
 
 mlir::Location SQLParser::loc(std::int32_t l) {
   // TODO location tracking.
+  return _builder.getUnknownLoc();
+}
+
+mlir::Location SQLParser::loc(const pg_query::Node &n) {
+  // TODO: location tracking.
   return _builder.getUnknownLoc();
 }
 
@@ -307,10 +473,29 @@ mlir::StringAttr SQLParser::columnName(mlir::Value column) {
   } else if (auto joinOp = column.getDefiningOp<columnar::JoinOp>()) {
     // Take from input.
     return columnName(joinOp->getOperand(res.getResultNumber()));
+  } else if (auto selectOp = column.getDefiningOp<columnar::SelectOp>()) {
+    // Take from input.
+    return columnName(selectOp->getOperand(res.getResultNumber()));
   }
 
-  // TODO: smarter impl.
   return mlir::StringAttr::get(column.getContext(), "NO_NAME");
+}
+
+void SQLParser::remapCurrentColumns(const mlir::IRMapping &mapping) {
+  for (auto &value : _currentColumns) {
+    auto newValue = mapping.lookup(value);
+    if (newValue) {
+      value = newValue;
+    }
+  }
+
+  for (auto k : _columnsByName.keys()) {
+    auto &value = _columnsByName[k];
+    auto newValue = mapping.lookup(value);
+    if (newValue) {
+      value = newValue;
+    }
+  }
 }
 
 mlir::OwningOpRef<mlir::ModuleOp>
@@ -318,7 +503,9 @@ SQLParser::parseQuery(mlir::MLIRContext *ctx, mlir::FileLineColLoc loc,
                       const pg_query::ParseResult &proto,
                       const Catalog &catalog) {
   mlir::OwningOpRef<mlir::ModuleOp> module(mlir::ModuleOp::create(loc));
-  SQLParser parser(*module, catalog);
+  mlir::OpBuilder builder(ctx);
+  builder.setInsertionPointToStart(module->getBody());
+  SQLParser parser(catalog, std::move(builder));
 
   for (const auto &stmt : proto.stmts()) {
     parser.parseStmt(stmt);
