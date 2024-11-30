@@ -200,18 +200,36 @@ void SQLParser::parseFromRelation(const pg_query::RangeVar &rel) {
     return;
   }
 
-  if (!_currentColumns.empty()) {
-    emitError(rel.location(), rel) << "TODO: join multiple relations";
-    return;
-  }
-
+  llvm::SmallVector<mlir::Value> columnReads;
+  llvm::SmallVector<mlir::StringAttr> columnNames;
   for (auto col : table.getColumns()) {
     auto readOp = _builder.create<columnar::ReadTableOp>(
         loc(rel.location()),
         _builder.getType<columnar::ColumnType>(col.getType()), table.getName(),
         col.getName());
-    _currentColumns.push_back(readOp);
-    _columnsByName[col.getName()] = readOp;
+    columnReads.push_back(readOp);
+    // TODO: handle collisions
+    columnNames.push_back(readOp.getColumnAttr());
+  }
+
+  if (_currentColumns.empty()) {
+    _currentColumns.append(columnReads);
+    for (auto [name, read] : llvm::zip_equal(columnNames, columnReads)) {
+      _columnsByName[name] = read;
+    }
+  } else {
+    // Join the current set of columns with this new set.
+    auto joinOp = _builder.create<columnar::JoinOp>(
+        loc(rel.location()), _currentColumns, columnReads);
+    _currentColumns.clear();
+    _currentColumns.append(joinOp->getResults().begin(),
+                           joinOp->getResults().end());
+
+    // TODO: preserve names better
+    _columnsByName.clear();
+    for (auto res : joinOp->getResults()) {
+      _columnsByName[columnName(res)] = res;
+    }
   }
 }
 
@@ -282,8 +300,13 @@ mlir::Location SQLParser::loc(std::int32_t l) {
 }
 
 mlir::StringAttr SQLParser::columnName(mlir::Value column) {
+  // TODO: dataflow analysis?
+  auto res = llvm::dyn_cast<mlir::OpResult>(column);
   if (auto readOp = column.getDefiningOp<columnar::ReadTableOp>()) {
     return readOp.getColumnAttr();
+  } else if (auto joinOp = column.getDefiningOp<columnar::JoinOp>()) {
+    // Take from input.
+    return columnName(joinOp->getOperand(res.getResultNumber()));
   }
 
   // TODO: smarter impl.
