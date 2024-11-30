@@ -42,6 +42,39 @@ void ColumnarDialect::initialize() {
       >();
 }
 
+mlir::Operation *ColumnarDialect::materializeConstant(mlir::OpBuilder &builder,
+                                                      mlir::Attribute value,
+                                                      mlir::Type rawType,
+                                                      mlir::Location loc) {
+  auto type = llvm::cast<ColumnType>(rawType);
+  if (auto typedAttr = llvm::dyn_cast<mlir::TypedAttr>(value)) {
+    if (typedAttr.getType() == type.getElementType()) {
+      return builder.create<ConstantOp>(loc, typedAttr);
+    }
+
+    if (llvm::isa<DecimalType>(type.getElementType()) &&
+        typedAttr.getType().isSignedInteger(64)) {
+      // Coerce int to decimal.
+      auto intVal = llvm::cast<mlir::IntegerAttr>(value);
+      auto decVal = (intVal.getValue() * 100).trySExtValue();
+      if (!decVal) {
+        mlir::emitError(loc) << "Cannot coerce value " << intVal
+                             << " to decimal because it is too large";
+        return nullptr;
+      }
+
+      return builder.create<ConstantOp>(loc,
+                                        builder.getAttr<DecimalAttr>(*decVal));
+    }
+  }
+
+  mlir::emitError(loc) << "Cannot materialize constant " << value
+                       << " with type " << type;
+  return nullptr;
+}
+
+mlir::Type DecimalAttr::getType() { return DecimalType::get(getContext()); }
+
 mlir::LogicalResult QueryOutputOp::verify() {
   if (getColumns().size() != getNames().size()) {
     return emitOpError("Outputs ")
@@ -154,6 +187,10 @@ SelectOp::fold(FoldAdaptor adaptor,
 mlir::OpFoldResult CastOp::fold(FoldAdaptor adaptor) {
   if (getType() == getInput().getType()) {
     return getInput();
+  }
+
+  if (auto attr = adaptor.getInput()) {
+    return attr;
   }
 
   return nullptr;

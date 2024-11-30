@@ -16,9 +16,8 @@ WHERE l_linenumber < 24;
 -- CHECK: %[[#ORDERKEY:]] = columnar.read_table "lineitem" "l_orderkey"
 -- CHECK: %[[#QTY:]] = columnar.read_table "lineitem" "l_quantity"
 -- CHECK: %[[#SELECT:]]:2 = columnar.select %[[#ORDERKEY]], %[[#QTY]]
--- CHECK:   %[[#CONST:]] = columnar.constant 24
--- CHECK:   %[[#CAST:]] = columnar.cast %[[#CONST]] : <si64> -> <!columnar.dec>
--- CHECK:   %[[#CMP:]] = columnar.cmp LT %arg1, %4
+-- CHECK:   %[[#CONST:]] = columnar.constant #columnar<dec 2400>
+-- CHECK:   %[[#CMP:]] = columnar.cmp LT %arg1, %[[#CONST]]
 -- CHECK:   columnar.select.return %[[#CMP]]
 -- CHECK: columnar.query.output %[[#SELECT]]#0 : !columnar.col<i64> ["l_orderkey"]
 SELECT l_orderkey
