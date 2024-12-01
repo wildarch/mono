@@ -42,6 +42,37 @@ void ColumnarDialect::initialize() {
       >();
 }
 
+static DateAttr parseDate(mlir::OpBuilder &builder, llvm::StringRef s) {
+  std::uint16_t year;
+  if (s.consumeInteger(10, year)) {
+    return nullptr;
+  }
+
+  if (!s.consume_front("-")) {
+    return nullptr;
+  }
+
+  std::uint8_t month;
+  if (s.consumeInteger(10, month)) {
+    return nullptr;
+  }
+
+  if (!s.consume_front("-")) {
+    return nullptr;
+  }
+
+  std::uint8_t day;
+  if (s.consumeInteger(10, day)) {
+    return nullptr;
+  }
+
+  if (!s.empty()) {
+    return nullptr;
+  }
+
+  return builder.getAttr<DateAttr>(year, month, day);
+}
+
 mlir::Operation *ColumnarDialect::materializeConstant(mlir::OpBuilder &builder,
                                                       mlir::Attribute value,
                                                       mlir::Type rawType,
@@ -58,7 +89,7 @@ mlir::Operation *ColumnarDialect::materializeConstant(mlir::OpBuilder &builder,
       auto intVal = llvm::cast<mlir::IntegerAttr>(value);
       auto decVal = (intVal.getValue() * 100).trySExtValue();
       if (!decVal) {
-        mlir::emitError(loc) << "Cannot coerce value " << intVal
+        mlir::emitError(loc) << "cannot coerce value " << intVal
                              << " to decimal because it is too large";
         return nullptr;
       }
@@ -66,18 +97,35 @@ mlir::Operation *ColumnarDialect::materializeConstant(mlir::OpBuilder &builder,
       return builder.create<ConstantOp>(loc,
                                         builder.getAttr<DecimalAttr>(*decVal));
     }
+
+    if (llvm::isa<DateType>(type.getElementType()) &&
+        llvm::isa<StringType>(typedAttr.getType())) {
+      // Date as string.
+      auto sval = llvm::cast<StringAttr>(typedAttr).getValue().getValue();
+      auto date = parseDate(builder, sval);
+      if (!date) {
+        mlir::emitError(loc) << "invalid date string '" << sval << "'";
+        return nullptr;
+      }
+
+      return builder.create<ConstantOp>(loc, date);
+    }
   }
 
-  mlir::emitError(loc) << "Cannot materialize constant " << value
+  mlir::emitError(loc) << "cannot materialize constant " << value
                        << " with type " << type;
   return nullptr;
 }
 
 mlir::Type DecimalAttr::getType() { return DecimalType::get(getContext()); }
 
+mlir::Type StringAttr::getType() { return StringType::get(getContext()); }
+
+mlir::Type DateAttr::getType() { return DateType::get(getContext()); }
+
 mlir::LogicalResult QueryOutputOp::verify() {
   if (getColumns().size() != getNames().size()) {
-    return emitOpError("Outputs ")
+    return emitOpError("outputs ")
            << getColumns().size() << " columns, but got " << getNames().size()
            << " column names";
   }
