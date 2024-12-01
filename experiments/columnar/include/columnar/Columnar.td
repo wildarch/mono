@@ -340,7 +340,7 @@ def CmpOp : Columnar_Op<"cmp", [
     }];
 }
 
-def CastOp : Columnar_Op<"cast", [Pure]> {
+def CastOp : Columnar_Op<"cast", [Pure, IsProjection]> {
     let arguments = (ins Column:$input);
 
     let results = (outs Column:$result);
@@ -351,6 +351,16 @@ def CastOp : Columnar_Op<"cast", [Pure]> {
 
     // TODO: verify cast is valid
     let hasFolder = 1;
+}
+
+def AndOp : Columnar_Op<"and", [Pure, IsProjection]> {
+    let arguments = (ins Variadic<ColumnOf<I1>>:$inputs);
+
+    let results = (outs ColumnOf<I1>:$result);
+
+    let assemblyFormat = [{
+        $inputs attr-dict
+    }];
 }
 
 // ============================================================================
