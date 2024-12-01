@@ -95,6 +95,11 @@ private:
   mlir::Value parseTupleExprOp(const pg_query::A_Expr &expr);
   mlir::Value parseTupleExpr(const pg_query::ColumnRef &expr);
   mlir::Value parseTupleExpr(const pg_query::A_Const &expr);
+  mlir::Value parseTupleExpr(const pg_query::TypeCast &expr);
+  mlir::Value parseTupleExprCmp(columnar::CmpPredicate pred,
+                                const pg_query::A_Expr &expr);
+
+  mlir::Type parseType(const pg_query::TypeName &name);
 
   mlir::LogicalResult tryUnifyTypes(mlir::Value &lhs, mlir::Value &rhs);
 
@@ -294,6 +299,8 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::Node &expr) {
     return parseTupleExpr(expr.column_ref());
   } else if (expr.has_a_const()) {
     return parseTupleExpr(expr.a_const());
+  } else if (expr.has_type_cast()) {
+    return parseTupleExpr(expr.type_cast());
   }
 
   emitError(expr) << "unsupported tuple expr";
@@ -343,19 +350,18 @@ mlir::Value SQLParser::parseTupleExprOp(const pg_query::A_Expr &expr) {
     fullName.append(name.string().sval());
   }
 
-  if (fullName == "<") {
-    auto lhs = parseTupleExpr(expr.lexpr());
-    auto rhs = parseTupleExpr(expr.rexpr());
-    if (!lhs || !rhs) {
-      return nullptr;
-    }
-
-    if (mlir::failed(tryUnifyTypes(lhs, rhs))) {
-      return nullptr;
-    }
-
-    return _builder.create<columnar::CmpOp>(
-        loc(expr.location()), columnar::CmpPredicate::LT, lhs, rhs);
+  if (fullName == "=") {
+    return parseTupleExprCmp(columnar::CmpPredicate::EQ, expr);
+  } else if (fullName == "<>") {
+    return parseTupleExprCmp(columnar::CmpPredicate::NE, expr);
+  } else if (fullName == "<") {
+    return parseTupleExprCmp(columnar::CmpPredicate::LT, expr);
+  } else if (fullName == "<=") {
+    return parseTupleExprCmp(columnar::CmpPredicate::LE, expr);
+  } else if (fullName == ">") {
+    return parseTupleExprCmp(columnar::CmpPredicate::GT, expr);
+  } else if (fullName == ">=") {
+    return parseTupleExprCmp(columnar::CmpPredicate::GE, expr);
   }
 
   emitError(expr) << "unknown op '" << fullName << "'";
@@ -390,6 +396,9 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Const &expr) {
   if (expr.has_ival()) {
     attr = _builder.getIntegerAttr(
         _builder.getIntegerType(64, /*isSigned=*/true), expr.ival().ival());
+  } else if (expr.has_sval()) {
+    attr = _builder.getAttr<columnar::StringAttr>(
+        _builder.getStringAttr(expr.sval().sval()));
   }
 
   if (!attr) {
@@ -398,6 +407,50 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Const &expr) {
   }
 
   return _builder.create<columnar::ConstantOp>(loc(expr.location()), attr);
+}
+
+mlir::Value SQLParser::parseTupleExpr(const pg_query::TypeCast &expr) {
+  auto arg = parseTupleExpr(expr.arg());
+  auto type = parseType(expr.type_name());
+  if (!arg || !type) {
+    return nullptr;
+  }
+
+  return _builder.create<columnar::CastOp>(
+      loc(expr.location()), _builder.getType<columnar::ColumnType>(type), arg);
+}
+
+mlir::Value SQLParser::parseTupleExprCmp(columnar::CmpPredicate pred,
+                                         const pg_query::A_Expr &expr) {
+  auto lhs = parseTupleExpr(expr.lexpr());
+  auto rhs = parseTupleExpr(expr.rexpr());
+  if (!lhs || !rhs) {
+    return nullptr;
+  }
+
+  if (mlir::failed(tryUnifyTypes(lhs, rhs))) {
+    return nullptr;
+  }
+
+  return _builder.create<columnar::CmpOp>(loc(expr.location()), pred, lhs, rhs);
+}
+
+mlir::Type SQLParser::parseType(const pg_query::TypeName &name) {
+  if (name.names_size() == 1 && name.type_oid() == 0 && !name.setof() &&
+      !name.pct_type() && name.typmods_size() == 0 && name.typemod() == -1 &&
+      name.array_bounds_size() == 0) {
+    const auto &node = name.names(0);
+    if (node.has_string()) {
+      const auto &name = node.string().sval();
+      if (name == "date") {
+        return _builder.getType<columnar::DateType>();
+      }
+
+      // TODO: more types.
+    }
+  }
+  emitError(name) << "unsupported type";
+  return nullptr;
 }
 
 static bool canCoerceToDecimal(mlir::Type columnType) {
