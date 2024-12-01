@@ -34,3 +34,18 @@ WHERE l_quantity < 24;
 SELECT l_shipdate
 FROM lineitem
 WHERE l_shipdate >= CAST('1994-01-01' AS date);
+
+-- CHECK-LABEL: columnar.query {
+-- CHECK: %[[#SHIPDATE:]] = columnar.read_table "lineitem" "l_shipdate" : <!columnar.date>
+-- CHECK: %[[#SELECT:]] = columnar.select %[[#SHIPDATE]]
+-- CHECK:   %[[#C1995:]] = columnar.constant #columnar<date 1995 1 1>
+-- CHECK:   %[[#C1994:]] = columnar.constant #columnar<date 1994 1 1>
+-- CHECK:   %[[#CMP1:]] = columnar.cmp GE %arg0, %[[#C1994]]
+-- CHECK:   %[[#CMP2:]] = columnar.cmp LT %arg0, %[[#C1995]]
+-- CHECK:   %[[#AND:]] = columnar.and %[[#CMP1]], %[[#CMP2]]
+-- CHECK:   columnar.select.return %[[#AND]]
+-- CHECK: columnar.query.output %[[#SELECT]] {{.*}} ["l_shipdate"]
+SELECT l_shipdate
+FROM lineitem
+WHERE l_shipdate >= CAST('1994-01-01' AS date)
+  AND l_shipdate < CAST('1995-01-01' AS date);
