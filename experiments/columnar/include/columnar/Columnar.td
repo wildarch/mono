@@ -98,7 +98,11 @@ def CmpPredicate : I64EnumAttr<
     "CmpPredicate", "",
     [
         I64EnumAttrCase<"EQ", 0>,
-        I64EnumAttrCase<"LT", 1>,
+        I64EnumAttrCase<"NE", 1>,
+        I64EnumAttrCase<"LT", 2>,
+        I64EnumAttrCase<"LE", 3>,
+        I64EnumAttrCase<"GT", 4>,
+        I64EnumAttrCase<"GE", 5>,
     ]> {
     let cppNamespace = "::columnar";
 }
@@ -134,6 +138,28 @@ def DecimalAttr : Columnar_Attr<"Decimal", "dec", [TypedAttrInterface]> {
     let extraClassDeclaration = [{
         mlir::Type getType();
     }];
+}
+
+def StringAttr : Columnar_Attr<"String", "str", [TypedAttrInterface]> {
+    let parameters = (ins "mlir::StringAttr":$value);
+
+    let assemblyFormat = "$value";
+
+    let extraClassDeclaration = [{
+        mlir::Type getType();
+    }];
+}
+
+def DateAttr : Columnar_Attr<"Date", "date", [TypedAttrInterface]> {
+    let parameters = (ins "int":$year, "int":$month, "int":$day);
+
+    let assemblyFormat = "$year $month $day";
+
+    let extraClassDeclaration = [{
+        mlir::Type getType();
+    }];
+
+    // TODO: verify
 }
 
 // Interfaces and Traits
