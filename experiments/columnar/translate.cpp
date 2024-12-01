@@ -96,6 +96,7 @@ private:
   mlir::Value parseTupleExpr(const pg_query::ColumnRef &expr);
   mlir::Value parseTupleExpr(const pg_query::A_Const &expr);
   mlir::Value parseTupleExpr(const pg_query::TypeCast &expr);
+  mlir::Value parseTupleExpr(const pg_query::BoolExpr &expr);
   mlir::Value parseTupleExprCmp(columnar::CmpPredicate pred,
                                 const pg_query::A_Expr &expr);
 
@@ -301,6 +302,8 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::Node &expr) {
     return parseTupleExpr(expr.a_const());
   } else if (expr.has_type_cast()) {
     return parseTupleExpr(expr.type_cast());
+  } else if (expr.has_bool_expr()) {
+    return parseTupleExpr(expr.bool_expr());
   }
 
   emitError(expr) << "unsupported tuple expr";
@@ -325,8 +328,7 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Expr &expr) {
   case pg_query::AEXPR_NOT_BETWEEN:
   case pg_query::AEXPR_BETWEEN_SYM:
   case pg_query::AEXPR_NOT_BETWEEN_SYM:
-  case pg_query::A_Expr_Kind_INT_MIN_SENTINEL_DO_NOT_USE_:
-  case pg_query::A_Expr_Kind_INT_MAX_SENTINEL_DO_NOT_USE_:
+  default:
     break;
   }
 
@@ -418,6 +420,36 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::TypeCast &expr) {
 
   return _builder.create<columnar::CastOp>(
       loc(expr.location()), _builder.getType<columnar::ColumnType>(type), arg);
+}
+
+mlir::Value SQLParser::parseTupleExpr(const pg_query::BoolExpr &expr) {
+  if (expr.has_xpr()) {
+    emitError(expr.location(), expr) << "unsupported boolean expr";
+    return nullptr;
+  }
+
+  llvm::SmallVector<mlir::Value> inputs;
+  for (const auto &arg : expr.args()) {
+    inputs.push_back(parseTupleExpr(arg));
+  }
+
+  auto nullInput =
+      llvm::any_of(inputs, [](mlir::Value input) { return input == nullptr; });
+  if (nullInput) {
+    return nullptr;
+  }
+
+  switch (expr.boolop()) {
+  case pg_query::AND_EXPR:
+    return _builder.create<columnar::AndOp>(loc(expr.location()), inputs);
+  case pg_query::OR_EXPR:
+  case pg_query::NOT_EXPR:
+  default:
+    break;
+  }
+
+  emitError(expr.location(), expr) << "unsupported boolean expr";
+  return nullptr;
 }
 
 mlir::Value SQLParser::parseTupleExprCmp(columnar::CmpPredicate pred,
