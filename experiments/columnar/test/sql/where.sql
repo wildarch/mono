@@ -49,3 +49,17 @@ SELECT l_shipdate
 FROM lineitem
 WHERE l_shipdate >= CAST('1994-01-01' AS date)
   AND l_shipdate < CAST('1995-01-01' AS date);
+
+-- CHECK-LABEL: columnar.query {
+-- CHECK: %[[#DISCOUNT:]] = columnar.read_table "lineitem" "l_discount" : <!columnar.dec>
+-- CHECK: %[[#SELECT:]] = columnar.select %[[#DISCOUNT]]
+-- CHECK:   %[[#LOWER:]] = columnar.constant #columnar<dec 5>
+-- CHECK:   %[[#UPPER:]] = columnar.constant #columnar<dec 7>
+-- CHECK:   %[[#CMP1:]] = columnar.cmp LE %[[#LOWER]], %arg0
+-- CHECK:   %[[#CMP2:]] = columnar.cmp LE %arg0, %[[#UPPER]]
+-- CHECK:   %[[#AND:]] = columnar.and %[[#CMP1]], %[[#CMP2]]
+-- CHECK:   columnar.select.return %[[#AND]]
+-- CHECK: columnar.query.output %[[#SELECT]] {{.*}} ["l_discount"]
+SELECT l_discount
+FROM lineitem
+WHERE l_discount BETWEEN 0.05 AND 0.07;

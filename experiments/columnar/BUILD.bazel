@@ -105,15 +105,6 @@ cc_proto_library(
 )
 
 cc_binary(
-    name = "sql",
-    srcs = ["sql.cpp"],
-    deps = [
-        ":libpg_query_cc_proto",
-        "@libpg_query",
-    ],
-)
-
-cc_binary(
     name = "translate",
     srcs = ["translate.cpp"],
     visibility = ["//visibility:public"],

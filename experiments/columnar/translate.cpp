@@ -93,6 +93,7 @@ private:
   mlir::Value parseTupleExpr(const pg_query::Node &expr);
   mlir::Value parseTupleExpr(const pg_query::A_Expr &expr);
   mlir::Value parseTupleExprOp(const pg_query::A_Expr &expr);
+  mlir::Value parseTupleExprBetween(const pg_query::A_Expr &expr);
   mlir::Value parseTupleExpr(const pg_query::ColumnRef &expr);
   mlir::Value parseTupleExpr(const pg_query::A_Const &expr);
   mlir::Value parseTupleExpr(const pg_query::TypeCast &expr);
@@ -101,6 +102,8 @@ private:
                                 const pg_query::A_Expr &expr);
 
   mlir::Type parseType(const pg_query::TypeName &name);
+
+  mlir::TypedAttr parseFloat(const std::string &s);
 
   mlir::LogicalResult tryUnifyTypes(mlir::Value &lhs, mlir::Value &rhs);
 
@@ -314,6 +317,8 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Expr &expr) {
   switch (expr.kind()) {
   case pg_query::AEXPR_OP:
     return parseTupleExprOp(expr);
+  case pg_query::AEXPR_BETWEEN:
+    return parseTupleExprBetween(expr);
   case pg_query::A_EXPR_KIND_UNDEFINED:
   case pg_query::AEXPR_OP_ANY:
   case pg_query::AEXPR_OP_ALL:
@@ -324,7 +329,6 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Expr &expr) {
   case pg_query::AEXPR_LIKE:
   case pg_query::AEXPR_ILIKE:
   case pg_query::AEXPR_SIMILAR:
-  case pg_query::AEXPR_BETWEEN:
   case pg_query::AEXPR_NOT_BETWEEN:
   case pg_query::AEXPR_BETWEEN_SYM:
   case pg_query::AEXPR_NOT_BETWEEN_SYM:
@@ -370,6 +374,40 @@ mlir::Value SQLParser::parseTupleExprOp(const pg_query::A_Expr &expr) {
   return nullptr;
 }
 
+mlir::Value SQLParser::parseTupleExprBetween(const pg_query::A_Expr &expr) {
+  auto value = parseTupleExpr(expr.lexpr());
+  if (!value) {
+    return nullptr;
+  }
+
+  // Parse lower and upper bounds for value.
+  if (!expr.rexpr().has_list()) {
+    emitError(expr.location(), expr.rexpr()) << "invalid bounds for between";
+    return nullptr;
+  }
+
+  const auto &list = expr.rexpr().list();
+  if (list.items_size() != 2) {
+    emitError(expr.location(), list)
+        << "expected lower and upper bound (2 items)";
+    return nullptr;
+  }
+
+  auto lower = parseTupleExpr(list.items(0));
+  auto upper = parseTupleExpr(list.items(1));
+  if (!lower || !upper) {
+    return nullptr;
+  }
+
+  auto location = loc(expr.location());
+  auto lowerCmp = _builder.create<columnar::CmpOp>(
+      location, columnar::CmpPredicate::LE, lower, value);
+  auto upperCmp = _builder.create<columnar::CmpOp>(
+      location, columnar::CmpPredicate::LE, value, upper);
+  return _builder.create<columnar::AndOp>(location,
+                                          mlir::ValueRange{lowerCmp, upperCmp});
+}
+
 mlir::Value SQLParser::parseTupleExpr(const pg_query::ColumnRef &expr) {
   if (expr.fields_size() != 1) {
     emitError(expr.location(), expr) << "expected one column field";
@@ -401,6 +439,8 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Const &expr) {
   } else if (expr.has_sval()) {
     attr = _builder.getAttr<columnar::StringAttr>(
         _builder.getStringAttr(expr.sval().sval()));
+  } else if (expr.has_fval()) {
+    attr = parseFloat(expr.fval().fval());
   }
 
   if (!attr) {
@@ -483,6 +523,43 @@ mlir::Type SQLParser::parseType(const pg_query::TypeName &name) {
   }
   emitError(name) << "unsupported type";
   return nullptr;
+}
+
+mlir::TypedAttr SQLParser::parseFloat(const std::string &s) {
+  // Can we parse as decimal?
+  auto dot = s.find_first_of('.');
+  if (dot == std::string::npos) {
+    return nullptr;
+  }
+
+  // Example:
+  // 123.45
+  //    3
+  // 6 - 3 - 1 = 2 decimals
+  std::size_t decimals = s.size() - dot - 1;
+
+  // Decimal allows at most two digits after the dot.
+  std::string str(s);
+  if (decimals > 2) {
+    // Regular float
+    return _builder.getF64FloatAttr(std::stod(str));
+  }
+
+  // Padding with trailing zeros.
+  // Example:
+  // 123.4 => 123.40
+  for (int i = decimals; i < 2; i++) {
+    str.push_back('0');
+  }
+
+  // Example: 123.40 => 12340
+  str.erase(dot, 1);
+  std::int64_t intVal;
+  if (llvm::StringRef(str).consumeInteger(10, intVal)) {
+    return nullptr;
+  }
+
+  return _builder.getAttr<columnar::DecimalAttr>(intVal);
 }
 
 static bool canCoerceToDecimal(mlir::Type columnType) {
