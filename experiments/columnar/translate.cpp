@@ -100,6 +100,17 @@ private:
   mlir::Value parseTupleExpr(const pg_query::BoolExpr &expr);
   mlir::Value parseTupleExprCmp(columnar::CmpPredicate pred,
                                 const pg_query::A_Expr &expr);
+  mlir::Value parseTupleExprBinary(
+      const pg_query::A_Expr &expr,
+      llvm::function_ref<mlir::Value(mlir::Value, mlir::Value)> buildFunc);
+
+  template <typename T>
+  mlir::Value parseTupleExprBinary(const pg_query::A_Expr &expr) {
+    return parseTupleExprBinary(
+        expr, [&](mlir::Value lhs, mlir::Value rhs) -> mlir::Value {
+          return _builder.create<T>(loc(expr.location()), lhs, rhs);
+        });
+  }
 
   mlir::Type parseType(const pg_query::TypeName &name);
 
@@ -356,6 +367,7 @@ mlir::Value SQLParser::parseTupleExprOp(const pg_query::A_Expr &expr) {
     fullName.append(name.string().sval());
   }
 
+  // Compare
   if (fullName == "=") {
     return parseTupleExprCmp(columnar::CmpPredicate::EQ, expr);
   } else if (fullName == "<>") {
@@ -368,6 +380,17 @@ mlir::Value SQLParser::parseTupleExprOp(const pg_query::A_Expr &expr) {
     return parseTupleExprCmp(columnar::CmpPredicate::GT, expr);
   } else if (fullName == ">=") {
     return parseTupleExprCmp(columnar::CmpPredicate::GE, expr);
+  }
+
+  // Arithmetic
+  if (fullName == "+") {
+    return parseTupleExprBinary<columnar::AddOp>(expr);
+  } else if (fullName == "-") {
+    return parseTupleExprBinary<columnar::SubOp>(expr);
+  } else if (fullName == "*") {
+    return parseTupleExprBinary<columnar::MulOp>(expr);
+  } else if (fullName == "/") {
+    return parseTupleExprBinary<columnar::DivOp>(expr);
   }
 
   emitError(expr) << "unknown op '" << fullName << "'";
@@ -507,6 +530,22 @@ mlir::Value SQLParser::parseTupleExprCmp(columnar::CmpPredicate pred,
   return _builder.create<columnar::CmpOp>(loc(expr.location()), pred, lhs, rhs);
 }
 
+mlir::Value SQLParser::parseTupleExprBinary(
+    const pg_query::A_Expr &expr,
+    llvm::function_ref<mlir::Value(mlir::Value, mlir::Value)> buildFunc) {
+  auto lhs = parseTupleExpr(expr.lexpr());
+  auto rhs = parseTupleExpr(expr.rexpr());
+  if (!lhs || !rhs) {
+    return nullptr;
+  }
+
+  if (mlir::failed(tryUnifyTypes(lhs, rhs))) {
+    return nullptr;
+  }
+
+  return buildFunc(lhs, rhs);
+}
+
 mlir::Type SQLParser::parseType(const pg_query::TypeName &name) {
   if (name.names_size() == 1 && name.type_oid() == 0 && !name.setof() &&
       !name.pct_type() && name.typmods_size() == 0 && name.typemod() == -1 &&
@@ -587,6 +626,20 @@ mlir::LogicalResult SQLParser::tryUnifyTypes(mlir::Value &lhs,
          << "cannot unify types of values " << lhs << " and " << rhs;
 }
 
+static bool isAStar(const pg_query::Node &node) {
+  if (!node.has_column_ref()) {
+    return false;
+  }
+
+  const auto &columnRef = node.column_ref();
+  if (columnRef.fields_size() != 1) {
+    return false;
+  }
+
+  const auto &field = columnRef.fields(0);
+  return field.has_a_star();
+}
+
 void SQLParser::parseResTarget(
     const pg_query::ResTarget &target,
     llvm::SmallVectorImpl<mlir::Value> &outputValues,
@@ -597,40 +650,22 @@ void SQLParser::parseResTarget(
   }
 
   const auto &val = target.val();
-  if (!val.has_column_ref()) {
-    emitError(target.location(), val) << "unknown result target";
-    return;
-  }
-
-  const auto &columnRef = val.column_ref();
-  if (columnRef.fields_size() != 1) {
-    emitError(columnRef.location(), columnRef) << "expected one target column";
-    return;
-  }
-
-  const auto &field = columnRef.fields(0);
-  if (field.has_a_star()) {
+  if (isAStar(val)) {
     for (auto col : _currentColumns) {
       outputValues.push_back(col);
       outputNames.push_back(columnName(col));
     }
     return;
-  } else if (!field.has_string()) {
-    emitError(columnRef.location(), field) << "expected a string target name";
+  }
+
+  auto expr = parseTupleExpr(val);
+  if (!expr) {
     return;
   }
 
-  const auto &name = field.string().sval();
-
-  mlir::Value column = _columnsByName.lookup(name);
-  if (!column) {
-    emitError(columnRef.location(), field) << "unknown column: " << name;
-    return;
-  }
-
-  outputValues.push_back(column);
+  outputValues.push_back(expr);
   auto outputName = target.name().empty()
-                        ? _builder.getStringAttr(name)
+                        ? columnName(expr)
                         : _builder.getStringAttr(target.name());
   outputNames.push_back(outputName);
 }
