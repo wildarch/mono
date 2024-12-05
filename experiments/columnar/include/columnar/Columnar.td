@@ -363,6 +363,27 @@ def AndOp : Columnar_Op<"and", [Pure, IsProjection]> {
     }];
 }
 
+def Numeric : AnyTypeOf<[
+    ColumnOf<SI64>,
+    ColumnOf<Decimal>,
+    ColumnOf<F64>,
+]>;
+
+class NumericBinOp<string mnemonic> : Columnar_Op<mnemonic, [Pure, IsProjection, SameOperandsAndResultType]> {
+    let arguments = (ins Numeric:$lhs, Numeric:$rhs);
+
+    let results = (outs Numeric:$result);
+
+    let assemblyFormat = [{
+        $lhs `,` $rhs `:` type($result) attr-dict
+    }];
+}
+
+def AddOp : NumericBinOp<"add">;
+def SubOp : NumericBinOp<"sub">;
+def MulOp : NumericBinOp<"mul">;
+def DivOp : NumericBinOp<"div">;
+
 // ============================================================================
 // =================================== PASSES =================================
 // ============================================================================
