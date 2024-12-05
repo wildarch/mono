@@ -86,6 +86,9 @@ private:
   void parseResTarget(const pg_query::ResTarget &target,
                       llvm::SmallVectorImpl<mlir::Value> &outputValues,
                       llvm::SmallVectorImpl<mlir::StringAttr> &outputNames);
+  void parseAggregate(const pg_query::SelectStmt &stmt,
+                      llvm::SmallVectorImpl<mlir::Value> &outputValues,
+                      llvm::SmallVectorImpl<mlir::StringAttr> &outputNames);
 
   // NOTE: Called inside of selection predicate.
   void parsePredicate(const pg_query::Node &expr);
@@ -115,6 +118,8 @@ private:
   mlir::Type parseType(const pg_query::TypeName &name);
 
   mlir::TypedAttr parseFloat(const std::string &s);
+
+  bool detectAggregate(const pg_query::SelectStmt &stmt);
 
   mlir::LogicalResult tryUnifyTypes(mlir::Value &lhs, mlir::Value &rhs);
 
@@ -202,18 +207,22 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
     parseWhere(stmt.where_clause());
   }
 
-  // TODO: aggregation
-
   // TODO: ORDER_BY/LIMIT
 
-  // Final SELECT
   llvm::SmallVector<mlir::Value> outputColumns;
   llvm::SmallVector<mlir::StringAttr> outputNames;
-  for (const auto &target : stmt.target_list()) {
-    if (!target.has_res_target()) {
-      emitError(target) << "unsupported target";
-    } else {
-      parseResTarget(target.res_target(), outputColumns, outputNames);
+
+  if (detectAggregate(stmt)) {
+    // TODO: aggregation
+    parseAggregate(stmt, outputColumns, outputNames);
+  } else {
+    // Final SELECT
+    for (const auto &target : stmt.target_list()) {
+      if (!target.has_res_target()) {
+        emitError(target) << "unsupported target";
+      } else {
+        parseResTarget(target.res_target(), outputColumns, outputNames);
+      }
     }
   }
 
@@ -601,6 +610,44 @@ mlir::TypedAttr SQLParser::parseFloat(const std::string &s) {
   return _builder.getAttr<columnar::DecimalAttr>(intVal);
 }
 
+bool SQLParser::detectAggregate(const pg_query::SelectStmt &stmt) {
+  if (stmt.group_clause_size()) {
+    return true;
+  }
+
+  // Look for aggregation functions
+  for (const auto &target : stmt.target_list()) {
+    if (!target.has_res_target()) {
+      continue;
+    }
+
+    const auto &resTarget = target.res_target();
+    if (!resTarget.has_val()) {
+      continue;
+    }
+
+    const auto &val = resTarget.val();
+    if (!val.has_func_call()) {
+      continue;
+    }
+
+    const auto &call = val.func_call();
+    const auto &names = call.funcname();
+    if (names.size() != 1) {
+      continue;
+    }
+
+    const auto &name = names[0];
+    const auto &nameVal = name.string().sval();
+
+    if (nameVal == "sum" || nameVal == "avg" || nameVal == "count") {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 static bool canCoerceToDecimal(mlir::Type columnType) {
   auto type = llvm::cast<columnar::ColumnType>(columnType).getElementType();
   return llvm::isa<columnar::DecimalType>(type) || type.isSignedInteger();
@@ -668,6 +715,13 @@ void SQLParser::parseResTarget(
                         ? columnName(expr)
                         : _builder.getStringAttr(target.name());
   outputNames.push_back(outputName);
+}
+
+void SQLParser::parseAggregate(
+    const pg_query::SelectStmt &stmt,
+    llvm::SmallVectorImpl<mlir::Value> &outputValues,
+    llvm::SmallVectorImpl<mlir::StringAttr> &outputNames) {
+  emitError(stmt) << "aggregation is not yet supported";
 }
 
 mlir::InFlightDiagnostic
