@@ -69,6 +69,15 @@ public:
 
 class SQLParser {
 private:
+  struct AggregateState {
+    llvm::SmallVector<mlir::Value> groupBy;
+    llvm::SmallVector<mlir::Value> aggregate;
+    llvm::SmallVector<columnar::Aggregator> aggregators;
+
+    llvm::SmallVector<mlir::StringAttr> groupByNames;
+    llvm::SmallVector<mlir::StringAttr> aggregateNames;
+  };
+
   const Catalog &_catalog;
   mlir::OpBuilder _builder;
 
@@ -86,9 +95,14 @@ private:
   void parseResTarget(const pg_query::ResTarget &target,
                       llvm::SmallVectorImpl<mlir::Value> &outputValues,
                       llvm::SmallVectorImpl<mlir::StringAttr> &outputNames);
+  void parseAggregateResTarget(const pg_query::ResTarget &target,
+                               AggregateState &state);
   void parseAggregate(const pg_query::SelectStmt &stmt,
                       llvm::SmallVectorImpl<mlir::Value> &outputValues,
                       llvm::SmallVectorImpl<mlir::StringAttr> &outputNames);
+
+  void parseAggregateSum(const pg_query::ResTarget &target,
+                         const pg_query::FuncCall &call, AggregateState &state);
 
   // NOTE: Called inside of selection predicate.
   void parsePredicate(const pg_query::Node &expr);
@@ -131,6 +145,8 @@ private:
   mlir::Location loc(std::int32_t l);
   mlir::Location loc(const pg_query::Node &n);
 
+  mlir::StringAttr columnName(const pg_query::ResTarget &target,
+                              mlir::Value column);
   mlir::StringAttr columnName(mlir::Value column);
 
   void remapCurrentColumns(const mlir::IRMapping &mapping);
@@ -717,11 +733,97 @@ void SQLParser::parseResTarget(
   outputNames.push_back(outputName);
 }
 
+void SQLParser::parseAggregateResTarget(const pg_query::ResTarget &target,
+                                        AggregateState &state) {
+  if (!target.has_val() || target.indirection_size()) {
+    emitError(target.location(), target) << "unknown result target";
+    return;
+  }
+
+  const auto &val = target.val();
+
+  // TODO: Try detect an aggregator function.
+  if (val.has_func_call()) {
+    const auto &call = val.func_call();
+    if (call.funcname_size() == 1) {
+      const auto &name = call.funcname(0).string().sval();
+
+      // TODO: checks for various aggregator names.
+      // NOTE: Need to do early return here to avoid re-parse as tuple expr.
+      if (name == "sum") {
+        return parseAggregateSum(target, call, state);
+      }
+    }
+  }
+
+  auto expr = parseTupleExpr(val);
+  if (!expr) {
+    return;
+  }
+
+  state.groupBy.push_back(expr);
+  state.groupByNames.push_back(columnName(target, expr));
+}
+
 void SQLParser::parseAggregate(
     const pg_query::SelectStmt &stmt,
     llvm::SmallVectorImpl<mlir::Value> &outputValues,
     llvm::SmallVectorImpl<mlir::StringAttr> &outputNames) {
-  emitError(stmt) << "aggregation is not yet supported";
+  AggregateState state;
+  for (const auto &target : stmt.target_list()) {
+    if (!target.has_res_target()) {
+      emitError(target) << "unsupported target";
+      return;
+    }
+
+    parseAggregateResTarget(target.res_target(), state);
+  }
+
+  // TODO: check group-by
+
+  // Create AggregateOp
+  auto queryOp = _builder.getBlock()->getParentOp();
+  auto aggOp = _builder.create<columnar::AggregateOp>(
+      queryOp->getLoc(), state.groupBy, state.aggregate,
+      _builder.getAttr<columnar::AggregatorArrayAttr>(state.aggregators));
+
+  // Populate outputValues and outputNames
+  assert(aggOp.getGroupByResults().size() == state.groupByNames.size());
+  outputValues.append(aggOp.getGroupByResults().begin(),
+                      aggOp.getGroupByResults().end());
+  outputNames.append(state.groupByNames);
+
+  assert(aggOp.getAggregationResults().size() == state.aggregateNames.size());
+  outputValues.append(aggOp.getAggregationResults().begin(),
+                      aggOp.getAggregationResults().end());
+  outputNames.append(state.aggregateNames);
+}
+
+void SQLParser::parseAggregateSum(const pg_query::ResTarget &target,
+                                  const pg_query::FuncCall &call,
+                                  AggregateState &state) {
+  if (call.agg_order_size() || call.has_agg_filter() || call.has_over() ||
+      call.agg_within_group() || call.agg_star() || call.agg_distinct() ||
+      call.func_variadic() ||
+      call.funcformat() != pg_query::COERCE_EXPLICIT_CALL) {
+    emitError(call.location(), call) << "unsupported feature for sum";
+    return;
+  }
+
+  if (call.args_size() != 1) {
+    emitError(call.location(), call) << "expected exactly 1 argument for sum";
+    return;
+  }
+
+  const auto &arg = call.args(0);
+  auto expr = parseTupleExpr(arg);
+  if (!expr) {
+    return;
+  }
+
+  state.aggregate.emplace_back(expr);
+  state.aggregators.emplace_back(columnar::Aggregator::SUM);
+  state.aggregateNames.emplace_back(columnName(target, expr));
 }
 
 mlir::InFlightDiagnostic
@@ -745,6 +847,12 @@ mlir::Location SQLParser::loc(std::int32_t l) {
 mlir::Location SQLParser::loc(const pg_query::Node &n) {
   // TODO: location tracking.
   return _builder.getUnknownLoc();
+}
+
+mlir::StringAttr SQLParser::columnName(const pg_query::ResTarget &target,
+                                       mlir::Value column) {
+  return target.name().empty() ? columnName(column)
+                               : _builder.getStringAttr(target.name());
 }
 
 mlir::StringAttr SQLParser::columnName(mlir::Value column) {
