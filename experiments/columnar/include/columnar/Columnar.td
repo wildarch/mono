@@ -255,6 +255,11 @@ def AggregateOp : Columnar_Op<"aggregate", [
     }];
 
     let hasVerifier = 1;
+
+    let extraClassDeclaration = [{
+        mlir::ValueRange getGroupByResults();
+        mlir::ValueRange getAggregationResults();
+    }];
 } 
 
 def JoinOp : Columnar_Op<"join", [
