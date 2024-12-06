@@ -188,6 +188,14 @@ mlir::LogicalResult AggregateOp::verify() {
   return mlir::success();
 }
 
+mlir::ValueRange AggregateOp::getGroupByResults() {
+  return getResults().take_front(getGroupBy().size());
+}
+
+mlir::ValueRange AggregateOp::getAggregationResults() {
+  return getResults().drop_front(getGroupBy().size());
+}
+
 mlir::LogicalResult JoinOp::inferReturnTypes(
     mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
     Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
