@@ -194,10 +194,10 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
 
   // Things we do not support
   if (stmt.distinct_clause_size() || stmt.has_into_clause() ||
-      stmt.group_clause_size() || stmt.group_distinct() ||
-      stmt.has_having_clause() || stmt.window_clause_size() ||
-      stmt.values_lists_size() || stmt.sort_clause_size() ||
-      stmt.has_limit_offset() || stmt.has_limit_count() ||
+      stmt.group_distinct() || stmt.has_having_clause() ||
+      stmt.window_clause_size() || stmt.values_lists_size() ||
+      stmt.sort_clause_size() || stmt.has_limit_offset() ||
+      stmt.has_limit_count() ||
       stmt.limit_option() != pg_query::LIMIT_OPTION_DEFAULT ||
       stmt.locking_clause_size() || stmt.has_with_clause() ||
       stmt.op() != pg_query::SETOP_NONE || stmt.all() || stmt.has_larg() ||
