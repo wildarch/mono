@@ -83,7 +83,8 @@ def Aggregator : I64EnumAttr<
         I64EnumAttrCase<"AVG", 1>,
         I64EnumAttrCase<"COUNT", 2>,
         I64EnumAttrCase<"COUNT_DISTINCT", 3>,
-        I64EnumAttrCase<"MIN", 4>,
+        I64EnumAttrCase<"COUNT_ALL", 4>,
+        I64EnumAttrCase<"MIN", 5>,
     ]> {
     let cppNamespace = "::columnar";
 }
@@ -106,6 +107,21 @@ def CmpPredicate : I64EnumAttr<
     ]> {
     let cppNamespace = "::columnar";
 }
+
+def SortDirection : I64EnumAttr<
+    "SortDirection", "",
+    [
+        I64EnumAttrCase<"ASC", 0>,
+        I64EnumAttrCase<"DESC", 1>,
+    ]> {
+    let cppNamespace = "::columnar";
+}
+
+def SortDirectionArray : ArrayOfAttr<
+        Columnar_Dialect,
+        "SortDirectionArray",
+        "sort_directions",
+        "SortDirection">;
 
 def TableColumn : Columnar_Attr<"TableColumn", "table_col"> {
     let parameters = (ins StringRefParameter<>:$name, "mlir::Type":$type);
@@ -325,6 +341,27 @@ def UnionOp : Columnar_Op<"union", [
 
     let assemblyFormat = [{
         ` ` `(` $lhs `)` `(` $rhs `)` `:` type($results) attr-dict
+    }];
+}
+
+def OrderByOp : Columnar_Op<"order_by", [
+        Pure, 
+        AttrSizedOperandSegments, 
+        InferTypeOpAdaptor]> {
+    let arguments = (ins 
+        Variadic<Column>:$keys, 
+        SortDirectionArray:$dirs,
+        Variadic<Column>:$values);
+    
+    let results = (outs Variadic<Column>:$results);
+
+    let assemblyFormat = [{
+        $keys $dirs $values `:` type($keys) `,` type($values) attr-dict
+    }];
+
+    let extraClassDeclaration = [{
+        mlir::ValueRange getKeyResults();
+        mlir::ValueRange getValueResults();
     }];
 }
 

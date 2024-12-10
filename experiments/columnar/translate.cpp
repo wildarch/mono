@@ -100,9 +100,17 @@ private:
   void parseAggregate(const pg_query::SelectStmt &stmt,
                       llvm::SmallVectorImpl<mlir::Value> &outputValues,
                       llvm::SmallVectorImpl<mlir::StringAttr> &outputNames);
+  void parseOrderBy(const pg_query::SelectStmt &stmt,
+                    llvm::SmallVectorImpl<mlir::Value> &outputValues,
+                    llvm::SmallVectorImpl<mlir::StringAttr> &outputNames);
 
   void parseAggregateSum(const pg_query::ResTarget &target,
                          const pg_query::FuncCall &call, AggregateState &state);
+  void parseAggregateAvg(const pg_query::ResTarget &target,
+                         const pg_query::FuncCall &call, AggregateState &state);
+  void parseAggregateCount(const pg_query::ResTarget &target,
+                           const pg_query::FuncCall &call,
+                           AggregateState &state);
 
   // NOTE: Called inside of selection predicate.
   void parsePredicate(const pg_query::Node &expr);
@@ -196,8 +204,7 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
   if (stmt.distinct_clause_size() || stmt.has_into_clause() ||
       stmt.group_distinct() || stmt.has_having_clause() ||
       stmt.window_clause_size() || stmt.values_lists_size() ||
-      stmt.sort_clause_size() || stmt.has_limit_offset() ||
-      stmt.has_limit_count() ||
+      stmt.has_limit_offset() || stmt.has_limit_count() ||
       stmt.limit_option() != pg_query::LIMIT_OPTION_DEFAULT ||
       stmt.locking_clause_size() || stmt.has_with_clause() ||
       stmt.op() != pg_query::SETOP_NONE || stmt.all() || stmt.has_larg() ||
@@ -223,8 +230,6 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
     parseWhere(stmt.where_clause());
   }
 
-  // TODO: ORDER_BY/LIMIT
-
   llvm::SmallVector<mlir::Value> outputColumns;
   llvm::SmallVector<mlir::StringAttr> outputNames;
 
@@ -241,6 +246,10 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
       }
     }
   }
+
+  parseOrderBy(stmt, outputColumns, outputNames);
+
+  // TODO: LIMIT
 
   auto queryOp = llvm::cast<columnar::QueryOp>(
       _builder.getInsertionBlock()->getParentOp());
@@ -752,6 +761,10 @@ void SQLParser::parseAggregateResTarget(const pg_query::ResTarget &target,
       // NOTE: Need to do early return here to avoid re-parse as tuple expr.
       if (name == "sum") {
         return parseAggregateSum(target, call, state);
+      } else if (name == "avg") {
+        return parseAggregateAvg(target, call, state);
+      } else if (name == "count") {
+        return parseAggregateCount(target, call, state);
       }
     }
   }
@@ -799,6 +812,91 @@ void SQLParser::parseAggregate(
   outputNames.append(state.aggregateNames);
 }
 
+static columnar::SortDirection mapEnum(pg_query::SortByDir d) {
+  switch (d) {
+  case pg_query::SORTBY_ASC:
+    return columnar::SortDirection::ASC;
+  case pg_query::SORTBY_DESC:
+    return columnar::SortDirection::DESC;
+  default:
+    return columnar::SortDirection::ASC;
+  }
+}
+
+void SQLParser::parseOrderBy(
+    const pg_query::SelectStmt &stmt,
+    llvm::SmallVectorImpl<mlir::Value> &outputValues,
+    llvm::SmallVectorImpl<mlir::StringAttr> &outputNames) {
+  if (stmt.sort_clause_size() == 0) {
+    // Nothing to sort.
+    return;
+  }
+
+  llvm::SmallDenseMap<mlir::StringAttr, columnar::SortDirection> keyToDir;
+  for (const auto &clause : stmt.sort_clause()) {
+    if (!clause.has_sort_by()) {
+      emitError(clause) << "unsupported sort clause";
+      continue;
+    }
+
+    const auto &sortBy = clause.sort_by();
+    if (sortBy.sortby_nulls() != pg_query::SORTBY_NULLS_DEFAULT ||
+        sortBy.use_op_size()) {
+      emitError(sortBy.location(), sortBy) << "unsupported sort clause";
+      continue;
+    }
+
+    // Get the name
+    const auto &node = sortBy.node();
+    if (!node.has_column_ref()) {
+      emitError(sortBy.location(), sortBy) << "unsupported sort clause";
+      continue;
+    }
+
+    const auto &columnRef = node.column_ref();
+    if (columnRef.fields_size() != 1) {
+      emitError(sortBy.location(), sortBy) << "unsupported sort clause";
+      continue;
+    }
+
+    const auto &field = columnRef.fields(0);
+    const auto &name = field.string().sval();
+    keyToDir[_builder.getStringAttr(name)] = mapEnum(sortBy.sortby_dir());
+  }
+
+  // Partition outputs into keys and values
+  llvm::SmallVector<mlir::Value> keys;
+  llvm::SmallVector<columnar::SortDirection> dirs;
+  llvm::SmallVector<mlir::Value> values;
+  for (auto [name, value] : llvm::zip_equal(outputNames, outputValues)) {
+    if (keyToDir.contains(name)) {
+      keys.push_back(value);
+      dirs.push_back(keyToDir.at(name));
+    } else {
+      values.push_back(value);
+    }
+  }
+
+  auto queryOp = _builder.getBlock()->getParentOp();
+  auto orderOp = _builder.create<columnar::OrderByOp>(queryOp->getLoc(), keys,
+                                                      dirs, values);
+  mlir::IRMapping mapping;
+  for (auto [input, output] :
+       llvm::zip_equal(orderOp.getKeys(), orderOp.getKeyResults())) {
+    mapping.map(input, output);
+  }
+
+  for (auto [input, output] :
+       llvm::zip_equal(orderOp.getValues(), orderOp.getValueResults())) {
+    mapping.map(input, output);
+  }
+
+  // Update the output values
+  for (auto &v : outputValues) {
+    v = mapping.lookup(v);
+  }
+}
+
 void SQLParser::parseAggregateSum(const pg_query::ResTarget &target,
                                   const pg_query::FuncCall &call,
                                   AggregateState &state) {
@@ -823,6 +921,72 @@ void SQLParser::parseAggregateSum(const pg_query::ResTarget &target,
 
   state.aggregate.emplace_back(expr);
   state.aggregators.emplace_back(columnar::Aggregator::SUM);
+  state.aggregateNames.emplace_back(columnName(target, expr));
+}
+
+void SQLParser::parseAggregateAvg(const pg_query::ResTarget &target,
+                                  const pg_query::FuncCall &call,
+                                  AggregateState &state) {
+  if (call.agg_order_size() || call.has_agg_filter() || call.has_over() ||
+      call.agg_within_group() || call.agg_star() || call.agg_distinct() ||
+      call.func_variadic() ||
+      call.funcformat() != pg_query::COERCE_EXPLICIT_CALL) {
+    emitError(call.location(), call) << "unsupported feature for avg";
+    return;
+  }
+
+  if (call.args_size() != 1) {
+    emitError(call.location(), call) << "expected exactly 1 argument for avg";
+    return;
+  }
+
+  const auto &arg = call.args(0);
+  auto expr = parseTupleExpr(arg);
+  if (!expr) {
+    return;
+  }
+
+  state.aggregate.emplace_back(expr);
+  state.aggregators.emplace_back(columnar::Aggregator::AVG);
+  state.aggregateNames.emplace_back(columnName(target, expr));
+}
+
+void SQLParser::parseAggregateCount(const pg_query::ResTarget &target,
+                                    const pg_query::FuncCall &call,
+                                    AggregateState &state) {
+  if (call.agg_order_size() || call.has_agg_filter() || call.has_over() ||
+      call.agg_within_group() || call.agg_distinct() || call.func_variadic() ||
+      call.funcformat() != pg_query::COERCE_EXPLICIT_CALL) {
+    emitError(call.location(), call) << "unsupported feature for count";
+    return;
+  }
+
+  if (call.agg_star()) {
+    // Special-case COUNT(*)
+    // Pick an arbitrary column as input
+    if (_currentColumns.empty()) {
+      emitError(call.location(), call) << "no rows to aggregate";
+      return;
+    }
+
+    auto expr = _currentColumns[0];
+    state.aggregate.emplace_back(expr);
+    state.aggregators.emplace_back(columnar::Aggregator::COUNT_ALL);
+    state.aggregateNames.emplace_back(columnName(target, expr));
+    return;
+  } else if (call.args_size() != 1) {
+    emitError(call.location(), call) << "expected exactly 1 argument for count";
+    return;
+  }
+
+  const auto &arg = call.args(0);
+  auto expr = parseTupleExpr(arg);
+  if (!expr) {
+    return;
+  }
+
+  state.aggregate.emplace_back(expr);
+  state.aggregators.emplace_back(columnar::Aggregator::COUNT);
   state.aggregateNames.emplace_back(columnName(target, expr));
 }
 
