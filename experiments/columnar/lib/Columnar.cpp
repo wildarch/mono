@@ -147,6 +147,7 @@ static ColumnType aggregatorType(ColumnType input, Aggregator agg) {
   switch (agg) {
   // Same return type regardless of input.
   case Aggregator::COUNT:
+  case Aggregator::COUNT_ALL:
   case Aggregator::COUNT_DISTINCT: {
     auto *ctx = input.getContext();
     return ColumnType::get(ctx, getCountElementType(ctx));
@@ -238,6 +239,28 @@ SelectOp::fold(FoldAdaptor adaptor,
   }
 
   return mlir::failure();
+}
+
+mlir::LogicalResult OrderByOp::inferReturnTypes(
+    mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
+    Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  for (auto col : adaptor.getKeys()) {
+    inferredReturnTypes.push_back(col.getType());
+  }
+
+  for (auto col : adaptor.getValues()) {
+    inferredReturnTypes.push_back(col.getType());
+  }
+
+  return mlir::success();
+}
+
+mlir::ValueRange OrderByOp::getKeyResults() {
+  return getResults().take_front(getKeys().size());
+}
+
+mlir::ValueRange OrderByOp::getValueResults() {
+  return getResults().drop_front(getKeys().size());
 }
 
 mlir::OpFoldResult CastOp::fold(FoldAdaptor adaptor) {
