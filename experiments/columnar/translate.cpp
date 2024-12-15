@@ -103,6 +103,8 @@ private:
   void parseOrderBy(const pg_query::SelectStmt &stmt,
                     llvm::SmallVectorImpl<mlir::Value> &outputValues,
                     llvm::SmallVectorImpl<mlir::StringAttr> &outputNames);
+  void parseLimit(const pg_query::SelectStmt &stmt,
+                  llvm::SmallVectorImpl<mlir::Value> &outputValues);
 
   void parseAggregateSum(const pg_query::ResTarget &target,
                          const pg_query::FuncCall &call, AggregateState &state);
@@ -204,11 +206,9 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
   if (stmt.distinct_clause_size() || stmt.has_into_clause() ||
       stmt.group_distinct() || stmt.has_having_clause() ||
       stmt.window_clause_size() || stmt.values_lists_size() ||
-      stmt.has_limit_offset() || stmt.has_limit_count() ||
-      stmt.limit_option() != pg_query::LIMIT_OPTION_DEFAULT ||
-      stmt.locking_clause_size() || stmt.has_with_clause() ||
-      stmt.op() != pg_query::SETOP_NONE || stmt.all() || stmt.has_larg() ||
-      stmt.has_rarg()) {
+      stmt.has_limit_offset() || stmt.locking_clause_size() ||
+      stmt.has_with_clause() || stmt.op() != pg_query::SETOP_NONE ||
+      stmt.all() || stmt.has_larg() || stmt.has_rarg()) {
     emitError(stmt) << "unsupported feature used in SELECT";
     return;
   }
@@ -248,8 +248,7 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
   }
 
   parseOrderBy(stmt, outputColumns, outputNames);
-
-  // TODO: LIMIT
+  parseLimit(stmt, outputColumns);
 
   auto queryOp = llvm::cast<columnar::QueryOp>(
       _builder.getInsertionBlock()->getParentOp());
@@ -895,6 +894,38 @@ void SQLParser::parseOrderBy(
   for (auto &v : outputValues) {
     v = mapping.lookup(v);
   }
+}
+
+void SQLParser::parseLimit(const pg_query::SelectStmt &stmt,
+                           llvm::SmallVectorImpl<mlir::Value> &outputValues) {
+  switch (stmt.limit_option()) {
+  case pg_query::LIMIT_OPTION_DEFAULT:
+    // No limit applied
+    return;
+  case pg_query::LIMIT_OPTION_COUNT:
+    // Handle limit below break;
+    break;
+  default:
+    emitError(stmt) << "unsupported limit option";
+    return;
+  }
+
+  assert(stmt.limit_option() == pg_query::LIMIT_OPTION_COUNT);
+  const auto &node = stmt.limit_count();
+  if (!node.has_a_const()) {
+    emitError(node) << "limit is not a constant";
+    return;
+  }
+
+  const auto &cnst = node.a_const();
+  auto limit = cnst.ival().ival();
+  auto limitOp = _builder.create<columnar::LimitOp>(loc(cnst.location()), limit,
+                                                    outputValues);
+
+  // Update the output values
+  outputValues.clear();
+  auto results = limitOp.getResults();
+  outputValues.append(results.begin(), results.end());
 }
 
 void SQLParser::parseAggregateSum(const pg_query::ResTarget &target,
