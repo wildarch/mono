@@ -1195,6 +1195,7 @@ static void initTPCHCatalog(mlir::MLIRContext *ctx, Catalog &catalog) {
                                      {"p_name", typeString},
                                      {"p_mfgr", typeString},
                                      {"p_brand", typeString},
+                                     {"p_type", typeString},
                                      {"p_size", typeInteger},
                                      {"p_container", typeString},
                                      {"p_retailprice", typeDecimal},

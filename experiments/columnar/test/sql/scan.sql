@@ -11,12 +11,13 @@ FROM Part;
 -- CHECK: %1 = columnar.read_table "part" "p_name" : <!columnar.str>
 -- CHECK: %2 = columnar.read_table "part" "p_mfgr" : <!columnar.str>
 -- CHECK: %3 = columnar.read_table "part" "p_brand" : <!columnar.str>
--- CHECK: %4 = columnar.read_table "part" "p_size" : <si64>
--- CHECK: %5 = columnar.read_table "part" "p_container" : <!columnar.str>
--- CHECK: %6 = columnar.read_table "part" "p_retailprice" : <!columnar.dec>
--- CHECK: %7 = columnar.read_table "part" "p_comment" : <!columnar.str>
--- CHECK: columnar.query.output %0, %1, %2, %3, %4, %5, %6, %7 
--- CHECK-SAME: ["p_partkey", "p_name", "p_mfgr", "p_brand", "p_size", "p_container", "p_retailprice", "p_comment"]
+-- CHECK: %4 = columnar.read_table "part" "p_type" : <!columnar.str>
+-- CHECK: %5 = columnar.read_table "part" "p_size" : <si64>
+-- CHECK: %6 = columnar.read_table "part" "p_container" : <!columnar.str>
+-- CHECK: %7 = columnar.read_table "part" "p_retailprice" : <!columnar.dec>
+-- CHECK: %8 = columnar.read_table "part" "p_comment" : <!columnar.str>
+-- CHECK: columnar.query.output %0, %1, %2, %3, %4, %5, %6, %7, %8
+-- CHECK-SAME: ["p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice", "p_comment"]
 SELECT * FROM Part;
 
 -- CHECK-LABEL: columnar.query {
