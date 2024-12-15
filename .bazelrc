@@ -1,5 +1,11 @@
 # NOTE: Based on the LLVM bazel config
 
+# LLVM requires older model WORKSPACE
+common --enable_workspace
+
+# LIT requires this
+common --legacy_external_runfiles
+
 # C++17 standard version is required.
 build --cxxopt=-std=c++17 --host_cxxopt=-std=c++17
 
