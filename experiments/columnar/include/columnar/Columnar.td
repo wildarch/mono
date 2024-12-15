@@ -365,6 +365,21 @@ def OrderByOp : Columnar_Op<"order_by", [
     }];
 }
 
+def LimitOp : Columnar_Op<"limit", [
+        Pure, 
+        AllTypesMatch<["inputs", "results"]>, 
+        InferTypeOpAdaptor]> {
+    let arguments = (ins 
+        I64Attr:$limit,
+        Variadic<Column>:$inputs);
+
+    let results = (outs Variadic<Column>:$results);
+
+    let assemblyFormat = [{
+        $limit $inputs `:` type($inputs) attr-dict
+    }];
+}
+
 // ============================================================================
 // ================================ PROJECTIONS ===============================
 // ============================================================================

@@ -263,6 +263,14 @@ mlir::ValueRange OrderByOp::getValueResults() {
   return getResults().drop_front(getKeys().size());
 }
 
+mlir::LogicalResult LimitOp::inferReturnTypes(
+    mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
+    Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  auto types = adaptor.getInputs().getTypes();
+  inferredReturnTypes.append(types.begin(), types.end());
+  return mlir::success();
+}
+
 mlir::OpFoldResult CastOp::fold(FoldAdaptor adaptor) {
   if (getType() == getInput().getType()) {
     return getInput();
