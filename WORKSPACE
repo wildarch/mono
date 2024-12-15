@@ -5,10 +5,10 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "llvm-raw",
     build_file_content = "# empty",
-    integrity = "sha256-C1hVem0yzu6XyNUzpZuSEth+D8TSgzkk62xhEkfbLyo=",
-    strip_prefix = "llvm-project-18.1.8.src",
+    integrity = "sha256-y80WLrtf/5Ln4KFZ0NpLLzyJBnQ/1UdYbWCKhoyrV1A=",
+    strip_prefix = "llvm-project-86526084044167b3c753d32ef8dbf79d57cba0c4",
     urls = [
-        "https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/llvm-project-18.1.8.src.tar.xz",
+        "https://github.com/llvm/llvm-project/archive/86526084044167b3c753d32ef8dbf79d57cba0c4.zip",
     ],
 )
 
