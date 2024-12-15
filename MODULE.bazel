@@ -10,7 +10,7 @@ use_repo(
 )
 
 # Packaging rules (deb)
-bazel_dep(name = "rules_pkg", version = "0.9.1")
+bazel_dep(name = "rules_pkg", version = "1.0.1")
 
 # Hedron's Compile Commands Extractor for Bazel
 # https://github.com/hedronvision/bazel-compile-commands-extractor
