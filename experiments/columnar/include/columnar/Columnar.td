@@ -53,7 +53,7 @@ class ColumnOf<Type type>
             SubstLeaves<"$_self", "::llvm::cast<ColumnType>($_self).getElementType()", type.predicate>],
             "column type with " # type.summary # " elements",
             "ColumnType">
-        , SameBuildabilityAs<type, "ColumnType::get($_builder.get" # type # "Type())"> {
+        , SameBuildabilityAs<type, "ColumnType::get(" # type.builderCall # ")"> {
     Type elementType = type;
 }
 
@@ -420,13 +420,26 @@ def AndOp : Columnar_Op<"and", [Pure, IsProjection]> {
     }];
 }
 
+def NotOp : Columnar_Op<"not", [Pure, IsProjection]> {
+    let arguments = (ins ColumnOf<I1>:$input);
+
+    let results = (outs ColumnOf<I1>:$result);
+
+    let assemblyFormat = [{
+        $input attr-dict
+    }];
+}
+
 def Numeric : AnyTypeOf<[
     ColumnOf<SI64>,
     ColumnOf<Decimal>,
     ColumnOf<F64>,
 ]>;
 
-class NumericBinOp<string mnemonic> : Columnar_Op<mnemonic, [Pure, IsProjection, SameOperandsAndResultType]> {
+class NumericBinOp<string mnemonic> : Columnar_Op<mnemonic, [
+        Pure,
+        IsProjection,
+        SameOperandsAndResultType]> {
     let arguments = (ins Numeric:$lhs, Numeric:$rhs);
 
     let results = (outs Numeric:$result);
@@ -440,6 +453,18 @@ def AddOp : NumericBinOp<"add">;
 def SubOp : NumericBinOp<"sub">;
 def MulOp : NumericBinOp<"mul">;
 def DivOp : NumericBinOp<"div">;
+
+def LikeOp : Columnar_Op<"like", [Pure, IsProjection]> {
+    let arguments = (ins
+        ColumnOf<String>:$input,
+        ColumnOf<String>:$pattern);
+
+    let results = (outs ColumnOf<I1>:$result);
+
+    let assemblyFormat = [{
+        $input `like` $pattern attr-dict
+    }];
+}
 
 // ============================================================================
 // =================================== PASSES =================================
