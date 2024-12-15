@@ -121,6 +121,7 @@ private:
   mlir::Value parseTupleExpr(const pg_query::A_Expr &expr);
   mlir::Value parseTupleExprOp(const pg_query::A_Expr &expr);
   mlir::Value parseTupleExprBetween(const pg_query::A_Expr &expr);
+  mlir::Value parseTupleExprLike(const pg_query::A_Expr &expr);
   mlir::Value parseTupleExpr(const pg_query::ColumnRef &expr);
   mlir::Value parseTupleExpr(const pg_query::A_Const &expr);
   mlir::Value parseTupleExpr(const pg_query::TypeCast &expr);
@@ -138,6 +139,8 @@ private:
           return _builder.create<T>(loc(expr.location()), lhs, rhs);
         });
   }
+
+  llvm::SmallString<16> parseTupleExprName(const pg_query::A_Expr &expr);
 
   mlir::Type parseType(const pg_query::TypeName &name);
 
@@ -363,6 +366,8 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Expr &expr) {
     return parseTupleExprOp(expr);
   case pg_query::AEXPR_BETWEEN:
     return parseTupleExprBetween(expr);
+  case pg_query::AEXPR_LIKE:
+    return parseTupleExprLike(expr);
   case pg_query::A_EXPR_KIND_UNDEFINED:
   case pg_query::AEXPR_OP_ANY:
   case pg_query::AEXPR_OP_ALL:
@@ -370,7 +375,6 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Expr &expr) {
   case pg_query::AEXPR_NOT_DISTINCT:
   case pg_query::AEXPR_NULLIF:
   case pg_query::AEXPR_IN:
-  case pg_query::AEXPR_LIKE:
   case pg_query::AEXPR_ILIKE:
   case pg_query::AEXPR_SIMILAR:
   case pg_query::AEXPR_NOT_BETWEEN:
@@ -386,47 +390,35 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::A_Expr &expr) {
 }
 
 mlir::Value SQLParser::parseTupleExprOp(const pg_query::A_Expr &expr) {
-  llvm::SmallString<16> fullName;
-  for (const auto &name : expr.name()) {
-    if (!name.has_string()) {
-      emitError(expr) << "op name is not a string";
-      return nullptr;
-    }
-
-    if (!fullName.empty()) {
-      fullName.push_back('.');
-    }
-
-    fullName.append(name.string().sval());
-  }
+  auto name = parseTupleExprName(expr);
 
   // Compare
-  if (fullName == "=") {
+  if (name == "=") {
     return parseTupleExprCmp(columnar::CmpPredicate::EQ, expr);
-  } else if (fullName == "<>") {
+  } else if (name == "<>") {
     return parseTupleExprCmp(columnar::CmpPredicate::NE, expr);
-  } else if (fullName == "<") {
+  } else if (name == "<") {
     return parseTupleExprCmp(columnar::CmpPredicate::LT, expr);
-  } else if (fullName == "<=") {
+  } else if (name == "<=") {
     return parseTupleExprCmp(columnar::CmpPredicate::LE, expr);
-  } else if (fullName == ">") {
+  } else if (name == ">") {
     return parseTupleExprCmp(columnar::CmpPredicate::GT, expr);
-  } else if (fullName == ">=") {
+  } else if (name == ">=") {
     return parseTupleExprCmp(columnar::CmpPredicate::GE, expr);
   }
 
   // Arithmetic
-  if (fullName == "+") {
+  if (name == "+") {
     return parseTupleExprBinary<columnar::AddOp>(expr);
-  } else if (fullName == "-") {
+  } else if (name == "-") {
     return parseTupleExprBinary<columnar::SubOp>(expr);
-  } else if (fullName == "*") {
+  } else if (name == "*") {
     return parseTupleExprBinary<columnar::MulOp>(expr);
-  } else if (fullName == "/") {
+  } else if (name == "/") {
     return parseTupleExprBinary<columnar::DivOp>(expr);
   }
 
-  emitError(expr) << "unknown op '" << fullName << "'";
+  emitError(expr) << "unknown op '" << name << "'";
   return nullptr;
 }
 
@@ -462,6 +454,37 @@ mlir::Value SQLParser::parseTupleExprBetween(const pg_query::A_Expr &expr) {
       location, columnar::CmpPredicate::LE, value, upper);
   return _builder.create<columnar::AndOp>(location,
                                           mlir::ValueRange{lowerCmp, upperCmp});
+}
+
+mlir::Value SQLParser::parseTupleExprLike(const pg_query::A_Expr &expr) {
+  auto name = parseTupleExprName(expr);
+
+  bool notLike;
+  if (name == "~~") {
+    // Regular LIKE.
+    notLike = false;
+  } else if (name == "!~~") {
+    // NOT LIKE
+    notLike = true;
+  } else {
+    emitError(expr.location(), expr)
+        << "invalid function name for like: " << name;
+    return nullptr;
+  }
+
+  auto lhs = parseTupleExpr(expr.lexpr());
+  auto rhs = parseTupleExpr(expr.rexpr());
+  if (!lhs || !rhs) {
+    return nullptr;
+  }
+
+  mlir::Value likeOp =
+      _builder.create<columnar::LikeOp>(loc(expr.location()), lhs, rhs);
+  if (notLike) {
+    likeOp = _builder.create<columnar::NotOp>(loc(expr.location()), likeOp);
+  }
+
+  return likeOp;
 }
 
 mlir::Value SQLParser::parseTupleExpr(const pg_query::ColumnRef &expr) {
@@ -577,6 +600,25 @@ mlir::Value SQLParser::parseTupleExprBinary(
   }
 
   return buildFunc(lhs, rhs);
+}
+
+llvm::SmallString<16>
+SQLParser::parseTupleExprName(const pg_query::A_Expr &expr) {
+  llvm::SmallString<16> fullName;
+  for (const auto &name : expr.name()) {
+    if (!name.has_string()) {
+      emitError(expr.location(), expr) << "op name is not a string";
+      return fullName;
+    }
+
+    if (!fullName.empty()) {
+      fullName.push_back('.');
+    }
+
+    fullName.append(name.string().sval());
+  }
+
+  return fullName;
 }
 
 mlir::Type SQLParser::parseType(const pg_query::TypeName &name) {
