@@ -131,6 +131,7 @@ private:
   mlir::Value parseTupleExprBinary(
       const pg_query::A_Expr &expr,
       llvm::function_ref<mlir::Value(mlir::Value, mlir::Value)> buildFunc);
+  mlir::Value parseTupleExpr(const pg_query::SubLink &expr);
 
   template <typename T>
   mlir::Value parseTupleExprBinary(const pg_query::A_Expr &expr) {
@@ -195,16 +196,6 @@ void SQLParser::parseStmt(const pg_query::RawStmt &stmt) {
 }
 
 void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
-  // Steps:
-  // 1. Create table reads (FROM)
-  // 2. Join tables
-  // 2. Apply filters (WHERE)
-  // 3. Aggregation
-  // 4. ORDER BY/LIMIT
-
-  // TODO:
-  // * Sub-queries
-
   // Things we do not support
   if (stmt.distinct_clause_size() || stmt.has_into_clause() ||
       stmt.group_distinct() || stmt.has_having_clause() ||
@@ -228,7 +219,6 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
 
   // TODO: JOIN clause
 
-  // TODO: apply predicates (WHERE)
   if (stmt.has_where_clause()) {
     parseWhere(stmt.where_clause());
   }
@@ -237,7 +227,6 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
   llvm::SmallVector<mlir::StringAttr> outputNames;
 
   if (detectAggregate(stmt)) {
-    // TODO: aggregation
     parseAggregate(stmt, outputColumns, outputNames);
   } else {
     // Final SELECT
@@ -253,9 +242,8 @@ void SQLParser::parseSelect(const pg_query::SelectStmt &stmt) {
   parseOrderBy(stmt, outputColumns, outputNames);
   parseLimit(stmt, outputColumns);
 
-  auto queryOp = llvm::cast<columnar::QueryOp>(
-      _builder.getInsertionBlock()->getParentOp());
-  _builder.create<columnar::QueryOutputOp>(queryOp.getLoc(), outputColumns,
+  auto queryOp = _builder.getInsertionBlock()->getParentOp();
+  _builder.create<columnar::QueryOutputOp>(queryOp->getLoc(), outputColumns,
                                            outputNames);
 }
 
@@ -354,6 +342,8 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::Node &expr) {
     return parseTupleExpr(expr.type_cast());
   } else if (expr.has_bool_expr()) {
     return parseTupleExpr(expr.bool_expr());
+  } else if (expr.has_sub_link()) {
+    return parseTupleExpr(expr.sub_link());
   }
 
   emitError(expr) << "unsupported tuple expr";
@@ -600,6 +590,65 @@ mlir::Value SQLParser::parseTupleExprBinary(
   }
 
   return buildFunc(lhs, rhs);
+}
+
+mlir::Value SQLParser::parseTupleExpr(const pg_query::SubLink &expr) {
+  if (expr.has_xpr() || expr.sub_link_id() != 0 || expr.has_testexpr() ||
+      expr.oper_name_size() || expr.sub_link_type() != pg_query::EXPR_SUBLINK) {
+    emitError(expr.location(), expr) << "unsupported feature in sublink";
+    return nullptr;
+  }
+
+  const auto &subSelect = expr.subselect();
+  const auto &select = subSelect.select_stmt();
+
+  // Placeholder, adjusted after the body has been populated.
+  auto resultTypePlaceholder =
+      _builder.getType<columnar::ColumnType>(_builder.getI1Type());
+
+  // Sharing current columns to handle correlated subqueries.
+  auto subOp = _builder.create<columnar::SubQueryOp>(
+      loc(expr.location()), resultTypePlaceholder, _currentColumns);
+  auto &subBody = subOp.getBody().emplaceBlock();
+  mlir::IRMapping mapping;
+  for (auto col : _currentColumns) {
+    auto arg = subBody.addArgument(col.getType(), col.getLoc());
+    mapping.map(col, arg);
+  }
+
+  SQLParser subParser(_catalog, _builder.atBlockBegin(&subBody));
+  // Expose the current bindings as arguments
+  subParser._currentColumns.append(subBody.getArguments().begin(),
+                                   subBody.getArguments().end());
+  auto remark = subOp->emitRemark("correlated columns:");
+  for (const auto &[name, value] : _columnsByName) {
+    remark.attachNote() << name;
+    subParser._columnsByName[name] = mapping.lookup(value);
+  }
+
+  subParser.parseSelect(select);
+
+  // Infer the result type
+  if (!subBody.mightHaveTerminator()) {
+    return nullptr;
+  }
+
+  auto outputOp = llvm::dyn_cast_if_present<columnar::QueryOutputOp>(
+      subBody.getTerminator());
+  if (!outputOp) {
+    return nullptr;
+  }
+
+  if (outputOp.getColumns().size() != 1) {
+    emitError(expr.location(), expr)
+        << "does not produce exactly one output column";
+    return nullptr;
+  }
+
+  auto result = outputOp.getColumns()[0];
+  subOp.getResult().setType(llvm::cast<columnar::ColumnType>(result.getType()));
+
+  return subOp;
 }
 
 llvm::SmallString<16>
