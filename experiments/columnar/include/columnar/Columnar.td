@@ -195,7 +195,7 @@ def QueryOp : Columnar_Op<"query", [IsolatedFromAbove]> {
 
 def QueryOutputOp : Columnar_Op<"query.output", [
         Terminator,
-        HasParent<"QueryOp">]> {
+        ParentOneOf<["QueryOp", "SubQueryOp"]>]> {
     let summary = "Outputs the final query results";
 
     let arguments = (ins
@@ -464,6 +464,14 @@ def LikeOp : Columnar_Op<"like", [Pure, IsProjection]> {
     let assemblyFormat = [{
         $input `like` $pattern attr-dict
     }];
+}
+
+def SubQueryOp : Columnar_Op<"sub_query", [Pure]> {
+    let arguments = (ins Variadic<Column>:$inputs);
+
+    let regions = (region SizedRegion<1>:$body);
+
+    let results = (outs Column:$result);
 }
 
 // ============================================================================
