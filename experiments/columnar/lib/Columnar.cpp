@@ -211,6 +211,14 @@ mlir::LogicalResult JoinOp::inferReturnTypes(
   return mlir::success();
 }
 
+mlir::ValueRange JoinOp::getLhsResults() {
+  return getResults().take_front(getLhs().size());
+}
+
+mlir::ValueRange JoinOp::getRhsResults() {
+  return getResults().drop_front(getLhs().size());
+}
+
 void SelectOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
                      mlir::ValueRange inputs) {
   build(builder, state, inputs.getTypes(), inputs);
