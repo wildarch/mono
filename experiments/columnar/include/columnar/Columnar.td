@@ -295,6 +295,11 @@ def JoinOp : Columnar_Op<"join", [
         `:` `(` type($lhs) `)` `(` type($rhs) `)`
         attr-dict
     }];
+
+    let extraClassDeclaration = [{
+        mlir::ValueRange getLhsResults();
+        mlir::ValueRange getRhsResults();
+    }];
 }
 
 def SelectOp : Columnar_Op<"select", [
