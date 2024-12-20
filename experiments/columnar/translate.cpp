@@ -87,6 +87,7 @@ private:
   llvm::SmallVector<mlir::Value> _currentColumns;
 
   SQLParser(const Catalog &catalog, mlir::OpBuilder &&builder);
+  SQLParser newSubParser(mlir::OpBuilder &&builder);
 
   void parseStmt(const pg_query::RawStmt &stmt);
   void parseSelect(const pg_query::SelectStmt &stmt);
@@ -159,6 +160,7 @@ private:
   mlir::Location loc(std::int32_t l);
   mlir::Location loc(const pg_query::Node &n);
 
+  mlir::Value findColumn(llvm::StringRef name);
   mlir::StringAttr columnName(const pg_query::ResTarget &target,
                               mlir::Value column);
   mlir::StringAttr columnName(mlir::Value column);
@@ -175,6 +177,11 @@ public:
 
 SQLParser::SQLParser(const Catalog &catalog, mlir::OpBuilder &&builder)
     : _catalog(catalog), _builder(std::move(builder)) {}
+
+SQLParser SQLParser::newSubParser(mlir::OpBuilder &&builder) {
+  SQLParser subParser(_catalog, std::move(builder));
+  return subParser;
+}
 
 void SQLParser::parseStmt(const pg_query::RawStmt &stmt) {
   if (!stmt.has_stmt()) {
@@ -282,15 +289,22 @@ void SQLParser::parseFromRelation(const pg_query::RangeVar &rel) {
     // Join the current set of columns with this new set.
     auto joinOp = _builder.create<columnar::JoinOp>(
         loc(rel.location()), _currentColumns, columnReads);
+
+    // Update column name references
+    mlir::IRMapping mapping;
+    mapping.map(_currentColumns, joinOp.getLhsResults());
+    for (auto &e : _columnsByName) {
+      e.setValue(mapping.lookup(e.getValue()));
+    }
+
+    for (auto [name, read] :
+         llvm::zip_equal(columnNames, joinOp.getRhsResults())) {
+      _columnsByName[name] = read;
+    }
+
     _currentColumns.clear();
     _currentColumns.append(joinOp->getResults().begin(),
                            joinOp->getResults().end());
-
-    // TODO: preserve names better
-    _columnsByName.clear();
-    for (auto res : joinOp->getResults()) {
-      _columnsByName[columnName(res)] = res;
-    }
   }
 }
 
@@ -299,7 +313,7 @@ void SQLParser::parseWhere(const pg_query::Node &expr) {
       _builder.create<columnar::SelectOp>(loc(expr), _currentColumns);
   auto &body = selectOp.addPredicate();
 
-  SQLParser predParser(_catalog, _builder.atBlockBegin(&body));
+  auto predParser = newSubParser(_builder.atBlockBegin(&body));
   // Refer to predicate block arguments.
   predParser._currentColumns.append(body.getArguments().begin(),
                                     body.getArguments().end());
@@ -491,9 +505,13 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::ColumnRef &expr) {
 
   const auto &name = field.string().sval();
 
-  mlir::Value column = _columnsByName.lookup(name);
+  mlir::Value column = findColumn(name);
   if (!column) {
-    emitError(expr.location(), field) << "unknown column: " << name;
+    auto err = emitError(expr.location(), field) << "unknown column: " << name;
+    for (const auto &[name, col] : _columnsByName) {
+      err.attachNote() << "available: " << name;
+    }
+
     return nullptr;
   }
 
@@ -606,23 +624,20 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::SubLink &expr) {
   auto resultTypePlaceholder =
       _builder.getType<columnar::ColumnType>(_builder.getI1Type());
 
-  // Sharing current columns to handle correlated subqueries.
   auto subOp = _builder.create<columnar::SubQueryOp>(
       loc(expr.location()), resultTypePlaceholder, _currentColumns);
   auto &subBody = subOp.getBody().emplaceBlock();
+
+  // Sharing current columns to handle correlated subqueries.
   mlir::IRMapping mapping;
+  auto subParser = newSubParser(_builder.atBlockBegin(&subBody));
   for (auto col : _currentColumns) {
     auto arg = subBody.addArgument(col.getType(), col.getLoc());
     mapping.map(col, arg);
+    subParser._currentColumns.push_back(arg);
   }
 
-  SQLParser subParser(_catalog, _builder.atBlockBegin(&subBody));
-  // Expose the current bindings as arguments
-  subParser._currentColumns.append(subBody.getArguments().begin(),
-                                   subBody.getArguments().end());
-  auto remark = subOp->emitRemark("correlated columns:");
   for (const auto &[name, value] : _columnsByName) {
-    remark.attachNote() << name;
     subParser._columnsByName[name] = mapping.lookup(value);
   }
 
@@ -1135,6 +1150,10 @@ mlir::Location SQLParser::loc(const pg_query::Node &n) {
   return _builder.getUnknownLoc();
 }
 
+mlir::Value SQLParser::findColumn(llvm::StringRef name) {
+  return _columnsByName.lookup(name);
+}
+
 mlir::StringAttr SQLParser::columnName(const pg_query::ResTarget &target,
                                        mlir::Value column) {
   return target.name().empty() ? columnName(column)
@@ -1152,6 +1171,13 @@ mlir::StringAttr SQLParser::columnName(mlir::Value column) {
   } else if (auto selectOp = column.getDefiningOp<columnar::SelectOp>()) {
     // Take from input.
     return columnName(selectOp->getOperand(res.getResultNumber()));
+  }
+
+  // FIXME: Inefficient
+  for (const auto &[name, value] : _columnsByName) {
+    if (column == value) {
+      return _builder.getStringAttr(name);
+    }
   }
 
   return mlir::StringAttr::get(column.getContext(), "NO_NAME");
