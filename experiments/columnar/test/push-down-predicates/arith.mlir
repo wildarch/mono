@@ -13,14 +13,19 @@ columnar.query {
     %2 = columnar.cmp EQ %0, %1 : <si64>
 
     // CHECK: %[[#SELECT:]]:2 = columnar.select %[[#A]], %[[#B]]
-    // CHECK:   %[[#CONST:]] = columnar.constant 42 : si64
-    // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %[[#CONST]]
-    // CHECK:   columnar.select.return %[[#CMP]]
+    // CHECK:   columnar.pred %arg0
+    // CHECK:   ^bb0(%arg2: !columnar.col<si64>):
+    // CHECK:     %[[#CONST:]] = columnar.constant 42 : si64
+    // CHECK:     %[[#CMP:]] = columnar.cmp EQ %arg2, %[[#CONST]]
+    // CHECK:     columnar.pred.eval %[[#CMP]]
     %3:2 = columnar.select %0, %2 : !col_si64, !col_i1 {
     ^bb0(%arg0: !col_si64, %arg1: !col_i1):
-        %4 = columnar.constant 42 : si64
-        %5 = columnar.cmp EQ %arg0, %4 : !col_si64
-        columnar.select.return %5
+        columnar.pred %arg0 : !col_si64 {
+        ^bb0(%arg2 : !col_si64):
+            %4 = columnar.constant 42 : si64
+            %5 = columnar.cmp EQ %arg2, %4 : !col_si64
+            columnar.pred.eval %5
+        }
     }
 
     // CHECK: %[[#CMP:]] = columnar.cmp EQ %[[#SELECT]]#0, %[[#SELECT]]#1
@@ -40,11 +45,16 @@ columnar.query {
     %2 = columnar.cmp EQ %0, %1 : <si64>
 
     // CHECK: %[[#SELECT:]]:2 = columnar.select %[[#A]], %[[#B]]
-    // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %arg1
-    // CHECK:   columnar.select.return %[[#CMP]]
+    // CHECK:   columnar.pred %arg0, %arg1
+    // CHECK:   ^bb0(%arg2: !columnar.col<si64>, %arg3: !columnar.col<si64>):
+    // CHECK:     %[[#CMP:]] = columnar.cmp EQ %arg2, %arg3
+    // CHECK:     columnar.pred.eval %[[#CMP]]
     %3:2 = columnar.select %0, %2 : !col_si64, !col_i1 {
     ^bb0(%arg0: !col_si64, %arg1: !col_i1):
-        columnar.select.return %arg1
+        columnar.pred %arg1 : !col_i1 {
+        ^bb0(%arg2 : !col_i1):
+            columnar.pred.eval %arg2
+        }
     }
 
     // CHECK: columnar.query.output %[[#SELECT]]#0
@@ -62,11 +72,16 @@ columnar.query {
     %2 = columnar.cmp EQ %0, %1 : <si64>
 
     // CHECK: %[[#SELECT:]]:2 = columnar.select %[[#A]], %[[#B]]
-    // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %arg1
-    // CHECK:   columnar.select.return %[[#CMP]]
+    // CHECK:   columnar.pred %arg0, %arg1
+    // CHECK:   ^bb0(%arg2: !columnar.col<si64>, %arg3: !columnar.col<si64>):
+    // CHECK:     %[[#CMP:]] = columnar.cmp EQ %arg2, %arg3
+    // CHECK:     columnar.pred.eval %[[#CMP]]
     %3:2 = columnar.select %0, %2 : !col_si64, !col_i1 {
     ^bb0(%arg0: !col_si64, %arg1: !col_i1):
-        columnar.select.return %arg1
+        columnar.pred %arg1 : !col_i1 {
+        ^bb0(%arg2 : !col_i1):
+            columnar.pred.eval %arg2
+        }
     }
 
     // CHECK: %[[#CMP:]] = columnar.cmp EQ %[[#SELECT]]#0, %[[#SELECT]]#1

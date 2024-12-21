@@ -10,18 +10,23 @@ columnar.query {
     %1 = columnar.read_table "B" "b" : <si64>
 
     // CHECK: %[[#SELECT:]] = columnar.select %[[#A]]
-    // CHECK:   %[[#CONST:]] = columnar.constant 42 : si64
-    // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %[[#CONST]]
-    // CHECK:   columnar.select.return %[[#CMP]]
+    // CHECK:   columnar.pred %arg0
+    // CHECK:   ^bb0(%arg1: !columnar.col<si64>):
+    // CHECK:     %[[#CONST:]] = columnar.constant 42 : si64
+    // CHECK:     %[[#CMP:]] = columnar.cmp EQ %arg1, %[[#CONST]]
+    // CHECK:     columnar.pred.eval %[[#CMP]]
     //
     // CHECK: %[[#JOIN:]]:2 = columnar.join (%[[#SELECT]]) (%[[#B]])
     %2:2 = columnar.join (%0) (%1) : (!col_si64) (!col_si64)
 
     %3:2 = columnar.select %2#0, %2#1 : !col_si64, !col_si64 {
     ^bb0(%arg0: !col_si64, %arg1: !col_si64):
-        %4 = columnar.constant 42 : si64
-        %5 = columnar.cmp EQ %arg0, %4 : !col_si64
-        columnar.select.return %5
+        columnar.pred %arg0 : !col_si64 {
+        ^bb0(%arg2: !col_si64):
+            %4 = columnar.constant 42 : si64
+            %5 = columnar.cmp EQ %arg2, %4 : !col_si64
+            columnar.pred.eval %5
+        }
     }
 
     // CHECK: columnar.query.output %[[#JOIN]]#0, %[[#JOIN]]#1
@@ -41,18 +46,23 @@ columnar.query {
     %1 = columnar.read_table "B" "b" : <si64>
 
     // CHECK: %[[#SELECT:]] = columnar.select %[[#B]]
-    // CHECK:   %[[#CONST:]] = columnar.constant 42 : si64
-    // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %[[#CONST]]
-    // CHECK:   columnar.select.return %[[#CMP]]
+    // CHECK:   columnar.pred %arg0
+    // CHECK:   ^bb0(%arg1: !columnar.col<si64>):
+    // CHECK:     %[[#CONST:]] = columnar.constant 42 : si64
+    // CHECK:     %[[#CMP:]] = columnar.cmp EQ %arg1, %[[#CONST]]
+    // CHECK:     columnar.pred.eval %[[#CMP]]
     //
     // CHECK: %[[#JOIN:]]:2 = columnar.join (%[[#A]]) (%[[#SELECT]])
     %2:2 = columnar.join (%0) (%1) : (!col_si64) (!col_si64)
 
     %3:2 = columnar.select %2#0, %2#1 : !col_si64, !col_si64 {
     ^bb0(%arg0: !col_si64, %arg1: !col_si64):
-        %4 = columnar.constant 42 : si64
-        %5 = columnar.cmp EQ %arg1, %4 : !col_si64
-        columnar.select.return %5
+        columnar.pred %arg1 : !col_si64 {
+        ^bb0(%arg2: !col_si64):
+            %4 = columnar.constant 42 : si64
+            %5 = columnar.cmp EQ %arg2, %4 : !col_si64
+            columnar.pred.eval %5
+        }
     }
 
     // CHECK: columnar.query.output %[[#JOIN]]#0, %[[#JOIN]]#1
@@ -75,12 +85,17 @@ columnar.query {
     %2:2 = columnar.join (%0) (%1) : (!col_si64) (!col_si64)
 
     // CHECK: %[[#SELECT:]]:2 = columnar.select %[[#JOIN]]#0, %[[#JOIN]]#1
-    // CHECK:     %[[#CMP:]] = columnar.cmp EQ %arg0, %arg1
-    // CHECK:     columnar.select.return %[[#CMP]]
+    // CHECK:   columnar.pred %arg0, %arg1
+    // CHECK:   ^bb0(%arg2: !columnar.col<si64>, %arg3: !columnar.col<si64>):
+    // CHECK:     %[[#CMP:]] = columnar.cmp EQ %arg2, %arg3
+    // CHECK:     columnar.pred.eval %[[#CMP]]
     %3:2 = columnar.select %2#0, %2#1 : !col_si64, !col_si64 {
     ^bb0(%arg0: !col_si64, %arg1: !col_si64):
-        %4 = columnar.cmp EQ %arg0, %arg1 : !col_si64
-        columnar.select.return %4
+        columnar.pred %arg0, %arg1 : !col_si64, !col_si64 {
+        ^bb0(%arg2: !col_si64, %arg3: !col_si64):
+            %4 = columnar.cmp EQ %arg2, %arg3 : !col_si64
+            columnar.pred.eval %4
+        }
     }
 
     // CHECK: columnar.query.output %[[#SELECT]]#0, %[[#SELECT]]#1
@@ -100,18 +115,23 @@ columnar.query {
     %1 = columnar.read_table "B" "b" : <si64>
 
     // CHECK: %[[#SELECT:]] = columnar.select %[[#A]]
-    // CHECK:   %[[#CONST:]] = columnar.constant 42 : si64
-    // CHECK:   %[[#CMP:]] = columnar.cmp EQ %arg0, %[[#CONST]]
-    // CHECK:   columnar.select.return %[[#CMP]]
+    // CHECK:   columnar.pred %arg0
+    // CHECK:   ^bb0(%arg1: !columnar.col<si64>):
+    // CHECK:     %[[#CONST:]] = columnar.constant 42 : si64
+    // CHECK:     %[[#CMP:]] = columnar.cmp EQ %arg1, %[[#CONST]]
+    // CHECK:     columnar.pred.eval %[[#CMP]]
     //
     // CHECK: %[[#JOIN:]]:2 = columnar.join (%[[#SELECT]]) (%[[#B]])
     %2:2 = columnar.join (%0) (%1) : (!col_si64) (!col_si64)
 
     %3:2 = columnar.select %2#1, %2#0 : !col_si64, !col_si64 {
     ^bb0(%arg0: !col_si64, %arg1: !col_si64):
-        %4 = columnar.constant 42 : si64
-        %5 = columnar.cmp EQ %arg1, %4 : !col_si64
-        columnar.select.return %5
+        columnar.pred %arg1 : !col_si64 {
+        ^bb0(%arg2: !col_si64):
+            %4 = columnar.constant 42 : si64
+            %5 = columnar.cmp EQ %arg2, %4 : !col_si64
+            columnar.pred.eval %5
+        }
     }
 
     // CHECK: columnar.query.output %[[#JOIN]]#1, %[[#JOIN]]#0
