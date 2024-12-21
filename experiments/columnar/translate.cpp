@@ -86,8 +86,11 @@ private:
   // The current set of top-level columns.
   llvm::SmallVector<mlir::Value> _currentColumns;
 
+  llvm::StringMap<mlir::Value> _correlatedColumns;
+
   SQLParser(const Catalog &catalog, mlir::OpBuilder &&builder);
-  SQLParser newSubParser(mlir::OpBuilder &&builder);
+  SQLParser newSubParser(mlir::OpBuilder &&builder,
+                         const mlir::IRMapping &mapping);
 
   void parseStmt(const pg_query::RawStmt &stmt);
   void parseSelect(const pg_query::SelectStmt &stmt);
@@ -108,6 +111,8 @@ private:
                   llvm::SmallVectorImpl<mlir::Value> &outputValues);
 
   void parseAggregateSum(const pg_query::ResTarget &target,
+                         const pg_query::FuncCall &call, AggregateState &state);
+  void parseAggregateMin(const pg_query::ResTarget &target,
                          const pg_query::FuncCall &call, AggregateState &state);
   void parseAggregateAvg(const pg_query::ResTarget &target,
                          const pg_query::FuncCall &call, AggregateState &state);
@@ -160,7 +165,7 @@ private:
   mlir::Location loc(std::int32_t l);
   mlir::Location loc(const pg_query::Node &n);
 
-  mlir::Value findColumn(llvm::StringRef name);
+  mlir::Value findColumn(mlir::Location loc, llvm::StringRef name);
   mlir::StringAttr columnName(const pg_query::ResTarget &target,
                               mlir::Value column);
   mlir::StringAttr columnName(mlir::Value column);
@@ -178,8 +183,23 @@ public:
 SQLParser::SQLParser(const Catalog &catalog, mlir::OpBuilder &&builder)
     : _catalog(catalog), _builder(std::move(builder)) {}
 
-SQLParser SQLParser::newSubParser(mlir::OpBuilder &&builder) {
+SQLParser SQLParser::newSubParser(mlir::OpBuilder &&builder,
+                                  const mlir::IRMapping &mapping) {
   SQLParser subParser(_catalog, std::move(builder));
+  for (const auto &[name, value] : _columnsByName) {
+    auto newValue = mapping.lookupOrNull(value);
+    if (newValue) {
+      subParser._columnsByName[name] = newValue;
+    }
+  }
+
+  for (const auto &[name, value] : _correlatedColumns) {
+    auto newValue = mapping.lookupOrNull(value);
+    if (newValue) {
+      subParser._correlatedColumns[name] = newValue;
+    }
+  }
+
   return subParser;
 }
 
@@ -309,26 +329,33 @@ void SQLParser::parseFromRelation(const pg_query::RangeVar &rel) {
 }
 
 void SQLParser::parseWhere(const pg_query::Node &expr) {
-  auto selectOp =
-      _builder.create<columnar::SelectOp>(loc(expr), _currentColumns);
+  llvm::SmallVector<mlir::Value> inputs = _currentColumns;
+  // HACK: Propagate correlated columns too.
+  for (const auto &[name, value] : _correlatedColumns) {
+    // TODO: inefficient
+    if (!llvm::is_contained(inputs, value)) {
+      inputs.emplace_back(value);
+    }
+  }
+
+  auto selectOp = _builder.create<columnar::SelectOp>(loc(expr), inputs);
   auto &body = selectOp.addPredicate();
 
-  auto predParser = newSubParser(_builder.atBlockBegin(&body));
+  // Remap to block arguments
+  mlir::IRMapping mapping;
+  mapping.map(inputs, body.getArguments());
+
+  auto predParser = newSubParser(_builder.atBlockBegin(&body), mapping);
   // Refer to predicate block arguments.
   predParser._currentColumns.append(body.getArguments().begin(),
                                     body.getArguments().end());
-  // Remap names onto block arguments.
-  mlir::IRMapping mapping;
-  mapping.map(_currentColumns, body.getArguments());
-  for (const auto &[k, v] : _columnsByName) {
-    predParser._columnsByName[k] = mapping.lookup(v);
-  }
 
   // Parse the predicate
   predParser.parsePredicate(expr);
 
   // Replace columns with the filtered ones.
-  mapping.map(_currentColumns, selectOp->getResults());
+  mapping.map(_currentColumns,
+              selectOp.getResults().take_front(_currentColumns.size()));
   remapCurrentColumns(mapping);
 }
 
@@ -505,13 +532,8 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::ColumnRef &expr) {
 
   const auto &name = field.string().sval();
 
-  mlir::Value column = findColumn(name);
+  mlir::Value column = findColumn(loc(expr.location()), name);
   if (!column) {
-    auto err = emitError(expr.location(), field) << "unknown column: " << name;
-    for (const auto &[name, col] : _columnsByName) {
-      err.attachNote() << "available: " << name;
-    }
-
     return nullptr;
   }
 
@@ -624,21 +646,21 @@ mlir::Value SQLParser::parseTupleExpr(const pg_query::SubLink &expr) {
   auto resultTypePlaceholder =
       _builder.getType<columnar::ColumnType>(_builder.getI1Type());
 
+  // Sharing current columns to handle correlated subqueries.
   auto subOp = _builder.create<columnar::SubQueryOp>(
       loc(expr.location()), resultTypePlaceholder, _currentColumns);
   auto &subBody = subOp.getBody().emplaceBlock();
 
-  // Sharing current columns to handle correlated subqueries.
   mlir::IRMapping mapping;
-  auto subParser = newSubParser(_builder.atBlockBegin(&subBody));
   for (auto col : _currentColumns) {
     auto arg = subBody.addArgument(col.getType(), col.getLoc());
     mapping.map(col, arg);
-    subParser._currentColumns.push_back(arg);
   }
 
+  auto subParser =
+      newSubParser(_builder.atBlockBegin(&subBody), mlir::IRMapping());
   for (const auto &[name, value] : _columnsByName) {
-    subParser._columnsByName[name] = mapping.lookup(value);
+    subParser._correlatedColumns[name] = mapping.lookup(value);
   }
 
   subParser.parseSelect(select);
@@ -770,7 +792,8 @@ bool SQLParser::detectAggregate(const pg_query::SelectStmt &stmt) {
     const auto &name = names[0];
     const auto &nameVal = name.string().sval();
 
-    if (nameVal == "sum" || nameVal == "avg" || nameVal == "count") {
+    if (nameVal == "sum" || nameVal == "avg" || nameVal == "count" ||
+        nameVal == "min") {
       return true;
     }
   }
@@ -870,6 +893,8 @@ void SQLParser::parseAggregateResTarget(const pg_query::ResTarget &target,
         return parseAggregateAvg(target, call, state);
       } else if (name == "count") {
         return parseAggregateCount(target, call, state);
+      } else if (name == "min") {
+        return parseAggregateMin(target, call, state);
       }
     }
   }
@@ -1061,6 +1086,34 @@ void SQLParser::parseAggregateSum(const pg_query::ResTarget &target,
   state.aggregateNames.emplace_back(columnName(target, expr));
 }
 
+void SQLParser::parseAggregateMin(const pg_query::ResTarget &target,
+                                  const pg_query::FuncCall &call,
+                                  AggregateState &state) {
+  // TODO: dedup with SUM
+  if (call.agg_order_size() || call.has_agg_filter() || call.has_over() ||
+      call.agg_within_group() || call.agg_star() || call.agg_distinct() ||
+      call.func_variadic() ||
+      call.funcformat() != pg_query::COERCE_EXPLICIT_CALL) {
+    emitError(call.location(), call) << "unsupported feature for min";
+    return;
+  }
+
+  if (call.args_size() != 1) {
+    emitError(call.location(), call) << "expected exactly 1 argument for min";
+    return;
+  }
+
+  const auto &arg = call.args(0);
+  auto expr = parseTupleExpr(arg);
+  if (!expr) {
+    return;
+  }
+
+  state.aggregate.emplace_back(expr);
+  state.aggregators.emplace_back(columnar::Aggregator::MIN);
+  state.aggregateNames.emplace_back(columnName(target, expr));
+}
+
 void SQLParser::parseAggregateAvg(const pg_query::ResTarget &target,
                                   const pg_query::FuncCall &call,
                                   AggregateState &state) {
@@ -1150,8 +1203,27 @@ mlir::Location SQLParser::loc(const pg_query::Node &n) {
   return _builder.getUnknownLoc();
 }
 
-mlir::Value SQLParser::findColumn(llvm::StringRef name) {
-  return _columnsByName.lookup(name);
+mlir::Value SQLParser::findColumn(mlir::Location loc, llvm::StringRef name) {
+  auto c = _columnsByName.lookup(name);
+  if (c) {
+    return c;
+  }
+
+  c = _correlatedColumns.lookup(name);
+  if (c) {
+    return c;
+  }
+
+  auto err = mlir::emitError(loc) << "unknown column: " << name;
+  for (auto name : _columnsByName.keys()) {
+    err.attachNote() << "available: " << name;
+  }
+
+  for (auto name : _correlatedColumns.keys()) {
+    err.attachNote() << "available (correlated): " << name;
+  }
+
+  return nullptr;
 }
 
 mlir::StringAttr SQLParser::columnName(const pg_query::ResTarget &target,
@@ -1185,7 +1257,7 @@ mlir::StringAttr SQLParser::columnName(mlir::Value column) {
 
 void SQLParser::remapCurrentColumns(const mlir::IRMapping &mapping) {
   for (auto &value : _currentColumns) {
-    auto newValue = mapping.lookup(value);
+    auto newValue = mapping.lookupOrNull(value);
     if (newValue) {
       value = newValue;
     }
@@ -1193,7 +1265,7 @@ void SQLParser::remapCurrentColumns(const mlir::IRMapping &mapping) {
 
   for (auto k : _columnsByName.keys()) {
     auto &value = _columnsByName[k];
-    auto newValue = mapping.lookup(value);
+    auto newValue = mapping.lookupOrNull(value);
     if (newValue) {
       value = newValue;
     }
