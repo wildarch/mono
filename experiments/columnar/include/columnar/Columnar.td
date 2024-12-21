@@ -300,11 +300,14 @@ def JoinOp : Columnar_Op<"join", [
         mlir::ValueRange getLhsResults();
         mlir::ValueRange getRhsResults();
     }];
+
+    let hasCanonicalizer = 1;
 }
 
 def SelectOp : Columnar_Op<"select", [
         Pure, 
         IsolatedFromAbove,
+        NoTerminator,
         AllTypesMatch<["inputs", "results"]>]> {
     let arguments = (ins Variadic<Column>:$inputs);
 
@@ -320,15 +323,29 @@ def SelectOp : Columnar_Op<"select", [
         attr-dict
     }];
 
-    let extraClassDeclaration = [{
-        mlir::Block& addPredicate();
-    }];
-
     let hasFolder = 1;
+    let hasCanonicalizer = 1;
     // TODO: region verify
 }
 
-def SelectReturnOp : Columnar_Op<"select.return", [Pure, Terminator]> {
+def PredicateOp : Columnar_Op<"pred", [IsolatedFromAbove, HasParent<"SelectOp">]> {
+    let arguments = (ins Variadic<Column>:$inputs);
+
+    let regions = (region SizedRegion<1>:$body);
+
+    let assemblyFormat = [{ 
+        $inputs `:` type($inputs)
+        $body  
+        attr-dict 
+    }];
+
+    let hasFolder = 1;
+}
+
+def PredicateEvalOp : Columnar_Op<"pred.eval", [
+        Pure, 
+        Terminator,
+        HasParent<"PredicateOp">]> {
     let arguments = (ins ColumnOf<I1>:$cond);
 
     let assemblyFormat = [{
@@ -361,7 +378,7 @@ def OrderByOp : Columnar_Op<"order_by", [
     let results = (outs Variadic<Column>:$results);
 
     let assemblyFormat = [{
-        $keys $dirs $values `:` type($keys) `,` type($values) attr-dict
+        $keys `:` type($keys) $dirs $values `:` type($values) attr-dict
     }];
 
     let extraClassDeclaration = [{
@@ -481,6 +498,8 @@ def SubQueryOp : Columnar_Op<"sub_query", [Pure, IsolatedFromAbove]> {
     let assemblyFormat = [{
         $inputs `:` type($inputs) `->` type($result) $body attr-dict
     }];
+
+    let hasCanonicalizer = 1;
 }
 
 // ============================================================================
@@ -488,10 +507,6 @@ def SubQueryOp : Columnar_Op<"sub_query", [Pure, IsolatedFromAbove]> {
 // ============================================================================
 def PushDownPredicates: Pass<"push-down-predicates", "::columnar::QueryOp"> {
     let summary = "Push down selection predicates";
-
-    let dependentDialects = [
-        "columnar::ColumnarDialect",
-    ];
 }
 
 

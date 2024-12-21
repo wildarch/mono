@@ -31,10 +31,11 @@ struct PredicateArgMapping {
 
   PredicateArgMapping(SelectOp selectOp, AggregateOp aggOp);
   PredicateArgMapping(SelectOp selectOp, JoinOp joinOp, JoinSide side);
+  PredicateArgMapping(SelectOp selectOp, SelectOp childOp);
 
-  bool canPushDown(mlir::Block &block);
+  bool canPushDown(PredicateOp predOp);
 
-  void movePredicate(mlir::Block &oldBlock, mlir::Block &newBlock,
+  void movePredicate(PredicateOp predOp, SelectOp newParent,
                      mlir::PatternRewriter &rewriter);
 };
 
@@ -70,37 +71,36 @@ PredicateArgMapping::PredicateArgMapping(SelectOp selectOp, JoinOp joinOp,
   }
 }
 
-bool PredicateArgMapping::canPushDown(mlir::Block &block) {
-  for (auto arg : block.getArguments()) {
-    if (!arg.use_empty() && !mapping.contains(arg.getArgNumber())) {
-      // Argument is used and not included in the mapping.
-      return false;
-    }
+PredicateArgMapping::PredicateArgMapping(SelectOp selectOp, SelectOp childOp) {
+  for (auto &oper : selectOp->getOpOperands()) {
+    auto res = llvm::cast<mlir::OpResult>(oper.get());
+    assert(res.getOwner() == childOp);
+    mapping[oper.getOperandNumber()] = res.getResultNumber();
   }
-
-  // All used arguments can be mapped to inputs.
-  return true;
 }
 
-// Inlines oldBlock into newBlock, using the mapping to remap block arguments
-// accordingly.
-void PredicateArgMapping::movePredicate(mlir::Block &oldBlock,
-                                        mlir::Block &newBlock,
+bool PredicateArgMapping::canPushDown(PredicateOp predOp) {
+  return llvm::all_of(predOp.getInputs(), [this](mlir::Value v) {
+    auto arg = llvm::cast<mlir::BlockArgument>(v);
+    return mapping.contains(arg.getArgNumber());
+  });
+}
+
+void PredicateArgMapping::movePredicate(PredicateOp predOp,
+                                        SelectOp newParentOp,
                                         mlir::PatternRewriter &rewriter) {
-  // For arguments that are not remapped, and are assumed to have no uses, we
-  // still need to have some dummy value that we can use as a replacement. The
-  // easiest way to ensure the types line up is to start from the old block
-  // argument. These will become invalid after the inlining, but that is okay so
-  // long as those argument have no uses inside the block.
-  llvm::SmallVector<mlir::Value> argReplacements(oldBlock.getArguments());
-  for (auto [oldIdx, newIdx] : mapping) {
-    assert(oldBlock.getArgument(oldIdx).getType() ==
-           newBlock.getArgument(newIdx).getType());
-    argReplacements[oldIdx] = newBlock.getArgument(newIdx);
+  auto oldParentOp = predOp.getParentOp();
+  auto &oldBlock = oldParentOp.getPredicates().front();
+  auto &newBlock = newParentOp.getPredicates().front();
+  mlir::IRMapping argMap;
+  for (auto [from, to] : mapping) {
+    argMap.map(oldBlock.getArgument(from), newBlock.getArgument(to));
   }
 
-  rewriter.inlineBlockBefore(&oldBlock, &newBlock, newBlock.end(),
-                             argReplacements);
+  mlir::OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPointToEnd(&newBlock);
+  rewriter.clone(*predOp, argMap);
+  rewriter.eraseOp(predOp);
 }
 
 static auto isDefinedBy(mlir::Operation *op) {
@@ -127,19 +127,19 @@ static void replaceChild(SelectOp op, mlir::Operation *oldChild,
 
 static mlir::LogicalResult pushDownAggregate(SelectOp selectOp,
                                              AggregateOp aggOp,
-                                             mlir::Block &block,
+                                             PredicateOp predOp,
                                              mlir::PatternRewriter &rewriter) {
   PredicateArgMapping predMap(selectOp, aggOp);
-  if (!predMap.canPushDown(block)) {
+  if (!predMap.canPushDown(predOp)) {
     return mlir::failure();
   }
 
   // Insert the new select over the aggregation inputs.
   rewriter.setInsertionPoint(aggOp);
-  auto newSelect = rewriter.create<SelectOp>(
-      selectOp.getLoc(), aggOp.getOperandTypes(), aggOp->getOperands());
+  auto newSelect =
+      rewriter.create<SelectOp>(selectOp.getLoc(), aggOp->getOperands());
 
-  predMap.movePredicate(block, newSelect.addPredicate(), rewriter);
+  predMap.movePredicate(predOp, newSelect, rewriter);
 
   // Create a new aggregation over the filtered inputs.
   mlir::IRMapping inputMapping;
@@ -161,9 +161,11 @@ static mlir::LogicalResult pushDownAggregate(SelectOp op,
   }
 
   // For each predicate:
-  for (auto &block : op.getPredicates()) {
+  llvm::SmallVector<PredicateOp> preds(
+      op.getPredicates().front().getOps<PredicateOp>());
+  for (auto pred : preds) {
     // Can we move it to before the AggregateOp?
-    if (mlir::succeeded(pushDownAggregate(op, aggOp, block, rewriter))) {
+    if (mlir::succeeded(pushDownAggregate(op, aggOp, pred, rewriter))) {
       return mlir::success();
     }
   }
@@ -172,18 +174,18 @@ static mlir::LogicalResult pushDownAggregate(SelectOp op,
 }
 
 static mlir::LogicalResult pushDownJoinLHS(SelectOp selectOp, JoinOp joinOp,
-                                           mlir::Block &block,
+                                           PredicateOp predOp,
                                            mlir::PatternRewriter &rewriter) {
   PredicateArgMapping predMap(selectOp, joinOp, JoinSide::LHS);
-  if (!predMap.canPushDown(block)) {
+  if (!predMap.canPushDown(predOp)) {
     return mlir::failure();
   }
 
   // New select over the LHS inputs
-  auto newSelect = rewriter.create<SelectOp>(
-      selectOp.getLoc(), joinOp.getLhs().getTypes(), joinOp.getLhs());
+  auto newSelect =
+      rewriter.create<SelectOp>(selectOp.getLoc(), joinOp.getLhs());
 
-  predMap.movePredicate(block, newSelect.addPredicate(), rewriter);
+  predMap.movePredicate(predOp, newSelect, rewriter);
 
   // Create new join.
   auto newJoinOp = rewriter.create<JoinOp>(
@@ -196,18 +198,18 @@ static mlir::LogicalResult pushDownJoinLHS(SelectOp selectOp, JoinOp joinOp,
 }
 
 static mlir::LogicalResult pushDownJoinRHS(SelectOp selectOp, JoinOp joinOp,
-                                           mlir::Block &block,
+                                           PredicateOp predOp,
                                            mlir::PatternRewriter &rewriter) {
   PredicateArgMapping predMap(selectOp, joinOp, JoinSide::RHS);
-  if (!predMap.canPushDown(block)) {
+  if (!predMap.canPushDown(predOp)) {
     return mlir::failure();
   }
 
   // New select over the RHS inputs
-  auto newSelect = rewriter.create<SelectOp>(
-      selectOp.getLoc(), joinOp.getRhs().getTypes(), joinOp.getRhs());
+  auto newSelect =
+      rewriter.create<SelectOp>(selectOp.getLoc(), joinOp.getRhs());
 
-  predMap.movePredicate(block, newSelect.addPredicate(), rewriter);
+  predMap.movePredicate(predOp, newSelect, rewriter);
 
   // Create new join.
   auto newJoinOp = rewriter.create<JoinOp>(joinOp.getLoc(), joinOp.getLhs(),
@@ -228,11 +230,13 @@ static mlir::LogicalResult pushDownJoin(SelectOp op,
   }
 
   // For each predicate:
-  for (auto &block : op.getPredicates()) {
+  llvm::SmallVector<PredicateOp> preds(
+      op.getPredicates().front().getOps<PredicateOp>());
+  for (auto pred : preds) {
     // Can we move it to one of the join children?
-    if (mlir::succeeded(pushDownJoinLHS(op, joinOp, block, rewriter))) {
+    if (mlir::succeeded(pushDownJoinLHS(op, joinOp, pred, rewriter))) {
       return mlir::success();
-    } else if (mlir::succeeded(pushDownJoinRHS(op, joinOp, block, rewriter))) {
+    } else if (mlir::succeeded(pushDownJoinRHS(op, joinOp, pred, rewriter))) {
       return mlir::success();
     }
   }
@@ -279,27 +283,62 @@ static mlir::LogicalResult pushDownProjection(SelectOp op,
   auto projInputs = projOp->getOperands();
   newInputs.append(projInputs.begin(), projInputs.end());
 
+  // Remove projection result
+  newInputs.erase(newInputs.begin() + operandIdx);
+
   auto newSelect = rewriter.create<SelectOp>(op.getLoc(), newInputs);
+  // NOTE: Builder adds a block, but we move it from the other op.
+  newSelect.getPredicates().front().erase();
   rewriter.inlineRegionBefore(op.getPredicates(), newSelect.getPredicates(),
                               newSelect.getPredicates().end());
+
   // Add arguments for the operands we added
-  for (auto &block : newSelect.getPredicates()) {
-    for (auto input : projInputs) {
-      block.addArgument(input.getType(), input.getLoc());
+  auto &selectBody = newSelect.getPredicates().front();
+  llvm::SmallVector<mlir::Value> newSelectArgs;
+  for (auto input : projInputs) {
+    auto arg = selectBody.addArgument(input.getType(), input.getLoc());
+    newSelectArgs.push_back(arg);
+  }
+
+  auto replacedArg = selectBody.getArgument(operandIdx);
+  for (auto pred : newSelect.getPredicates().front().getOps<PredicateOp>()) {
+    auto replacedIt = llvm::find(pred.getInputs(), replacedArg);
+    if (replacedIt == pred.getInputs().end()) {
+      // No need to change this predicate
+      continue;
     }
 
-    // Recreate the op inside of predicates if needed.
-    if (!block.getArgument(operandIdx).use_empty()) {
-      mlir::OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(&block);
-      mlir::IRMapping projMapping;
-      projMapping.map(projInputs,
-                      block.getArguments().take_back(projInputs.size()));
-      auto *newProj = rewriter.clone(*projOp, projMapping);
-      rewriter.replaceAllUsesWith(block.getArgument(operandIdx),
-                                  newProj->getResult(0));
+    auto replacedPredArgIdx =
+        std::distance(pred.getInputs().begin(), replacedIt);
+
+    // Add the new inputs and remove the old one.
+    rewriter.modifyOpInPlace(pred, [&]() {
+      auto inputs = pred.getInputsMutable();
+      inputs.erase(replacedPredArgIdx, 1);
+      inputs.append(newSelectArgs);
+    });
+
+    // Add the new arguments (the old one is removed later)
+    auto &predBlock = pred.getBody().front();
+    mlir::IRMapping projMapping;
+    for (auto input : projInputs) {
+      auto arg = predBlock.addArgument(input.getType(), input.getLoc());
+      projMapping.map(input, arg);
     }
+
+    // Recreate the op inside of predicate.
+    mlir::OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&predBlock);
+    auto *newProj = rewriter.clone(*projOp, projMapping);
+    rewriter.replaceAllUsesWith(predBlock.getArgument(replacedPredArgIdx),
+                                newProj->getResult(0));
+
+    // Now that there are no remaining uses, delete the old arg.
+    predBlock.eraseArgument(replacedPredArgIdx);
   }
+
+  // Now that there are no remaining uses, delete the old arg.
+  selectBody.eraseArgument(operandIdx);
 
   // Recreate the op after the select
   auto newProjInputs = newSelect->getResults().take_back(projInputs.size());
@@ -309,8 +348,8 @@ static mlir::LogicalResult pushDownProjection(SelectOp op,
 
   // Replace uses
   llvm::SmallVector<mlir::Value> newResults(
-      newSelect->getResults().take_front(op->getNumResults()));
-  newResults[operandIdx] = newProj->getResult(0);
+      newSelect->getResults().take_front(op->getNumResults() - 1));
+  newResults.insert(newResults.begin() + operandIdx, newProj->getResult(0));
   rewriter.replaceOp(op, newResults);
   return mlir::success();
 }
@@ -335,22 +374,10 @@ static mlir::LogicalResult removeUnusedInputs(SelectOp op,
                                               mlir::PatternRewriter &rewriter) {
   // Find inputs that can be removed
   llvm::SmallVector<unsigned int> toRemove;
+  auto &body = op.getPredicates().front();
   for (auto idx : llvm::seq(op.getInputs().size())) {
-    if (!op.getResult(idx).use_empty()) {
+    if (!op.getResult(idx).use_empty() || !body.getArgument(idx).use_empty()) {
       // Result is used.
-      continue;
-    }
-
-    bool needForPred = false;
-    for (auto &pred : op.getPredicates()) {
-      if (!pred.getArgument(idx).use_empty()) {
-        // Needed for predicate evaluation
-        needForPred = true;
-        break;
-      }
-    }
-
-    if (needForPred) {
       continue;
     }
 
@@ -369,9 +396,7 @@ static mlir::LogicalResult removeUnusedInputs(SelectOp op,
     newInputs.erase(newInputs.begin() + *it);
     replacedResults.erase(replacedResults.begin() + *it);
 
-    for (auto &pred : op.getPredicates()) {
-      pred.eraseArgument(*it);
-    }
+    body.eraseArgument(*it);
   }
 
   auto newOp = rewriter.create<SelectOp>(
@@ -383,8 +408,6 @@ static mlir::LogicalResult removeUnusedInputs(SelectOp op,
   return mlir::success();
 }
 
-// If two of the inputs are equivalent, remaps all uses to the first one.
-// Removal of the redundant input is handled by removeUnusedInputs.
 static mlir::LogicalResult
 remapDuplicateInputs(SelectOp op, mlir::PatternRewriter &rewriter) {
   // Look for duplicates
@@ -405,15 +428,10 @@ remapDuplicateInputs(SelectOp op, mlir::PatternRewriter &rewriter) {
     assert(toIdx < fromIdx);
 
     // Replace all uses of the argument in predicates
-    for (auto &pred : op.getPredicates()) {
-      if (pred.getArgument(fromIdx).use_empty()) {
-        // Not used.
-        continue;
-      }
-
-      // Replace with equivalent block argument.
-      rewriter.replaceAllUsesWith(pred.getArgument(fromIdx),
-                                  pred.getArgument(toIdx));
+    auto &body = op.getPredicates().front();
+    if (!body.getArgument(fromIdx).use_empty()) {
+      rewriter.replaceAllUsesWith(body.getArgument(fromIdx),
+                                  body.getArgument(toIdx));
       didRewrite = true;
     }
 
@@ -427,17 +445,46 @@ remapDuplicateInputs(SelectOp op, mlir::PatternRewriter &rewriter) {
   return mlir::success(didRewrite);
 }
 
+static mlir::LogicalResult mergeSelect(SelectOp op,
+                                       mlir::PatternRewriter &rewriter) {
+  // All inputs derive from one SelectOp.
+  auto selectOp = op.getInputs()[0].getDefiningOp<SelectOp>();
+  if (!selectOp || !llvm::all_of(op.getInputs(), isDefinedBy(selectOp))) {
+    return mlir::failure();
+  }
+
+  // Create an op combining the two original ops.
+  auto newOp = llvm::cast<SelectOp>(rewriter.clone(*selectOp));
+
+  PredicateArgMapping mapping(op, selectOp);
+  llvm::SmallVector<PredicateOp> preds(
+      op.getPredicates().front().getOps<PredicateOp>());
+  for (auto pred : preds) {
+    assert(mapping.canPushDown(pred));
+    mapping.movePredicate(pred, newOp, rewriter);
+  }
+
+  // Replace the original op.
+  llvm::SmallVector<mlir::Value> replacedResults;
+  for (auto i : llvm::seq(op->getNumResults())) {
+    replacedResults.push_back(newOp->getResult(mapping.mapping.at(i)));
+  }
+
+  rewriter.replaceOp(op, replacedResults);
+
+  return mlir::success();
+}
+
 void PushDownPredicates::runOnOperation() {
   mlir::RewritePatternSet patterns(&getContext());
-  // NOTE: must be higher priority than pushDownProjection to avoid pulling up
-  // the same projection multiple times.
-  patterns.add(removeUnusedInputs);
-  patterns.add(remapDuplicateInputs);
-
   patterns.add(pushDownAggregate);
   patterns.add(pushDownJoin);
   patterns.add(pushDownUnion);
   patterns.add(pushDownProjection);
+
+  patterns.add(remapDuplicateInputs);
+  patterns.add(removeUnusedInputs);
+  patterns.add(mergeSelect);
 
   if (mlir ::failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
                                                        std::move(patterns)))) {

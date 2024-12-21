@@ -222,27 +222,50 @@ mlir::ValueRange JoinOp::getRhsResults() {
 void SelectOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
                      mlir::ValueRange inputs) {
   build(builder, state, inputs.getTypes(), inputs);
-}
-
-mlir::Block &SelectOp::addPredicate() {
-  auto &block = getPredicates().emplaceBlock();
+  auto &block = state.regions[0]->emplaceBlock();
 
   // Populate block arguments to match inputs.
-  for (auto input : getInputs()) {
+  for (auto input : inputs) {
     block.addArgument(input.getType(), input.getLoc());
   }
-
-  return block;
 }
 
 mlir::LogicalResult
 SelectOp::fold(FoldAdaptor adaptor,
                llvm::SmallVectorImpl<mlir::OpFoldResult> &results) {
-  if (getPredicates().empty()) {
+  if (getPredicates().front().empty()) {
     // No filters applied, remove.
     for (auto input : getInputs()) {
       results.push_back(input);
     }
+
+    return mlir::success();
+  }
+
+  return mlir::failure();
+}
+
+mlir::LogicalResult
+PredicateOp::fold(FoldAdaptor adaptor,
+                  llvm::SmallVectorImpl<mlir::OpFoldResult> &results) {
+  // Remove inputs that we don't use.
+  llvm::BitVector erase(getNumOperands());
+  for (auto arg : getBody().getArguments()) {
+    if (arg.use_empty()) {
+      erase.set(arg.getArgNumber());
+    }
+  }
+
+  if (erase.any()) {
+    llvm::SmallVector<mlir::Value> inputs;
+    for (auto [i, v] : llvm::enumerate(getInputs())) {
+      if (!erase[i]) {
+        inputs.push_back(v);
+      }
+    }
+
+    getInputsMutable().assign(inputs);
+    getBody().front().eraseArguments(erase);
     return mlir::success();
   }
 

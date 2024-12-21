@@ -339,7 +339,7 @@ void SQLParser::parseWhere(const pg_query::Node &expr) {
   }
 
   auto selectOp = _builder.create<columnar::SelectOp>(loc(expr), inputs);
-  auto &body = selectOp.addPredicate();
+  auto &body = selectOp.getPredicates().front();
 
   // Remap to block arguments
   mlir::IRMapping mapping;
@@ -360,16 +360,33 @@ void SQLParser::parseWhere(const pg_query::Node &expr) {
 }
 
 void SQLParser::parsePredicate(const pg_query::Node &expr) {
-  auto val = parseTupleExpr(expr);
-  if (!val) {
-    // Default value if parseTupleExpr failed.
-    val = _builder.create<columnar::ConstantOp>(loc(expr),
-                                                _builder.getBoolAttr(false));
-  }
-
   auto selectOp = llvm::cast<columnar::SelectOp>(
       _builder.getInsertionBlock()->getParentOp());
-  _builder.create<columnar::SelectReturnOp>(selectOp.getLoc(), val);
+  auto &selectBody = selectOp.getPredicates().front();
+
+  auto predOp = _builder.create<columnar::PredicateOp>(
+      selectOp.getLoc(), selectBody.getArguments());
+  auto &body = predOp.getBody().emplaceBlock();
+  for (auto arg : selectBody.getArguments()) {
+    body.addArgument(arg.getType(), arg.getLoc());
+  }
+
+  mlir::IRMapping mapping;
+  mapping.map(selectBody.getArguments(), body.getArguments());
+
+  auto subParser = newSubParser(_builder.atBlockBegin(&body), mapping);
+  // Refer to predicate block arguments.
+  subParser._currentColumns.append(body.getArguments().begin(),
+                                   body.getArguments().end());
+
+  auto val = subParser.parseTupleExpr(expr);
+  if (!val) {
+    // Default value if parseTupleExpr failed.
+    val = subParser._builder.create<columnar::ConstantOp>(
+        loc(expr), _builder.getBoolAttr(false));
+  }
+
+  subParser._builder.create<columnar::PredicateEvalOp>(selectOp.getLoc(), val);
 }
 
 mlir::Value SQLParser::parseTupleExpr(const pg_query::Node &expr) {
