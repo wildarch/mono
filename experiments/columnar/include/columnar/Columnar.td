@@ -471,12 +471,16 @@ def LikeOp : Columnar_Op<"like", [Pure, IsProjection]> {
     }];
 }
 
-def SubQueryOp : Columnar_Op<"sub_query", [Pure]> {
+def SubQueryOp : Columnar_Op<"sub_query", [Pure, IsolatedFromAbove]> {
     let arguments = (ins Variadic<Column>:$inputs);
 
     let regions = (region SizedRegion<1>:$body);
 
     let results = (outs Column:$result);
+
+    let assemblyFormat = [{
+        $inputs `:` type($inputs) `->` type($result) $body attr-dict
+    }];
 }
 
 // ============================================================================
