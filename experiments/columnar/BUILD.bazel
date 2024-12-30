@@ -71,6 +71,7 @@ gentbl_cc_library(
 cc_library(
     name = "columnar",
     srcs = [
+        "lib/AddSelectionVectors.cpp",
         "lib/Canonicalize.cpp",
         "lib/Columnar.cpp",
         "lib/PushDownPredicates.cpp",
