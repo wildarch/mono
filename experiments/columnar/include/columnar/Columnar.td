@@ -69,6 +69,10 @@ def Date : Columnar_Type<"Date", "date"> {
     let summary = "YYYY-MM-DD style date";
 }
 
+def Select : Columnar_Type<"Select", "sel"> {
+    let summary = "Index type for selection vectors";
+}
+
 // Attributes
 def StringArray : ArrayOfAttr<
         Columnar_Dialect,
@@ -503,11 +507,28 @@ def SubQueryOp : Columnar_Op<"sub_query", [Pure, IsolatedFromAbove]> {
 }
 
 // ============================================================================
+// ======================== EXPLICIT SELECTION VECTORS ========================
+// ============================================================================
+
+def SelConstOp : Columnar_Op<"sel_const", [Pure]> {
+    let results = (outs ColumnOf<Select>:$selOut);
+}
+
+def SelTableOp : Columnar_Op<"sel_table", [Pure]> {
+    let arguments = (ins StrAttr:$table);
+
+    let results = (outs ColumnOf<Select>:$selOut);
+}
+
+// ============================================================================
 // =================================== PASSES =================================
 // ============================================================================
 def PushDownPredicates: Pass<"push-down-predicates", "::columnar::QueryOp"> {
     let summary = "Push down selection predicates";
 }
 
+def AddSelectionVectors: Pass<"add-selection-vectors", "::columnar::QueryOp"> {
+    let summary = "Adds explicit selection vectors";
+}
 
 #endif // COLUMNAR
