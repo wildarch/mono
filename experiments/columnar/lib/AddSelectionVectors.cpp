@@ -34,9 +34,11 @@ public:
   void createTableReadSelectionVectors(QueryOp query,
                                        mlir::RewriterBase &rewriter);
 
-  bool allInputsResolved(mlir::ValueRange inputs);
+  bool allInputsResolvedOrConstant(mlir::ValueRange inputs);
   mlir::FailureOr<WithSel> getOrCreateInputs(mlir::ValueRange inputs,
                                              mlir::RewriterBase &rewriter);
+
+  bool isResolved(mlir::Value v);
 };
 
 } // namespace
@@ -63,7 +65,8 @@ void SelectionVectorTracker::createTableReadSelectionVectors(
   });
 }
 
-bool SelectionVectorTracker::allInputsResolved(mlir::ValueRange inputs) {
+bool SelectionVectorTracker::allInputsResolvedOrConstant(
+    mlir::ValueRange inputs) {
   return llvm::all_of(inputs, [this](mlir::Value v) {
     return _resolved.contains(v) || v.getDefiningOp<ConstantOp>();
   });
@@ -98,6 +101,10 @@ SelectionVectorTracker::getOrCreateInputs(mlir::ValueRange inputs,
   return result;
 }
 
+bool SelectionVectorTracker::isResolved(mlir::Value v) {
+  return _resolved.contains(v);
+}
+
 /*
 Base reads:
 - ReadTableOp: One selection vector shared by all column reads for a given
@@ -120,6 +127,18 @@ vectors on input sides.
 - LimitOp: Caps only the selection vector.
 */
 
+static mlir::LogicalResult resolve(SelectionVectorTracker &tracker,
+                                   mlir::Operation *op,
+                                   mlir::RewriterBase &rewriter) {
+  if (llvm::all_of(op->getResults(),
+                   [&](mlir::Value v) { return tracker.isResolved(v); })) {
+    // Already resolved
+    return mlir::success();
+  }
+
+  return op->emitOpError("not implemented");
+}
+
 void AddSelectionVectors::runOnOperation() {
   // 1. Add all ops to a worklist.
   llvm::SmallPtrSet<mlir::Operation *, 16> worklist;
@@ -139,7 +158,7 @@ void AddSelectionVectors::runOnOperation() {
   //   d. rewrite the ops to use selection vectors
   while (!worklist.empty()) {
     auto nextOp = llvm::find_if(worklist, [&](mlir::Operation *op) {
-      return tracker.allInputsResolved(op->getOperands());
+      return tracker.allInputsResolvedOrConstant(op->getOperands());
     });
 
     if (nextOp == worklist.end()) {
@@ -150,12 +169,18 @@ void AddSelectionVectors::runOnOperation() {
     worklist.erase(op);
 
     // TODO
-    op->emitOpError("adding selection vector");
+    if (mlir::failed(resolve(tracker, op, rewriter))) {
+      op->emitOpError("failed to resolve selection vectors");
+      return signalPassFailure();
+    }
   }
 
   // 3. If the worklist is empty, the algorithm has completed.
   if (!worklist.empty()) {
-    getOperation()->emitOpError("failed to add selection vectors");
+    for (auto *op : worklist) {
+      op->emitOpError("selection vectors of inputs remained unresolved");
+    }
+
     return signalPassFailure();
   }
 }
