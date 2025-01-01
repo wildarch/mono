@@ -590,6 +590,54 @@ def SelFilterOp : Columnar_Op<"sel.filter", [Pure]> {
 }
 
 // ============================================================================
+// =========================== LOWER PIPELINES OPS ============================
+// ============================================================================
+def PipelineOp : Columnar_Op<"pipeline", [NoTerminator, IsolatedFromAbove]> {
+    let regions = (region SizedRegion<1>:$body);
+
+    let assemblyFormat = [{
+        $body attr-dict
+    }];
+}
+
+def PrintOp : Columnar_Op<"print"> {
+    let arguments = (ins StrAttr:$name, Column:$input, ColumnOf<Select>:$sel);
+
+    let assemblyFormat = [{
+        $name 
+        $input `:` type($input) 
+        `sel` `` `=` `` $sel
+        attr-dict
+    }];
+}
+
+def TensorReadColumnOp : Columnar_Op<"tensor.read_column", [Pure]> {
+    let summary = "Reads a column as a tensor";
+
+    let arguments = (ins StrAttr:$table, StrAttr:$column);
+
+    let results = (outs 1DTensorOf<[AnyType]>:$result);
+
+    let assemblyFormat = [{
+        $table $column `:` type($result) attr-dict
+    }];
+}
+
+def TensorPrintOp : Columnar_Op<"tensor.print"> {
+    let arguments = (ins 
+        StrAttr:$name, 
+        1DTensorOf<[AnyType]>:$input, 
+        1DTensorOf<[Index]>:$sel);
+
+    let assemblyFormat = [{
+        $name 
+        $input `:` type($input) 
+        `sel` `` `=` `` $sel `:` type($sel)
+        attr-dict
+    }];
+}
+
+// ============================================================================
 // =================================== PASSES =================================
 // ============================================================================
 def PushDownPredicates: Pass<"push-down-predicates", "::columnar::QueryOp"> {
@@ -598,6 +646,15 @@ def PushDownPredicates: Pass<"push-down-predicates", "::columnar::QueryOp"> {
 
 def AddSelectionVectors: Pass<"add-selection-vectors", "::columnar::QueryOp"> {
     let summary = "Adds explicit selection vectors";
+}
+
+def LowerPipelines : Pass<"lower-pipelines", "::columnar::PipelineOp"> {
+    let summary = "Lower pipelines to operations over tensors";
+
+    let dependentDialects = [
+        "mlir::arith::ArithDialect",
+        "mlir::tensor::TensorDialect",
+    ];
 }
 
 #endif // COLUMNAR
