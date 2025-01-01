@@ -74,6 +74,7 @@ cc_library(
         "lib/AddSelectionVectors.cpp",
         "lib/Canonicalize.cpp",
         "lib/Columnar.cpp",
+        "lib/LowerPipelines.cpp",
         "lib/PushDownPredicates.cpp",
     ],
     hdrs = [
@@ -82,10 +83,12 @@ cc_library(
     includes = ["include/"],
     deps = [
         ":IncGen",
+        "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:InferTypeOpInterface",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:SideEffectInterfaces",
+        "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:Transforms",
     ],
 )
