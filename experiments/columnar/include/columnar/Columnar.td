@@ -182,6 +182,12 @@ def DateAttr : Columnar_Attr<"Date", "date", [TypedAttrInterface]> {
     // TODO: verify
 }
 
+def SelIdAttr : Columnar_Attr<"SelId", "sel_id", [TypedAttrInterface]> {
+    let extraClassDeclaration = [{
+        mlir::Type getType();
+    }];
+}
+
 // Interfaces and Traits
 def IsProjection : NativeOpTrait<"IsProjection"> {
     let cppNamespace = "::columnar";
@@ -414,12 +420,18 @@ def CmpOp : Columnar_Op<"cmp", [
         Pure, 
         IsProjection, 
         AllTypesMatch<["lhs", "rhs"]>]> {
-    let arguments = (ins CmpPredicate:$pred, Column:$lhs, Column:$rhs);
+    let arguments = (ins 
+        CmpPredicate:$pred, 
+        Column:$lhs, 
+        Column:$rhs,
+        Optional<ColumnOf<Select>>:$sel);
 
     let results = (outs ColumnOf<I1>:$result);
 
     let assemblyFormat = [{
-        $pred $lhs `,` $rhs `:` type($lhs) attr-dict
+        $pred $lhs `,` $rhs `:` type($lhs) 
+        (`sel` `` `=` `` $sel^)?
+        attr-dict
     }];
 }
 
@@ -465,13 +477,18 @@ def Numeric : AnyTypeOf<[
 class NumericBinOp<string mnemonic> : Columnar_Op<mnemonic, [
         Pure,
         IsProjection,
-        SameOperandsAndResultType]> {
-    let arguments = (ins Numeric:$lhs, Numeric:$rhs);
+        AllTypesMatch<["lhs", "rhs", "result"]>]> {
+    let arguments = (ins 
+        Numeric:$lhs, 
+        Numeric:$rhs,
+        Optional<ColumnOf<Select>>:$sel);
 
     let results = (outs Numeric:$result);
 
     let assemblyFormat = [{
-        $lhs `,` $rhs `:` type($result) attr-dict
+        $lhs `,` $rhs `:` type($result) 
+        (`sel` `` `=` `` $sel^)? 
+        attr-dict
     }];
 }
 
@@ -510,14 +527,42 @@ def SubQueryOp : Columnar_Op<"sub_query", [Pure, IsolatedFromAbove]> {
 // ======================== EXPLICIT SELECTION VECTORS ========================
 // ============================================================================
 
-def SelConstOp : Columnar_Op<"sel_const", [Pure]> {
-    let results = (outs ColumnOf<Select>:$selOut);
+def SelAddOp : Columnar_Op<"sel.add", [
+        Pure, 
+        AllTypesMatch<["inputs", "results"]>,
+        InferTypeOpAdaptor]> {
+    let arguments = (ins Variadic<Column>:$inputs);
+
+    let results = (outs Variadic<Column>:$results, ColumnOf<Select>:$sel);
 }
 
-def SelTableOp : Columnar_Op<"sel_table", [Pure]> {
-    let arguments = (ins StrAttr:$table);
+def SelApplyOp : Columnar_Op<"sel.apply", [
+        Pure,
+        AllTypesMatch<["input", "result"]>]> {
+    let summary = "Removes all input rows not in the selection vector";
 
-    let results = (outs ColumnOf<Select>:$selOut);
+    let arguments = (ins Column:$input, ColumnOf<Select>:$sel);
+
+    let results = (outs Column:$result);
+
+    let assemblyFormat = [{
+        $input `:` type($input) `sel` `` `=` `` $sel attr-dict
+    }];
+}
+
+def SelFilterOp : Columnar_Op<"sel.filter", [Pure]> {
+    let summary = "Apply a filter to a selection vector";
+
+    let arguments = (ins 
+        ColumnOf<Select>:$inSel, 
+        ColumnOf<I1>:$filter,
+        ColumnOf<Select>:$filterSel);
+
+    let results = (outs ColumnOf<Select>:$outSel);
+
+    let assemblyFormat = [{
+        $inSel `by` $filter `filter_sel` `` `=` `` $filterSel attr-dict
+    }];
 }
 
 // ============================================================================
