@@ -89,7 +89,7 @@ This could be extended with detection of common operations across union children
 ## Lowering
 Steps:
 1. Make selection vectors explicit (`select` is removed)
-2. Make nulls explicit
+2. Make nulls explicit (can be skipped for TPC-H)
 3. Split pipeline breakers into source/sink side (`join`, `aggregate` and `union`)
 4. Group into pipelines
 5. Lower pipeline to `func` over `memref`. Body uses `arith` and `vector`.
