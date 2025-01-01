@@ -123,6 +123,8 @@ mlir::Type StringAttr::getType() { return StringType::get(getContext()); }
 
 mlir::Type DateAttr::getType() { return DateType::get(getContext()); }
 
+mlir::Type SelIdAttr::getType() { return SelectType::get(getContext()); }
+
 mlir::LogicalResult QueryOutputOp::verify() {
   if (getColumns().size() != getNames().size()) {
     return emitOpError("outputs ")
@@ -312,6 +314,16 @@ mlir::OpFoldResult CastOp::fold(FoldAdaptor adaptor) {
   }
 
   return nullptr;
+}
+
+mlir::LogicalResult SelAddOp::inferReturnTypes(
+    mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
+    Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  auto types = adaptor.getInputs().getTypes();
+  inferredReturnTypes.append(types.begin(), types.end());
+
+  inferredReturnTypes.push_back(ColumnType::get(SelectType::get(ctx)));
+  return mlir::success();
 }
 
 } // namespace columnar
