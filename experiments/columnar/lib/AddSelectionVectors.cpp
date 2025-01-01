@@ -27,6 +27,7 @@ private:
 
 public:
   mlir::Value input(mlir::Value v);
+  llvm::SmallVector<mlir::Value> inputs(mlir::ValueRange vals);
   mlir::Value getCommonSelectionVector();
 };
 
@@ -51,6 +52,15 @@ mlir::Value ExtractCommonSel::input(mlir::Value v) {
     sel = nullptr;
     return v;
   }
+}
+
+llvm::SmallVector<mlir::Value> ExtractCommonSel::inputs(mlir::ValueRange vals) {
+  llvm::SmallVector<mlir::Value> results;
+  for (auto v : vals) {
+    results.push_back(input(v));
+  }
+
+  return results;
 }
 
 mlir::Value ExtractCommonSel::getCommonSelectionVector() { return sel; }
@@ -217,6 +227,27 @@ static mlir::LogicalResult applyFilter(SelFilterOp op,
   return mlir::success();
 }
 
+static mlir::LogicalResult applyQueryOutput(QueryOutputOp op,
+                                            mlir::PatternRewriter &rewriter) {
+  if (op.getSel()) {
+    return mlir::failure();
+  }
+
+  ExtractCommonSel extract;
+  auto newColumns = extract.inputs(op.getColumns());
+  auto sel = extract.getCommonSelectionVector();
+  if (!sel) {
+    return mlir::failure();
+  }
+
+  rewriter.modifyOpInPlace(op, [&]() {
+    op.getColumnsMutable().assign(newColumns);
+    op.getSelMutable().assign(sel);
+  });
+
+  return mlir::success();
+}
+
 void AddSelectionVectors::runOnOperation() {
   mlir::RewritePatternSet patterns(&getContext());
   patterns.add(lowerSelect);
@@ -227,6 +258,7 @@ void AddSelectionVectors::runOnOperation() {
   patterns.add(applyNumericalBinOp<SubOp>);
   patterns.add(applyNumericalBinOp<MulOp>);
   patterns.add(applyNumericalBinOp<DivOp>);
+  patterns.add(applyQueryOutput);
 
   if (mlir ::failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
                                                        std::move(patterns)))) {
