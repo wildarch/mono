@@ -205,16 +205,27 @@ def QueryOp : Columnar_Op<"query", [IsolatedFromAbove]> {
 
 def QueryOutputOp : Columnar_Op<"query.output", [
         Terminator,
+        AttrSizedOperandSegments, 
         ParentOneOf<["QueryOp", "SubQueryOp"]>]> {
     let summary = "Outputs the final query results";
 
     let arguments = (ins
         Variadic<Column>:$columns,
-        StringArray:$names);
+        StringArray:$names,
+        Optional<ColumnOf<Select>>:$sel);
+    let builders = [
+        OpBuilder<(ins 
+            "mlir::ValueRange":$columns, 
+            "llvm::ArrayRef<mlir::StringAttr>":$names), 
+            [{
+                build($_builder, $_state, columns, names, /*sel=*/nullptr);
+            }]>,
+    ];
 
     let assemblyFormat = [{
         $columns `:` type($columns)
         $names
+        (`sel` `` `=` `` $sel^)?
         attr-dict
     }];
 
@@ -425,6 +436,14 @@ def CmpOp : Columnar_Op<"cmp", [
         Column:$lhs, 
         Column:$rhs,
         Optional<ColumnOf<Select>>:$sel);
+    let builders = [
+        OpBuilder<(ins 
+            "CmpPredicate":$pred, 
+            "mlir::Value":$lhs, 
+            "mlir::Value":$rhs), [{
+                build($_builder, $_state, pred, lhs, rhs, /*sel=*/nullptr);
+            }]>,
+    ];
 
     let results = (outs ColumnOf<I1>:$result);
 
@@ -482,6 +501,11 @@ class NumericBinOp<string mnemonic> : Columnar_Op<mnemonic, [
         Numeric:$lhs, 
         Numeric:$rhs,
         Optional<ColumnOf<Select>>:$sel);
+    let builders = [
+        OpBuilder<(ins "mlir::Value":$lhs, "mlir::Value":$rhs), [{
+            build($_builder, $_state, lhs, rhs, /*sel=*/nullptr);
+        }]>,
+    ];
 
     let results = (outs Numeric:$result);
 
