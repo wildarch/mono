@@ -67,8 +67,7 @@ mlir::LogicalResult OpConversion<ReadTableOp>::matchAndRewrite(
     ReadTableOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
   rewriter.replaceOpWithNewOp<TensorReadColumnOp>(
-      op, typeConverter->convertType(op.getType()), op.getTable(),
-      op.getColumn());
+      op, typeConverter->convertType(op.getType()), op.getColumn());
   return mlir::success();
 }
 

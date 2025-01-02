@@ -47,23 +47,36 @@ public:
 
 class Catalog {
 private:
-  llvm::StringMap<columnar::TableAttr> _tables;
+  llvm::StringMap<columnar::TableAttr> _tablesByName;
+  llvm::SmallDenseMap<columnar::TableAttr,
+                      llvm::SmallVector<columnar::TableColumnAttr>>
+      _columnsPerTable;
 
 public:
   void addTable(columnar::TableAttr table) {
-    if (_tables.contains(table.getName())) {
+    if (_tablesByName.contains(table.getName())) {
       mlir::emitError(mlir::UnknownLoc::get(table.getContext()))
           << "Attempt to add table " << table
           << " to catalog, but the catalog already contains "
-          << _tables.at(table.getName()) << " with the same name";
+          << _tablesByName.at(table.getName()) << " with the same name";
       llvm_unreachable("Catalog already contains a table with this name");
     }
 
-    _tables[table.getName()] = table;
+    _tablesByName[table.getName()] = table;
+  }
+
+  void addColumn(columnar::TableColumnAttr column) {
+    _columnsPerTable[column.getTable()].push_back(column);
   }
 
   columnar::TableAttr findTable(llvm::StringRef name) const {
-    return _tables.lookup(name);
+    return _tablesByName.lookup(name);
+  }
+
+  void
+  findColumns(columnar::TableAttr table,
+              llvm::SmallVectorImpl<columnar::TableColumnAttr> &columns) const {
+    columns.append(_columnsPerTable.at(table));
   }
 };
 
@@ -288,16 +301,17 @@ void SQLParser::parseFromRelation(const pg_query::RangeVar &rel) {
     return;
   }
 
+  llvm::SmallVector<columnar::TableColumnAttr> columns;
+  _catalog.findColumns(table, columns);
   llvm::SmallVector<mlir::Value> columnReads;
   llvm::SmallVector<mlir::StringAttr> columnNames;
-  for (auto col : table.getColumns()) {
+  for (auto col : columns) {
     auto readOp = _builder.create<columnar::ReadTableOp>(
         loc(rel.location()),
-        _builder.getType<columnar::ColumnType>(col.getType()), table.getName(),
-        col.getName());
+        _builder.getType<columnar::ColumnType>(col.getType()), col);
     columnReads.push_back(readOp);
     // TODO: handle collisions
-    columnNames.push_back(readOp.getColumnAttr());
+    columnNames.push_back(_builder.getStringAttr(readOp.getColumn().getName()));
   }
 
   if (_currentColumns.empty()) {
@@ -1253,7 +1267,7 @@ mlir::StringAttr SQLParser::columnName(mlir::Value column) {
   // TODO: dataflow analysis?
   auto res = llvm::dyn_cast<mlir::OpResult>(column);
   if (auto readOp = column.getDefiningOp<columnar::ReadTableOp>()) {
-    return readOp.getColumnAttr();
+    return _builder.getStringAttr(readOp.getColumn().getName());
   } else if (auto joinOp = column.getDefiningOp<columnar::JoinOp>()) {
     // Take from input.
     return columnName(joinOp->getOperand(res.getResultNumber()));
@@ -1449,13 +1463,14 @@ static void initTPCHCatalog(mlir::MLIRContext *ctx, Catalog &catalog) {
   TableDef tableDefs[] = {PART,   SUPPLIER, PARTSUPP, CUSTOMER,
                           ORDERS, LINEITEM, NATION,   REGION};
   for (const auto &def : tableDefs) {
-    llvm::SmallVector<columnar::TableColumnAttr> columns;
+    auto table = columnar::TableAttr::get(ctx, def.name);
+    catalog.addTable(table);
+
     for (const auto &col : def.columns) {
       auto type = col.type(ctx);
-      columns.push_back(columnar::TableColumnAttr::get(ctx, col.name, type));
+      catalog.addColumn(
+          columnar::TableColumnAttr::get(ctx, table, col.name, type));
     }
-
-    catalog.addTable(columnar::TableAttr::get(ctx, def.name, columns));
   }
 }
 
