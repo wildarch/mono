@@ -1,10 +1,13 @@
 // RUN: mlir-opt --push-down-predicates %s | FileCheck %s
 !col_si64 = !columnar.col<si64>
 
+#table_A = #columnar.table<"A">
+#column_A_a = #columnar.table_col<#table_A "a" : si64>
+
 // CHECK-LABEL: columnar.query {
 columnar.query {
-  // CHECK: %[[#A:]] = columnar.read_table "A"
-  %0 = columnar.read_table "A" "a" : <si64>
+  // CHECK: %[[#A:]] = columnar.read_table
+  %0 = columnar.read_table #column_A_a : <si64>
 
   // CHECK %[[#SELECT:]] = columnar.select %[[#A]]
   %1 = columnar.select %0 : !col_si64 {

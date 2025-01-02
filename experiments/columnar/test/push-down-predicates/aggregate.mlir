@@ -2,13 +2,16 @@
 !col_si64 = !columnar.col<si64>
 !col_f64 = !columnar.col<f64>
 
+#table_A = #columnar.table<"A">
+#column_A_a = #columnar.table_col<#table_A "a" : si64>
+#column_A_b = #columnar.table_col<#table_A "b" : si64>
+#column_A_c = #columnar.table_col<#table_A "c" : f64>
+
 // Basic
 // CHECK-LABEL: columnar.query {
 columnar.query {
-    // CHECK: %0 = columnar.read_lines "/tmp/col0.txt" : <si64>
-    // CHECK: %1 = columnar.read_lines "/tmp/col1.txt" : <si64>
-    %0 = columnar.read_lines "/tmp/col0.txt" : <si64>
-    %1 = columnar.read_lines "/tmp/col1.txt" : <si64>
+    %0 = columnar.read_table #column_A_a : <si64>
+    %1 = columnar.read_table #column_A_b : <si64>
 
     // CHECK: %[[#SELECT:]]:2 = columnar.select %0, %1
     // CHECK:   columnar.pred %arg0 : !columnar.col<si64> {
@@ -46,8 +49,8 @@ columnar.query {
 // With COUNT, changing the type of the second block arg
 // CHECK-LABEL: columnar.query {
 columnar.query {
-    %0 = columnar.read_lines "/tmp/col0.txt" : <si64>
-    %1 = columnar.read_lines "/tmp/col1.txt" : <f64>
+    %0 = columnar.read_table #column_A_a : <si64>
+    %1 = columnar.read_table #column_A_c : <f64>
 
     // CHECK: %[[#SELECT:]]:2 = columnar.select %0, %1 : !columnar.col<si64>, !columnar.col<f64>
     // CHECK: ^bb0(%arg0: !columnar.col<si64>, %arg1: !columnar.col<f64>):
@@ -79,8 +82,8 @@ columnar.query {
 // Depends on aggregation value, no changes
 // CHECK-LABEL: columnar.query {
 columnar.query {
-    %0 = columnar.read_lines "/tmp/col0.txt" : <si64>
-    %1 = columnar.read_lines "/tmp/col1.txt" : <si64>
+    %0 = columnar.read_table #column_A_a : <si64>
+    %1 = columnar.read_table #column_A_b : <si64>
 
     // CHECK: %2:2 = columnar.aggregate 
     // CHECK-SAME: group %0
@@ -116,8 +119,8 @@ columnar.query {
 // With swapped column order
 // CHECK-LABEL: columnar.query {
 columnar.query {
-    %0 = columnar.read_lines "/tmp/col0.txt" : <si64>
-    %1 = columnar.read_lines "/tmp/col1.txt" : <si64>
+    %0 = columnar.read_table #column_A_a : <si64>
+    %1 = columnar.read_table #column_A_b : <si64>
 
     // CHECK: %[[#SELECT:]]:2 = columnar.select %0, %1
     // CHECK:   columnar.pred %arg1

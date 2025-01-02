@@ -127,24 +127,22 @@ def SortDirectionArray : ArrayOfAttr<
         "sort_directions",
         "SortDirection">;
 
-def TableColumn : Columnar_Attr<"TableColumn", "table_col"> {
-    let parameters = (ins StringRefParameter<>:$name, "mlir::Type":$type);
-
+def Table : Columnar_Attr<"Table", "table"> {
+    let parameters = (ins StringRefParameter<>:$name);
+    
     let assemblyFormat = [{
-        `<`  $name `:` $type `>`
+        `<` $name `>`
     }];
 }
 
-def Table : Columnar_Attr<"Table", "table"> {
+def TableColumn : Columnar_Attr<"TableColumn", "table_col"> {
     let parameters = (ins 
-            StringRefParameter<>:$name, 
-            OptionalArrayRefParameter<"TableColumnAttr">:$columns);
-    
+        "TableAttr":$table,
+        StringRefParameter<>:$name, 
+        "mlir::Type":$type);
+
     let assemblyFormat = [{
-        `<` 
-        `name` `` `=` `` $name
-        `columns` `` `=` `` `[` (`]`) : ($columns^ `]`)?
-        `>`
+        `<` $table $name `:` $type `>`
     }];
 }
 
@@ -252,12 +250,12 @@ def ReadLinesOp : Columnar_Op<"read_lines", [Pure]> {
 def ReadTableOp : Columnar_Op<"read_table", [Pure]> {
     let summary = "Reads a column from a table";
 
-    let arguments = (ins StrAttr:$table, StrAttr:$column);
+    let arguments = (ins TableColumn:$column);
 
     let results = (outs Column:$result);
 
     let assemblyFormat = [{
-        $table $column `:` type($result) attr-dict
+        $column `:` type($result) attr-dict
     }];
 }
 
@@ -614,12 +612,12 @@ def PrintOp : Columnar_Op<"print"> {
 def TensorReadColumnOp : Columnar_Op<"tensor.read_column", [Pure]> {
     let summary = "Reads a column as a tensor";
 
-    let arguments = (ins StrAttr:$table, StrAttr:$column);
+    let arguments = (ins TableColumn:$column);
 
     let results = (outs 1DTensorOf<[AnyType]>:$result);
 
     let assemblyFormat = [{
-        $table $column `:` type($result) attr-dict
+        $column `:` type($result) attr-dict
     }];
 }
 

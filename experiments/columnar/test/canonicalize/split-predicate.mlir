@@ -1,13 +1,23 @@
 // RUN: mlir-opt --canonicalize %s | FileCheck %s
 
+#table_nation = #columnar.table<"nation">
+#table_region = #columnar.table<"region">
+#column_nation_n_comment = #columnar.table_col<#table_nation "n_comment" : !columnar.str>
+#column_nation_n_name = #columnar.table_col<#table_nation "n_name" : !columnar.str>
+#column_nation_n_nationkey = #columnar.table_col<#table_nation "n_nationkey" : i64>
+#column_nation_n_regionkey = #columnar.table_col<#table_nation "n_regionkey" : i64>
+#column_region_r_comment = #columnar.table_col<#table_region "r_comment" : !columnar.str>
+#column_region_r_name = #columnar.table_col<#table_region "r_name" : !columnar.str>
+#column_region_r_regionkey = #columnar.table_col<#table_region "r_regionkey" : i64>
+
 columnar.query {
-  %0 = columnar.read_table "nation" "n_nationkey" : <i64>
-  %1 = columnar.read_table "nation" "n_name" : <!columnar.str>
-  %2 = columnar.read_table "nation" "n_regionkey" : <i64>
-  %3 = columnar.read_table "nation" "n_comment" : <!columnar.str>
-  %4 = columnar.read_table "region" "r_regionkey" : <i64>
-  %5 = columnar.read_table "region" "r_name" : <!columnar.str>
-  %6 = columnar.read_table "region" "r_comment" : <!columnar.str>
+  %0 = columnar.read_table #column_nation_n_nationkey : <i64>
+  %1 = columnar.read_table #column_nation_n_name : <!columnar.str>
+  %2 = columnar.read_table #column_nation_n_regionkey : <i64>
+  %3 = columnar.read_table #column_nation_n_comment : <!columnar.str>
+  %4 = columnar.read_table #column_region_r_regionkey : <i64>
+  %5 = columnar.read_table #column_region_r_name : <!columnar.str>
+  %6 = columnar.read_table #column_region_r_comment : <!columnar.str>
   %7:7 = columnar.join (%0, %1, %2, %3) (%4, %5, %6) : (!columnar.col<i64>, !columnar.col<!columnar.str>, !columnar.col<i64>, !columnar.col<!columnar.str>) (!columnar.col<i64>, !columnar.col<!columnar.str>, !columnar.col<!columnar.str>)
   %8:7 = columnar.select %7#0, %7#1, %7#2, %7#3, %7#4, %7#5, %7#6 : !columnar.col<i64>, !columnar.col<!columnar.str>, !columnar.col<i64>, !columnar.col<!columnar.str>, !columnar.col<i64>, !columnar.col<!columnar.str>, !columnar.col<!columnar.str> {
   ^bb0(%arg0: !columnar.col<i64>, %arg1: !columnar.col<!columnar.str>, %arg2: !columnar.col<i64>, %arg3: !columnar.col<!columnar.str>, %arg4: !columnar.col<i64>, %arg5: !columnar.col<!columnar.str>, %arg6: !columnar.col<!columnar.str>):

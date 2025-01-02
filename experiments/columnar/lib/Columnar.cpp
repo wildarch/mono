@@ -25,6 +25,30 @@ mlir::Type getCountElementType(mlir::MLIRContext *ctx) {
   return mlir::IntegerType::get(ctx, /*width=*/64, mlir::IntegerType::Signed);
 }
 
+namespace {
+
+class ColumnarOpAsmDialectInterface : public mlir::OpAsmDialectInterface {
+public:
+  using OpAsmDialectInterface::OpAsmDialectInterface;
+
+  AliasResult getAlias(mlir::Attribute attr,
+                       mlir::raw_ostream &os) const override {
+    // Add aliases in the form catalog_<oid>_<type> as we cannot end the
+    // alias with a digit
+    if (auto info = llvm::dyn_cast<TableAttr>(attr)) {
+      os << "table_" << info.getName();
+      return AliasResult::FinalAlias;
+    } else if (auto info = llvm::dyn_cast<TableColumnAttr>(attr)) {
+      os << "column_" << info.getTable().getName() << "_" << info.getName();
+      return AliasResult::FinalAlias;
+    }
+
+    return AliasResult::NoAlias;
+  }
+};
+
+} // namespace
+
 void ColumnarDialect::initialize() {
   addOperations<
 #define GET_OP_LIST
@@ -40,6 +64,8 @@ void ColumnarDialect::initialize() {
 #define GET_ATTRDEF_LIST
 #include "columnar/Attrs.cpp.inc"
       >();
+
+  addInterfaces<ColumnarOpAsmDialectInterface>();
 }
 
 static DateAttr parseDate(mlir::OpBuilder &builder, llvm::StringRef s) {
