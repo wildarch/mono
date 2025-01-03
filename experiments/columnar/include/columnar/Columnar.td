@@ -234,19 +234,6 @@ def QueryOutputOp : Columnar_Op<"query.output", [
 // ================================= CORE OPS =================================
 // ============================================================================
 
-// TODO: update to read columns from a table format instead.
-def ReadLinesOp : Columnar_Op<"read_lines", [Pure]> {
-    let summary = "Reads lines from a file";
-
-    let arguments = (ins StrAttr:$path);
-
-    let results = (outs Column:$result);
-
-    let assemblyFormat = [{
-        $path `:` type($result) attr-dict
-    }];
-}
-
 def ReadTableOp : Columnar_Op<"read_table", [Pure]> {
     let summary = "Reads a column from a table";
 
