@@ -73,6 +73,10 @@ def Select : Columnar_Type<"Select", "sel"> {
     let summary = "Index type for selection vectors";
 }
 
+def ScannerHandle : Columnar_Type<"ScannerHandle", "scanner_handle"> {
+    let summary = "Table column scanner handle";
+}
+
 // Attributes
 def StringArray : ArrayOfAttr<
         Columnar_Dialect,
@@ -588,17 +592,7 @@ def SelTableOp : Columnar_Op<"sel.table", [Pure, ConstantLike]> {
     let hasFolder = 1;
 }
 
-// ============================================================================
-// =========================== LOWER PIPELINES OPS ============================
-// ============================================================================
-def PipelineOp : Columnar_Op<"pipeline", [NoTerminator, IsolatedFromAbove]> {
-    let regions = (region SizedRegion<1>:$body);
-
-    let assemblyFormat = [{
-        $body attr-dict
-    }];
-}
-
+// TODO: Define pass to introduce this
 def PrintOp : Columnar_Op<"print"> {
     let arguments = (ins StrAttr:$name, Column:$input, ColumnOf<Select>:$sel);
 
@@ -610,22 +604,63 @@ def PrintOp : Columnar_Op<"print"> {
     }];
 }
 
-def TensorReadColumnOp : Columnar_Op<"tensor.read_column", [Pure]> {
-    let summary = "Reads a column as a tensor";
 
-    let arguments = (ins TableColumn:$column);
-
-    let results = (outs 1DTensorOf<[AnyType]>:$result);
+// ============================================================================
+// =========================== LOWER PIPELINES OPS ============================
+// ============================================================================
+def PipelineOp : Columnar_Op<"pipeline", [NoTerminator, IsolatedFromAbove]> {
+    let regions = (region SizedRegion<1>:$body);
 
     let assemblyFormat = [{
-        $column `:` type($result) attr-dict
+        $body attr-dict
+    }];
+}
+
+def TensorCol : 1DTensorOf<[AnyType]>;
+
+def ChunkOp : Columnar_Op<"chunk"> {
+    let arguments = (ins Variadic<TensorCol>:$inputs);
+
+    let regions = (region SizedRegion<1>:$body);
+
+    let results = (outs Variadic<TensorCol>:$results);
+}
+
+def ChunkYieldOp : Columnar_Op<"chunk.yield", [
+        Pure, 
+        Terminator, 
+        HasParent<"ChunkOp">]> {
+    let arguments = (ins Variadic<TensorCol>:$inputs);
+}
+
+def OpenColumnOp : Columnar_Op<"open_column"> {
+    let arguments = (ins TableColumn:$column);
+
+    let results = (outs ScannerHandle:$result);
+}
+
+def SelScannerOp : Columnar_Op<"sel_scanner"> {
+    let arguments = (ins Table:$table);
+
+    let results = (outs ScannerHandle:$result);
+}
+
+def TensorReadColumnOp : Columnar_Op<"tensor.read_column"> {
+    let summary = "Reads a column chunk as a tensor";
+
+    let arguments = (ins ScannerHandle:$scanner);
+
+    let results = (outs TensorCol:$result);
+
+    let assemblyFormat = [{
+        $scanner `:` type($result) attr-dict
     }];
 }
 
 def TensorPrintOp : Columnar_Op<"tensor.print"> {
     let arguments = (ins 
         StrAttr:$name, 
-        1DTensorOf<[AnyType]>:$input, 
+        TensorCol:$input, 
         1DTensorOf<[Index]>:$sel);
 
     let assemblyFormat = [{
