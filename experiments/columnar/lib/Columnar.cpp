@@ -136,6 +136,11 @@ mlir::Operation *ColumnarDialect::materializeConstant(mlir::OpBuilder &builder,
 
       return builder.create<ConstantOp>(loc, date);
     }
+  } else if (auto table = llvm::dyn_cast<TableAttr>(value)) {
+    auto colType = llvm::dyn_cast<ColumnType>(rawType);
+    if (colType && llvm::isa<SelectType>(colType.getElementType())) {
+      return builder.create<SelTableOp>(loc, table);
+    }
   }
 
   mlir::emitError(loc) << "cannot materialize constant " << value
@@ -351,5 +356,7 @@ mlir::LogicalResult SelAddOp::inferReturnTypes(
   inferredReturnTypes.push_back(ColumnType::get(SelectType::get(ctx)));
   return mlir::success();
 }
+
+mlir::OpFoldResult SelTableOp::fold(FoldAdaptor adaptor) { return getTable(); }
 
 } // namespace columnar

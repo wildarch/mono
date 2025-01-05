@@ -574,6 +574,20 @@ def SelFilterOp : Columnar_Op<"sel.filter", [Pure]> {
     }];
 }
 
+def SelTableOp : Columnar_Op<"sel.table", [Pure, ConstantLike]> {
+    let summary = "The selection vector a base table";
+
+    let arguments = (ins Table:$table);
+
+    let results = (outs ColumnOf<Select>:$result);
+
+    let assemblyFormat = [{
+        $table attr-dict
+    }];
+
+    let hasFolder = 1;
+}
+
 // ============================================================================
 // =========================== LOWER PIPELINES OPS ============================
 // ============================================================================

@@ -151,21 +151,29 @@ static mlir::LogicalResult lowerSelect(SelectOp op,
   return mlir::success();
 }
 
-static bool readWithIdentitySel(mlir::Value v) {
-  auto *op = v.getDefiningOp();
-  return op && llvm::isa<ConstantOp, ReadTableOp>(op);
-}
+static mlir::LogicalResult selTable(SelAddOp op,
+                                    mlir::PatternRewriter &rewriter) {
+  // Verify that all inputs use the selection vector for one table.
+  TableAttr common;
+  for (auto input : op.getInputs()) {
+    if (input.getDefiningOp<ConstantOp>()) {
+      continue;
+    } else if (auto readOp = input.getDefiningOp<ReadTableOp>()) {
+      auto table = readOp.getColumn().getTable();
+      if (!common) {
+        common = table;
+      } else if (common != table) {
+        return mlir::failure();
+      }
+    }
+  }
 
-// If all inputs can be read using an identity selection vector, use that.
-static mlir::LogicalResult selAddIdent(SelAddOp op,
-                                       mlir::PatternRewriter &rewriter) {
-  if (!llvm::all_of(op.getInputs(), readWithIdentitySel)) {
+  if (!common) {
     return mlir::failure();
   }
 
-  auto idSel =
-      rewriter.create<ConstantOp>(op.getLoc(), rewriter.getAttr<SelIdAttr>());
-  rewriter.replaceAllUsesWith(op.getSel(), idSel);
+  auto tableSel = rewriter.create<SelTableOp>(op.getLoc(), common);
+  rewriter.replaceAllUsesWith(op.getSel(), tableSel);
   rewriter.replaceAllUsesWith(op.getResults(), op.getInputs());
   return mlir::success();
 }
@@ -251,7 +259,7 @@ static mlir::LogicalResult applyQueryOutput(QueryOutputOp op,
 void AddSelectionVectors::runOnOperation() {
   mlir::RewritePatternSet patterns(&getContext());
   patterns.add(lowerSelect);
-  patterns.add(selAddIdent);
+  patterns.add(selTable);
   patterns.add(applyCmp);
   patterns.add(applyFilter);
   patterns.add(applyNumericalBinOp<AddOp>);

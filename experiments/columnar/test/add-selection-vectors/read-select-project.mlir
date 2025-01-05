@@ -12,11 +12,11 @@ columnar.query {
   // CHECK: %2 = columnar.constant #columnar<dec 5> : !columnar.dec
   // CHECK: %3 = columnar.constant #columnar<date 1995 1 1> : !columnar.date
   // CHECK: %4 = columnar.constant #columnar<date 1994 1 1> : !columnar.date
-  // CHECK: %5 = columnar.constant #columnar.sel_id : !columnar.sel
-  // CHECK: %6 = columnar.read_table #column_lineitem_l_quantity
-  // CHECK: %7 = columnar.read_table #column_lineitem_l_extendedprice
-  // CHECK: %8 = columnar.read_table #column_lineitem_l_discount
-  // CHECK: %9 = columnar.read_table #column_lineitem_l_shipdate
+  // CHECK: %5 = columnar.sel.table #table_lineitem
+  // CHECK: %6 = columnar.read_table #column_lineitem_l_quantity : <!columnar.dec>
+  // CHECK: %7 = columnar.read_table #column_lineitem_l_extendedprice : <!columnar.dec>
+  // CHECK: %8 = columnar.read_table #column_lineitem_l_discount : <!columnar.dec>
+  // CHECK: %9 = columnar.read_table #column_lineitem_l_shipdate : <!columnar.date>
   // CHECK: %10 = columnar.cmp GE %9, %4 : <!columnar.date> sel=%5
   // CHECK: %11 = columnar.sel.filter %5 by %10 filter_sel=%5
   // CHECK: %12 = columnar.cmp LT %9, %3 : <!columnar.date> sel=%11
