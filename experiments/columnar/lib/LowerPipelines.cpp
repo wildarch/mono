@@ -78,8 +78,20 @@ mlir::LogicalResult OpConversion<PrintOp>::matchAndRewrite(
     PrintOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
   // TODO: Chunked read.
-  rewriter.replaceOpWithNewOp<TensorPrintOp>(
-      op, op.getName(), adaptor.getInput(), adaptor.getSel());
+  auto input = adaptor.getInput();
+  auto sel = adaptor.getSel();
+  auto chunkOp = rewriter.create<ChunkOp>(op.getLoc(), mlir::TypeRange{},
+                                          mlir::ValueRange{input, sel});
+  auto &body = chunkOp.getBody().emplaceBlock();
+  input = body.addArgument(input.getType(), input.getLoc());
+  sel = body.addArgument(sel.getType(), sel.getLoc());
+  rewriter.setInsertionPointToStart(&body);
+
+  rewriter.create<TensorPrintOp>(op.getLoc(), op.getName(), input, sel);
+  rewriter.create<ChunkYieldOp>(op.getLoc(), mlir::ValueRange{});
+
+  rewriter.replaceOp(op, chunkOp);
+  return mlir::success();
   return mlir::success();
 }
 
