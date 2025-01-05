@@ -29,45 +29,47 @@ template <typename T> class OpConversion : public mlir::OpConversionPattern<T> {
 
 } // namespace
 
-static constexpr std::size_t BLOCK_SIZE = 1024;
-
-static mlir::Value buildIdentitySelectionVector(mlir::Location loc,
-                                                mlir::OpBuilder &builder) {
-  auto blockSizeOp = builder.create<mlir::arith::ConstantOp>(
-      loc, builder.getIndexAttr(BLOCK_SIZE));
-
-  auto resultType = mlir::RankedTensorType::get(
-      llvm::ArrayRef<std::int64_t>{mlir::ShapedType::kDynamic},
-      builder.getIndexType());
-  auto tensorOp = builder.create<mlir::tensor::GenerateOp>(
-      loc, resultType, mlir::ValueRange{blockSizeOp},
-      [](mlir::OpBuilder &builder, mlir::Location loc, mlir::ValueRange args) {
-        builder.create<mlir::tensor::YieldOp>(loc, args[0]);
-      });
-
-  return tensorOp;
-}
-
-template <>
-mlir::LogicalResult OpConversion<ConstantOp>::matchAndRewrite(
-    ConstantOp op, OpAdaptor adaptor,
-    mlir::ConversionPatternRewriter &rewriter) const {
-  if (llvm::isa<SelIdAttr>(op.getValue())) {
-    // Make identity selection vector.
-    auto selOp = buildIdentitySelectionVector(op.getLoc(), rewriter);
-    rewriter.replaceOp(op, selOp);
-    return mlir::success();
-  }
-
-  return mlir::failure();
-}
-
 template <>
 mlir::LogicalResult OpConversion<ReadTableOp>::matchAndRewrite(
     ReadTableOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
-  rewriter.replaceOpWithNewOp<TensorReadColumnOp>(
-      op, typeConverter->convertType(op.getType()), op.getColumn());
+  auto resultType = typeConverter->convertType(op.getType());
+  // Open a scanner
+  auto scannerOp = rewriter.create<OpenColumnOp>(op.getLoc(), op.getColumn());
+
+  // Chunked read.
+  auto chunkOp = rewriter.create<ChunkOp>(
+      op.getLoc(), mlir::TypeRange{resultType}, mlir::ValueRange{});
+  auto &body = chunkOp.getBody().emplaceBlock();
+  rewriter.setInsertionPointToStart(&body);
+
+  auto readOp =
+      rewriter.create<TensorReadColumnOp>(op.getLoc(), resultType, scannerOp);
+  rewriter.create<ChunkYieldOp>(op.getLoc(), mlir::ValueRange{readOp});
+
+  rewriter.replaceOp(op, chunkOp);
+  return mlir::success();
+}
+
+template <>
+mlir::LogicalResult OpConversion<SelTableOp>::matchAndRewrite(
+    SelTableOp op, OpAdaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  auto resultType = typeConverter->convertType(op.getType());
+  // Open a scanner
+  auto scannerOp = rewriter.create<SelScannerOp>(op.getLoc(), op.getTable());
+
+  // Chunked read.
+  auto chunkOp = rewriter.create<ChunkOp>(
+      op.getLoc(), mlir::TypeRange{resultType}, mlir::ValueRange{});
+  auto &body = chunkOp.getBody().emplaceBlock();
+  rewriter.setInsertionPointToStart(&body);
+
+  auto readOp =
+      rewriter.create<TensorReadColumnOp>(op.getLoc(), resultType, scannerOp);
+  rewriter.create<ChunkYieldOp>(op.getLoc(), mlir::ValueRange{readOp});
+
+  rewriter.replaceOp(op, chunkOp);
   return mlir::success();
 }
 
@@ -75,6 +77,7 @@ template <>
 mlir::LogicalResult OpConversion<PrintOp>::matchAndRewrite(
     PrintOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
+  // TODO: Chunked read.
   rewriter.replaceOpWithNewOp<TensorPrintOp>(
       op, op.getName(), adaptor.getInput(), adaptor.getSel());
   return mlir::success();
@@ -83,9 +86,8 @@ mlir::LogicalResult OpConversion<PrintOp>::matchAndRewrite(
 void LowerPipelines::runOnOperation() {
   mlir::ConversionTarget target(getContext());
   target.addIllegalDialect<ColumnarDialect>();
-  target.addLegalOp<PipelineOp>();
-  target.addLegalOp<TensorReadColumnOp>();
-  target.addLegalOp<TensorPrintOp>();
+  target.addLegalOp<PipelineOp, ChunkOp, ChunkYieldOp, OpenColumnOp,
+                    SelScannerOp, TensorReadColumnOp, TensorPrintOp>();
   target.addLegalDialect<mlir::arith::ArithDialect>();
   target.addLegalDialect<mlir::tensor::TensorDialect>();
 
@@ -102,8 +104,8 @@ void LowerPipelines::runOnOperation() {
   typeConverter.addConversion([](mlir::FloatType t) { return t; });
 
   mlir::RewritePatternSet patterns(&getContext());
-  patterns.add<OpConversion<ConstantOp>, OpConversion<ReadTableOp>,
-               OpConversion<PrintOp>>(typeConverter, &getContext());
+  patterns.add<OpConversion<ReadTableOp>, OpConversion<PrintOp>,
+               OpConversion<SelTableOp>>(typeConverter, &getContext());
 
   if (mlir::failed(mlir::applyFullConversion(getOperation(), target,
                                              std::move(patterns)))) {
