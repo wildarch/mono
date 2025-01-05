@@ -624,6 +624,12 @@ def ChunkOp : Columnar_Op<"chunk"> {
     let regions = (region SizedRegion<1>:$body);
 
     let results = (outs Variadic<TensorCol>:$results);
+
+    let assemblyFormat = [{
+        ($inputs^ `:` type($inputs))? (`->` type($results)^)?
+        $body
+        attr-dict
+    }];
 }
 
 def ChunkYieldOp : Columnar_Op<"chunk.yield", [
@@ -631,18 +637,30 @@ def ChunkYieldOp : Columnar_Op<"chunk.yield", [
         Terminator, 
         HasParent<"ChunkOp">]> {
     let arguments = (ins Variadic<TensorCol>:$inputs);
+
+    let assemblyFormat = [{
+        ($inputs^ `:` type($inputs))? attr-dict
+    }];
 }
 
 def OpenColumnOp : Columnar_Op<"open_column"> {
     let arguments = (ins TableColumn:$column);
 
     let results = (outs ScannerHandle:$result);
+
+    let assemblyFormat = [{
+        $column attr-dict
+    }];
 }
 
 def SelScannerOp : Columnar_Op<"sel_scanner"> {
     let arguments = (ins Table:$table);
 
     let results = (outs ScannerHandle:$result);
+
+    let assemblyFormat = [{
+        $table attr-dict
+    }];
 }
 
 def TensorReadColumnOp : Columnar_Op<"tensor.read_column"> {
