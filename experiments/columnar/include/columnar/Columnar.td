@@ -711,4 +711,13 @@ def LowerPipelines : Pass<"lower-pipelines", "::columnar::PipelineOp"> {
     ];
 }
 
+def MergeChunks : Pass<"merge-chunks", "::columnar::PipelineOp"> {
+    let summary = "Merge all chunks within a pipeline";
+
+    let dependentDialects = [
+        "mlir::arith::ArithDialect",
+        "mlir::tensor::TensorDialect",
+    ];
+}
+
 #endif // COLUMNAR
