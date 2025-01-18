@@ -359,4 +359,16 @@ mlir::LogicalResult SelAddOp::inferReturnTypes(
 
 mlir::OpFoldResult SelTableOp::fold(FoldAdaptor adaptor) { return getTable(); }
 
+void ChunkOp::build(mlir::OpBuilder &builder, mlir::OperationState &state,
+                    mlir::TypeRange resultTypes, mlir::ValueRange inputs) {
+  state.addOperands(inputs);
+  auto *region = state.addRegion();
+  auto &body = region->emplaceBlock();
+  for (auto input : inputs) {
+    body.addArgument(input.getType(), input.getLoc());
+  }
+
+  state.addTypes(resultTypes);
+}
+
 } // namespace columnar

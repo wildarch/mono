@@ -620,6 +620,8 @@ def TensorCol : 1DTensorOf<[AnyType]>;
 
 def ChunkOp : Columnar_Op<"chunk"> {
     let arguments = (ins Variadic<TensorCol>:$inputs);
+    let builders = [OpBuilder<(ins "mlir::TypeRange":$resultTypes, "mlir::ValueRange":$inputs)>];
+    let skipDefaultBuilders = 1;
 
     let regions = (region SizedRegion<1>:$body);
 
