@@ -40,7 +40,7 @@ mlir::LogicalResult OpConversion<ReadTableOp>::matchAndRewrite(
   // Chunked read.
   auto chunkOp = rewriter.create<ChunkOp>(
       op.getLoc(), mlir::TypeRange{resultType}, mlir::ValueRange{});
-  auto &body = chunkOp.getBody().emplaceBlock();
+  auto &body = chunkOp.getBody().front();
   rewriter.setInsertionPointToStart(&body);
 
   auto readOp =
@@ -62,7 +62,7 @@ mlir::LogicalResult OpConversion<SelTableOp>::matchAndRewrite(
   // Chunked read.
   auto chunkOp = rewriter.create<ChunkOp>(
       op.getLoc(), mlir::TypeRange{resultType}, mlir::ValueRange{});
-  auto &body = chunkOp.getBody().emplaceBlock();
+  auto &body = chunkOp.getBody().front();
   rewriter.setInsertionPointToStart(&body);
 
   auto readOp =
@@ -82,9 +82,9 @@ mlir::LogicalResult OpConversion<PrintOp>::matchAndRewrite(
   auto sel = adaptor.getSel();
   auto chunkOp = rewriter.create<ChunkOp>(op.getLoc(), mlir::TypeRange{},
                                           mlir::ValueRange{input, sel});
-  auto &body = chunkOp.getBody().emplaceBlock();
-  input = body.addArgument(input.getType(), input.getLoc());
-  sel = body.addArgument(sel.getType(), sel.getLoc());
+  auto &body = chunkOp.getBody().front();
+  input = body.getArgument(0);
+  sel = body.getArgument(1);
   rewriter.setInsertionPointToStart(&body);
 
   rewriter.create<TensorPrintOp>(op.getLoc(), op.getName(), input, sel);
