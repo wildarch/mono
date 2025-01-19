@@ -704,18 +704,18 @@ def AddSelectionVectors: Pass<"add-selection-vectors", "::columnar::QueryOp"> {
 
 def LowerPipelines : Pass<"lower-pipelines", "::columnar::PipelineOp"> {
     let summary = "Lower pipelines to operations over tensors";
-
-    let dependentDialects = [
-        "mlir::arith::ArithDialect",
-        "mlir::tensor::TensorDialect",
-    ];
 }
 
 def MergeChunks : Pass<"merge-chunks", "::columnar::PipelineOp"> {
     let summary = "Merge all chunks within a pipeline";
+}
+
+def LowerOps : Pass<"lower-ops", "mlir::ModuleOp"> {
+    let summary = "Lower columnar ops into standard MLIR dialects";
 
     let dependentDialects = [
         "mlir::arith::ArithDialect",
+        "mlir::func::FuncDialect",
         "mlir::tensor::TensorDialect",
     ];
 }
