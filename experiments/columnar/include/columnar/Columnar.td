@@ -230,7 +230,8 @@ def LowerPipelineOpInterface : OpInterface<"LowerPipelineOpInterface"> {
         "mlir::OpBuilder&":$builder, 
         "mlir::ValueRange":$globals,
         "mlir::ValueRange":$operands,
-        "llvm::SmallVectorImpl<mlir::Value>&":$results)
+        "llvm::SmallVectorImpl<mlir::Value>&":$results,
+        "llvm::SmallVectorImpl<mlir::Value>&":$haveMore)
     >,
   ];
 }
@@ -697,33 +698,6 @@ def PipelineLowYieldOp : Columnar_Op<"pipeline_low.yield", [
     }];
 }
 
-def ChunkOp : Columnar_Op<"chunk"> {
-    let arguments = (ins Variadic<TensorCol>:$inputs);
-    let builders = [OpBuilder<(ins "mlir::TypeRange":$resultTypes, "mlir::ValueRange":$inputs)>];
-    let skipDefaultBuilders = 1;
-
-    let regions = (region SizedRegion<1>:$body);
-
-    let results = (outs Variadic<TensorCol>:$results);
-
-    let assemblyFormat = [{
-        ($inputs^ `:` type($inputs))? (`->` type($results)^)?
-        $body
-        attr-dict
-    }];
-}
-
-def ChunkYieldOp : Columnar_Op<"chunk.yield", [
-        Pure, 
-        Terminator, 
-        HasParent<"ChunkOp">]> {
-    let arguments = (ins Variadic<TensorCol>:$inputs);
-
-    let assemblyFormat = [{
-        ($inputs^ `:` type($inputs))? attr-dict
-    }];
-}
-
 def OpenColumnOp : Columnar_Op<"open_column"> {
     let arguments = (ins TableColumn:$column);
 
@@ -748,8 +722,10 @@ def TensorReadColumnOp : Columnar_Op<"tensor.read_column"> {
     let summary = "Reads a column chunk as a tensor";
 
     let arguments = (ins ScannerHandle:$scanner);
+    // haveMore is always I1
+    let builders = [OpBuilder<(ins "mlir::Type":$type, "mlir::Value":$scanner)>];
 
-    let results = (outs TensorCol:$result);
+    let results = (outs TensorCol:$result, I1:$haveMore);
 
     let assemblyFormat = [{
         $scanner `:` type($result) attr-dict
@@ -783,6 +759,10 @@ def AddSelectionVectors: Pass<"add-selection-vectors", "::columnar::QueryOp"> {
 
 def LowerPipelines : Pass<"lower-pipelines", "mlir::ModuleOp"> {
     let summary = "Lower pipelines to operations over tensors";
+
+    let dependentDialects = [
+        "mlir::arith::ArithDialect",
+    ];
 }
 
 def LowerOps : Pass<"lower-ops", "mlir::ModuleOp"> {

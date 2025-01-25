@@ -9,9 +9,11 @@
 // CHECK: columnar.pipeline_low.yield %[[#SEL_SCAN]], %[[#COL_SCAN]]
 //
 // CHECK-LABEL: body {
-// CHECK: %[[#SEL:]] = columnar.tensor.read_column %arg0 : tensor<?xindex>
-// CHECK: %[[#COL:]] = columnar.tensor.read_column %arg1 : tensor<?xf64>
-// CHECK: columnar.tensor.print "l_value" %[[#COL]] : tensor<?xf64> sel=%[[#SEL]] : tensor<?xindex>
+// CHECK: %result, %haveMore = columnar.tensor.read_column %arg0 : tensor<?xindex>
+// CHECK: %result_0, %haveMore_1 = columnar.tensor.read_column %arg1 : tensor<?xf64>
+// CHECK: columnar.tensor.print "l_value" %result_0 : tensor<?xf64> sel=%result : tensor<?xindex>
+// CHECK: %0 = arith.andi %haveMore, %haveMore_1 : i1
+// CHECK: columnar.pipeline_low.yield %0 : i1
 columnar.pipeline {
   %0 = columnar.sel.table #table_mytable
   %1 = columnar.read_table #column_mytable_l_value : <f64>
