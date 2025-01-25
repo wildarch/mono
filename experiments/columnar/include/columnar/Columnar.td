@@ -722,13 +722,21 @@ def TensorReadColumnOp : Columnar_Op<"tensor.read_column"> {
     let summary = "Reads a column chunk as a tensor";
 
     let arguments = (ins ScannerHandle:$scanner);
-    // haveMore is always I1
-    let builders = [OpBuilder<(ins "mlir::Type":$type, "mlir::Value":$scanner)>];
 
-    let results = (outs TensorCol:$result, I1:$haveMore);
+    let results = (outs TensorCol:$result);
 
     let assemblyFormat = [{
         $scanner `:` type($result) attr-dict
+    }];
+}
+
+def ScannerHaveMoreOp : Columnar_Op<"scanner.have_more", [Pure]> {
+    let arguments = (ins ScannerHandle:$scanner);
+
+    let results = (outs I1:$result);
+
+    let assemblyFormat = [{
+        $scanner attr-dict
     }];
 }
 
