@@ -18,11 +18,19 @@
 #define GET_TYPEDEF_CLASSES
 #include "columnar/Types.h.inc"
 
+namespace mlir {
+
+class RewriterBase;
+
+} // namespace mlir
+
 namespace columnar {
 
 template <typename ConcreteType>
 class IsProjection
     : public mlir::OpTrait::TraitBase<ConcreteType, IsProjection> {};
+
+#include "columnar/Interfaces.h.inc"
 
 } // namespace columnar
 
