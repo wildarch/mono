@@ -18,17 +18,6 @@ public:
   void runOnOperation() final;
 };
 
-/*
-template <typename T> class OpConversion : public mlir::OpConversionPattern<T> {
-  using mlir::OpConversionPattern<T>::OpConversionPattern;
-
-  mlir::LogicalResult
-  matchAndRewrite(T op,
-                  typename mlir::OpConversionPattern<T>::OpAdaptor adaptor,
-                  mlir::ConversionPatternRewriter &rewriter) const override;
-};
-*/
-
 } // namespace
 
 // TODO: Use a proper type converter instead.
@@ -70,11 +59,13 @@ mlir::LogicalResult SelTableOp::lowerGlobalClose(mlir::OpBuilder &builder,
 mlir::LogicalResult
 SelTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
                       mlir::ValueRange operands,
-                      llvm::SmallVectorImpl<mlir::Value> &results) {
+                      llvm::SmallVectorImpl<mlir::Value> &results,
+                      llvm::SmallVectorImpl<mlir::Value> &haveMore) {
   auto scanner = globals[0];
   auto readOp = builder.create<TensorReadColumnOp>(
       getLoc(), convertType(getType()), scanner);
-  results.push_back(readOp);
+  results.push_back(readOp.getResult());
+  haveMore.push_back(readOp.getHaveMore());
   return mlir::success();
 }
 
@@ -97,11 +88,13 @@ mlir::LogicalResult ReadTableOp::lowerGlobalClose(mlir::OpBuilder &builder,
 mlir::LogicalResult
 ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
                        mlir::ValueRange operands,
-                       llvm::SmallVectorImpl<mlir::Value> &results) {
+                       llvm::SmallVectorImpl<mlir::Value> &results,
+                       llvm::SmallVectorImpl<mlir::Value> &haveMore) {
   auto scanner = globals[0];
   auto readOp = builder.create<TensorReadColumnOp>(
       getLoc(), convertType(getType()), scanner);
-  results.push_back(readOp);
+  results.push_back(readOp.getResult());
+  haveMore.push_back(readOp.getHaveMore());
   return mlir::success();
 }
 
@@ -122,7 +115,8 @@ mlir::LogicalResult PrintOp::lowerGlobalClose(mlir::OpBuilder &builder,
 mlir::LogicalResult
 PrintOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
                    mlir::ValueRange operands,
-                   llvm::SmallVectorImpl<mlir::Value> &results) {
+                   llvm::SmallVectorImpl<mlir::Value> &results,
+                   llvm::SmallVectorImpl<mlir::Value> &haveMore) {
   Adaptor adaptor(operands, *this);
 
   auto sel = adaptor.getSel();
@@ -132,74 +126,6 @@ PrintOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
 
   return mlir::success();
 }
-
-/*
-template <>
-mlir::LogicalResult OpConversion<ReadTableOp>::matchAndRewrite(
-    ReadTableOp op, OpAdaptor adaptor,
-    mlir::ConversionPatternRewriter &rewriter) const {
-  auto resultType = typeConverter->convertType(op.getType());
-  // Open a scanner
-  auto scannerOp = rewriter.create<OpenColumnOp>(op.getLoc(), op.getColumn());
-
-  // Chunked read.
-  auto chunkOp = rewriter.create<ChunkOp>(
-      op.getLoc(), mlir::TypeRange{resultType}, mlir::ValueRange{});
-  auto &body = chunkOp.getBody().front();
-  rewriter.setInsertionPointToStart(&body);
-
-  auto readOp =
-      rewriter.create<TensorReadColumnOp>(op.getLoc(), resultType, scannerOp);
-  rewriter.create<ChunkYieldOp>(op.getLoc(), mlir::ValueRange{readOp});
-
-  rewriter.replaceOp(op, chunkOp);
-  return mlir::success();
-}
-
-template <>
-mlir::LogicalResult OpConversion<SelTableOp>::matchAndRewrite(
-    SelTableOp op, OpAdaptor adaptor,
-    mlir::ConversionPatternRewriter &rewriter) const {
-  auto resultType = typeConverter->convertType(op.getType());
-  // Open a scanner
-  auto scannerOp = rewriter.create<SelScannerOp>(op.getLoc(), op.getTable());
-
-  // Chunked read.
-  auto chunkOp = rewriter.create<ChunkOp>(
-      op.getLoc(), mlir::TypeRange{resultType}, mlir::ValueRange{});
-  auto &body = chunkOp.getBody().front();
-  rewriter.setInsertionPointToStart(&body);
-
-  auto readOp =
-      rewriter.create<TensorReadColumnOp>(op.getLoc(), resultType, scannerOp);
-  rewriter.create<ChunkYieldOp>(op.getLoc(), mlir::ValueRange{readOp});
-
-  rewriter.replaceOp(op, chunkOp);
-  return mlir::success();
-}
-
-template <>
-mlir::LogicalResult OpConversion<PrintOp>::matchAndRewrite(
-    PrintOp op, OpAdaptor adaptor,
-    mlir::ConversionPatternRewriter &rewriter) const {
-  // TODO: Chunked read.
-  auto input = adaptor.getInput();
-  auto sel = adaptor.getSel();
-  auto chunkOp = rewriter.create<ChunkOp>(op.getLoc(), mlir::TypeRange{},
-                                          mlir::ValueRange{input, sel});
-  auto &body = chunkOp.getBody().front();
-  input = body.getArgument(0);
-  sel = body.getArgument(1);
-  rewriter.setInsertionPointToStart(&body);
-
-  rewriter.create<TensorPrintOp>(op.getLoc(), op.getName(), input, sel);
-  rewriter.create<ChunkYieldOp>(op.getLoc(), mlir::ValueRange{});
-
-  rewriter.replaceOp(op, chunkOp);
-  return mlir::success();
-  return mlir::success();
-}
-*/
 
 static void addArgumentsFor(mlir::Block &block, mlir::ValueRange values) {
   for (auto v : values) {
@@ -281,6 +207,9 @@ static mlir::LogicalResult lowerPipeline(mlir::IRRewriter &rewriter,
     // Maps op results to the new results in the lowered body.
     mlir::IRMapping mapping;
 
+    // Tracks whether all ops in the body want to be called again.
+    llvm::SmallVector<mlir::Value> haveMore;
+
     auto args = bodyBlock.getArguments();
     for (auto [op, numGlobals] : llvm::zip_equal(toLower, globalsPerOp)) {
       auto globals = args.take_front(numGlobals);
@@ -293,7 +222,8 @@ static mlir::LogicalResult lowerPipeline(mlir::IRRewriter &rewriter,
       }
 
       llvm::SmallVector<mlir::Value> results;
-      if (mlir::failed(op.lowerBody(rewriter, globals, operands, results))) {
+      if (mlir::failed(
+              op.lowerBody(rewriter, globals, operands, results, haveMore))) {
         return mlir::failure();
       }
 
@@ -301,8 +231,19 @@ static mlir::LogicalResult lowerPipeline(mlir::IRRewriter &rewriter,
       mapping.map(op->getResults(), results);
     }
 
+    if (haveMore.empty()) {
+      return pipelineOp->emitOpError("no ops populate 'haveMore'");
+    }
+
+    // Merge all 'haveMore' values
+    auto allHaveMore = haveMore[0];
+    for (auto v : mlir::ValueRange{haveMore}.drop_front()) {
+      allHaveMore =
+          rewriter.create<mlir::arith::AndIOp>(v.getLoc(), allHaveMore, v);
+    }
+
     rewriter.create<PipelineLowYieldOp>(pipelineOp.getLoc(),
-                                        mlir::ValueRange{});
+                                        mlir::ValueRange{allHaveMore});
   }
 
   rewriter.replaceOp(pipelineOp, lowerOp);
@@ -310,36 +251,6 @@ static mlir::LogicalResult lowerPipeline(mlir::IRRewriter &rewriter,
 }
 
 void LowerPipelines::runOnOperation() {
-  /*
-  mlir::ConversionTarget target(getContext());
-  target.addIllegalDialect<ColumnarDialect>();
-  target.addLegalOp<PipelineOp, ChunkOp, ChunkYieldOp, OpenColumnOp,
-                    SelScannerOp, TensorReadColumnOp, TensorPrintOp>();
-  target.addLegalDialect<mlir::arith::ArithDialect>();
-  target.addLegalDialect<mlir::tensor::TensorDialect>();
-
-  mlir::TypeConverter typeConverter;
-  typeConverter.addConversion([&](ColumnType t) {
-    return mlir::RankedTensorType::get(
-        llvm::ArrayRef<std::int64_t>{mlir::ShapedType::kDynamic},
-        typeConverter.convertType(t.getElementType()));
-  });
-
-  // Element types
-  typeConverter.addConversion(
-      [](SelectType t) { return mlir::IndexType::get(t.getContext()); });
-  typeConverter.addConversion([](mlir::FloatType t) { return t; });
-
-  mlir::RewritePatternSet patterns(&getContext());
-  patterns.add<OpConversion<ReadTableOp>, OpConversion<PrintOp>,
-               OpConversion<SelTableOp>>(typeConverter, &getContext());
-
-  if (mlir::failed(mlir::applyFullConversion(getOperation(), target,
-                                             std::move(patterns)))) {
-    return signalPassFailure();
-  }
-  */
-
   llvm::SmallVector<PipelineOp> pipelineOps(
       getOperation().getOps<PipelineOp>());
   mlir::IRRewriter rewriter(getOperation());
