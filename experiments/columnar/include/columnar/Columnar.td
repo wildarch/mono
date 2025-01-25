@@ -195,6 +195,46 @@ def IsProjection : NativeOpTrait<"IsProjection"> {
     let cppNamespace = "::columnar";
 }
 
+def LowerPipelineOpInterface : OpInterface<"LowerPipelineOpInterface"> {
+  let methods = [
+    InterfaceMethod<
+      "Initialize global state",
+      "mlir::LogicalResult", 
+      "lowerGlobalOpen", 
+      (ins 
+        "mlir::OpBuilder&":$builder, 
+        "llvm::SmallVectorImpl<mlir::Value>&":$newGlobals),
+        /*methodBody=*/[{}],
+        /*defaultImplementation=*/[{
+            return mlir::success();
+        }]
+    >,
+    InterfaceMethod<
+      "Free global state",
+      "mlir::LogicalResult", 
+      "lowerGlobalClose", 
+      (ins 
+        "mlir::OpBuilder&":$builder, 
+        "mlir::ValueRange":$globals),
+        /*methodBody=*/[{}],
+        /*defaultImplementation=*/[{
+            assert (globals.empty() && "leaking globals");
+            return mlir::success();
+        }]
+    >,
+    InterfaceMethod<
+      "Lower the body",
+      "mlir::LogicalResult", 
+      "lowerBody", 
+      (ins 
+        "mlir::OpBuilder&":$builder, 
+        "mlir::ValueRange":$globals,
+        "mlir::ValueRange":$operands,
+        "llvm::SmallVectorImpl<mlir::Value>&":$results)
+    >,
+  ];
+}
+
 def QueryOp : Columnar_Op<"query", [IsolatedFromAbove]> {
     let summary = "Represents a full query";
 
@@ -238,7 +278,11 @@ def QueryOutputOp : Columnar_Op<"query.output", [
 // ================================= CORE OPS =================================
 // ============================================================================
 
-def ReadTableOp : Columnar_Op<"read_table", [Pure]> {
+def ReadTableOp : Columnar_Op<"read_table", [
+        Pure,
+        DeclareOpInterfaceMethods<
+            LowerPipelineOpInterface, 
+            ["lowerGlobalOpen", "lowerGlobalClose"]>]> {
     let summary = "Reads a column from a table";
 
     let arguments = (ins TableColumn:$column);
@@ -578,8 +622,13 @@ def SelFilterOp : Columnar_Op<"sel.filter", [Pure]> {
     }];
 }
 
-def SelTableOp : Columnar_Op<"sel.table", [Pure, ConstantLike]> {
-    let summary = "The selection vector a base table";
+def SelTableOp : Columnar_Op<"sel.table", [
+        Pure, 
+        ConstantLike,
+        DeclareOpInterfaceMethods<
+            LowerPipelineOpInterface, 
+            ["lowerGlobalOpen", "lowerGlobalClose"]>]> {
+    let summary = "The selection vector of a base table";
 
     let arguments = (ins Table:$table);
 
@@ -593,17 +642,19 @@ def SelTableOp : Columnar_Op<"sel.table", [Pure, ConstantLike]> {
 }
 
 // TODO: Define pass to introduce this
-def PrintOp : Columnar_Op<"print"> {
-    let arguments = (ins StrAttr:$name, Column:$input, ColumnOf<Select>:$sel);
+def PrintOp : Columnar_Op<"print", [
+        DeclareOpInterfaceMethods<
+            LowerPipelineOpInterface, 
+            ["lowerGlobalOpen", "lowerGlobalClose"]>]> {
+    let arguments = (ins StringArray:$names, Variadic<Column>:$inputs, ColumnOf<Select>:$sel);
 
     let assemblyFormat = [{
-        $name 
-        $input `:` type($input) 
+        $names
+        $inputs `:` type($inputs) 
         `sel` `` `=` `` $sel
         attr-dict
     }];
 }
-
 
 // ============================================================================
 // =========================== LOWER PIPELINES OPS ============================
@@ -617,6 +668,34 @@ def PipelineOp : Columnar_Op<"pipeline", [NoTerminator, IsolatedFromAbove]> {
 }
 
 def TensorCol : 1DTensorOf<[AnyType]>;
+
+def PipelineLowOp : Columnar_Op<"pipeline_low", [IsolatedFromAbove]> {
+    let regions = (region 
+        MaxSizedRegion<1>:$globalOpen,
+        MaxSizedRegion<1>:$open,
+        SizedRegion<1>:$body,
+        MaxSizedRegion<1>:$close,
+        MaxSizedRegion<1>:$globalClose);
+    
+    let assemblyFormat = [{
+        (`global_open` $globalOpen^)?
+        (`open` $open^)?
+        `body` $body
+        (`close` $close^)?
+        (`global_close` $globalClose^)?
+        attr-dict
+    }];
+}
+
+def PipelineLowYieldOp : Columnar_Op<"pipeline_low.yield", [
+        Terminator, 
+        HasParent<"PipelineLowOp">]> {
+    let arguments = (ins Variadic<AnyType>:$values);
+
+    let assemblyFormat = [{
+        ($values^ `:` type($values))? attr-dict
+    }];
+}
 
 def ChunkOp : Columnar_Op<"chunk"> {
     let arguments = (ins Variadic<TensorCol>:$inputs);
@@ -702,12 +781,8 @@ def AddSelectionVectors: Pass<"add-selection-vectors", "::columnar::QueryOp"> {
     let summary = "Adds explicit selection vectors";
 }
 
-def LowerPipelines : Pass<"lower-pipelines", "::columnar::PipelineOp"> {
+def LowerPipelines : Pass<"lower-pipelines", "mlir::ModuleOp"> {
     let summary = "Lower pipelines to operations over tensors";
-}
-
-def MergeChunks : Pass<"merge-chunks", "::columnar::PipelineOp"> {
-    let summary = "Merge all chunks within a pipeline";
 }
 
 def LowerOps : Pass<"lower-ops", "mlir::ModuleOp"> {

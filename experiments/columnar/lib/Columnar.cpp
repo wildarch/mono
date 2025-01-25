@@ -21,6 +21,8 @@
 
 namespace columnar {
 
+#include "columnar/Interfaces.cpp.inc"
+
 mlir::Type getCountElementType(mlir::MLIRContext *ctx) {
   return mlir::IntegerType::get(ctx, /*width=*/64, mlir::IntegerType::Signed);
 }
