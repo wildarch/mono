@@ -361,10 +361,4 @@ mlir::LogicalResult SelAddOp::inferReturnTypes(
 
 mlir::OpFoldResult SelTableOp::fold(FoldAdaptor adaptor) { return getTable(); }
 
-void TensorReadColumnOp::build(mlir::OpBuilder &builder,
-                               mlir::OperationState &state, mlir::Type result,
-                               mlir::Value scanner) {
-  build(builder, state, result, builder.getI1Type(), scanner);
-}
-
 } // namespace columnar

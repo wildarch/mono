@@ -64,8 +64,10 @@ SelTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
   auto scanner = globals[0];
   auto readOp = builder.create<TensorReadColumnOp>(
       getLoc(), convertType(getType()), scanner);
-  results.push_back(readOp.getResult());
-  haveMore.push_back(readOp.getHaveMore());
+  results.push_back(readOp);
+
+  auto haveMoreOp = builder.create<ScannerHaveMoreOp>(getLoc(), scanner);
+  haveMore.push_back(haveMoreOp);
   return mlir::success();
 }
 
@@ -93,8 +95,10 @@ ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
   auto scanner = globals[0];
   auto readOp = builder.create<TensorReadColumnOp>(
       getLoc(), convertType(getType()), scanner);
-  results.push_back(readOp.getResult());
-  haveMore.push_back(readOp.getHaveMore());
+  results.push_back(readOp);
+
+  auto haveMoreOp = builder.create<ScannerHaveMoreOp>(getLoc(), scanner);
+  haveMore.push_back(haveMoreOp);
   return mlir::success();
 }
 
