@@ -9,10 +9,10 @@
 // Not part of predicate
 // CHECK-LABEL: columnar.query {
 columnar.query {
-    // CHECK: %[[#A:]] = columnar.read_table #column_A_a
-    %0 = columnar.read_table #column_A_a : <si64>
-    // CHECK: %[[#B:]] = columnar.read_table #column_A_b
-    %1 = columnar.read_table #column_A_b : <si64>
+    // CHECK: %[[#A:]] = columnar.read_column #column_A_a
+    %0 = columnar.read_column #column_A_a : <si64>
+    // CHECK: %[[#B:]] = columnar.read_column #column_A_b
+    %1 = columnar.read_column #column_A_b : <si64>
 
     %2 = columnar.cmp EQ %0, %1 : <si64>
 
@@ -41,10 +41,10 @@ columnar.query {
 // Only needed for predicate
 // CHECK-LABEL: columnar.query {
 columnar.query {
-    // CHECK: %[[#A:]] = columnar.read_table #column_A_a
-    %0 = columnar.read_table #column_A_a : <si64>
-    // CHECK: %[[#B:]] = columnar.read_table #column_A_b
-    %1 = columnar.read_table #column_A_b : <si64>
+    // CHECK: %[[#A:]] = columnar.read_column #column_A_a
+    %0 = columnar.read_column #column_A_a : <si64>
+    // CHECK: %[[#B:]] = columnar.read_column #column_A_b
+    %1 = columnar.read_column #column_A_b : <si64>
 
     %2 = columnar.cmp EQ %0, %1 : <si64>
 
@@ -68,10 +68,10 @@ columnar.query {
 // Needed for predicate and output
 // CHECK-LABEL: columnar.query {
 columnar.query {
-    // CHECK: %[[#A:]] = columnar.read_table #column_A_a
-    %0 = columnar.read_table #column_A_a : <si64>
-    // CHECK: %[[#B:]] = columnar.read_table #column_A_b
-    %1 = columnar.read_table #column_A_b : <si64>
+    // CHECK: %[[#A:]] = columnar.read_column #column_A_a
+    %0 = columnar.read_column #column_A_a : <si64>
+    // CHECK: %[[#B:]] = columnar.read_column #column_A_b
+    %1 = columnar.read_column #column_A_b : <si64>
 
     %2 = columnar.cmp EQ %0, %1 : <si64>
 
