@@ -9,10 +9,10 @@
 // LHS
 // CHECK-LABEL: columnar.query {
 columnar.query {
-    // CHECK: %[[#A:]] = columnar.read_table #column_A_a
-    %0 = columnar.read_table #column_A_a : <si64>
-    // CHECK: %[[#B:]] = columnar.read_table #column_B_b
-    %1 = columnar.read_table #column_B_b : <si64>
+    // CHECK: %[[#A:]] = columnar.read_column #column_A_a
+    %0 = columnar.read_column #column_A_a : <si64>
+    // CHECK: %[[#B:]] = columnar.read_column #column_B_b
+    %1 = columnar.read_column #column_B_b : <si64>
 
     // CHECK: %[[#SELECT:]] = columnar.select %[[#A]]
     // CHECK:   columnar.pred %arg0
@@ -45,10 +45,10 @@ columnar.query {
 // RHS
 // CHECK-LABEL: columnar.query {
 columnar.query {
-    // CHECK: %[[#A:]] = columnar.read_table #column_A_a
-    %0 = columnar.read_table #column_A_a : <si64>
-    // CHECK: %[[#B:]] = columnar.read_table #column_B_b
-    %1 = columnar.read_table #column_B_b : <si64>
+    // CHECK: %[[#A:]] = columnar.read_column #column_A_a
+    %0 = columnar.read_column #column_A_a : <si64>
+    // CHECK: %[[#B:]] = columnar.read_column #column_B_b
+    %1 = columnar.read_column #column_B_b : <si64>
 
     // CHECK: %[[#SELECT:]] = columnar.select %[[#B]]
     // CHECK:   columnar.pred %arg0
@@ -81,10 +81,10 @@ columnar.query {
 // Depends on both sides, no changes
 // CHECK-LABEL: columnar.query {
 columnar.query {
-    // CHECK: %[[#A:]] = columnar.read_table #column_A_a
-    %0 = columnar.read_table #column_A_a : <si64>
-    // CHECK: %[[#B:]] = columnar.read_table #column_B_b
-    %1 = columnar.read_table #column_B_b : <si64>
+    // CHECK: %[[#A:]] = columnar.read_column #column_A_a
+    %0 = columnar.read_column #column_A_a : <si64>
+    // CHECK: %[[#B:]] = columnar.read_column #column_B_b
+    %1 = columnar.read_column #column_B_b : <si64>
 
     // CHECK: %[[#JOIN:]]:2 = columnar.join (%[[#A]]) (%[[#B]])
     %2:2 = columnar.join (%0) (%1) : (!col_si64) (!col_si64)
@@ -114,10 +114,10 @@ columnar.query {
 // LHS, with reordered inputs
 // CHECK-LABEL: columnar.query {
 columnar.query {
-    // CHECK: %[[#A:]] = columnar.read_table #column_A_a
-    %0 = columnar.read_table #column_A_a : <si64>
-    // CHECK: %[[#B:]] = columnar.read_table #column_B_b
-    %1 = columnar.read_table #column_B_b : <si64>
+    // CHECK: %[[#A:]] = columnar.read_column #column_A_a
+    %0 = columnar.read_column #column_A_a : <si64>
+    // CHECK: %[[#B:]] = columnar.read_column #column_B_b
+    %1 = columnar.read_column #column_B_b : <si64>
 
     // CHECK: %[[#SELECT:]] = columnar.select %[[#A]]
     // CHECK:   columnar.pred %arg0

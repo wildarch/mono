@@ -40,50 +40,44 @@ static mlir::RankedTensorType convertType(ColumnType t) {
       convertElementType(t.getElementType()));
 }
 
-// SelTableOp
-mlir::LogicalResult
-SelTableOp::lowerGlobalOpen(mlir::OpBuilder &builder,
-                            llvm::SmallVectorImpl<mlir::Value> &newGlobals) {
-  // Open a scanner
-  auto scannerOp = builder.create<SelScannerOp>(getLoc(), getTable());
-  newGlobals.push_back(scannerOp);
-  return mlir::success();
+static mlir::RankedTensorType getSelectionVectorType(mlir::OpBuilder &builder) {
+  return mlir::RankedTensorType::get(
+      llvm::ArrayRef<std::int64_t>{mlir::ShapedType::kDynamic},
+      builder.getIndexType());
 }
 
-mlir::LogicalResult SelTableOp::lowerGlobalClose(mlir::OpBuilder &builder,
-                                                 mlir::ValueRange globals) {
-  // TODO: close the scanner
-  return mlir::success();
-}
-
-mlir::LogicalResult
-SelTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
-                      mlir::ValueRange operands,
-                      llvm::SmallVectorImpl<mlir::Value> &results,
-                      llvm::SmallVectorImpl<mlir::Value> &haveMore) {
-  auto scanner = globals[0];
-  auto readOp = builder.create<TensorReadColumnOp>(
-      getLoc(), convertType(getType()), scanner);
-  results.push_back(readOp);
-
-  auto haveMoreOp = builder.create<ScannerHaveMoreOp>(getLoc(), scanner);
-  haveMore.push_back(haveMoreOp);
-  return mlir::success();
+// Generate the iota selection vector (0..size)
+static mlir::tensor::GenerateOp
+buildIotaSelectionVector(mlir::OpBuilder &builder, mlir::Location loc,
+                         mlir::Value size) {
+  return builder.create<mlir::tensor::GenerateOp>(
+      loc, getSelectionVectorType(builder), mlir::ValueRange{size},
+      [](mlir::OpBuilder &builder, mlir::Location loc,
+         mlir::ValueRange indices) {
+        builder.create<mlir::tensor::YieldOp>(loc, indices[0]);
+      });
 }
 
 // ReadTableOp
 mlir::LogicalResult
 ReadTableOp::lowerGlobalOpen(mlir::OpBuilder &builder,
                              llvm::SmallVectorImpl<mlir::Value> &newGlobals) {
-  // Open a scanner
-  auto scannerOp = builder.create<OpenColumnOp>(getLoc(), getColumn());
+  // Open scanner
+  auto scannerOp = builder.create<TableScannerOpenOp>(getLoc(), getTable());
   newGlobals.push_back(scannerOp);
+
+  // Open columns
+  for (auto col : getColumnsToRead()) {
+    auto columnOp = builder.create<TableColumnOpenOp>(getLoc(), col);
+    newGlobals.push_back(columnOp);
+  }
+
   return mlir::success();
 }
 
 mlir::LogicalResult ReadTableOp::lowerGlobalClose(mlir::OpBuilder &builder,
                                                   mlir::ValueRange globals) {
-  // TODO: close the scanner
+  // TODO: close the scanner and columns
   return mlir::success();
 }
 
@@ -93,12 +87,33 @@ ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
                        llvm::SmallVectorImpl<mlir::Value> &results,
                        llvm::SmallVectorImpl<mlir::Value> &haveMore) {
   auto scanner = globals[0];
-  auto readOp = builder.create<TensorReadColumnOp>(
-      getLoc(), convertType(getType()), scanner);
-  results.push_back(readOp);
+  auto columns = globals.drop_front();
 
-  auto haveMoreOp = builder.create<ScannerHaveMoreOp>(getLoc(), scanner);
-  haveMore.push_back(haveMoreOp);
+  // Claim a chunk of rows to read
+  auto claimOp = builder.create<TableScannerClaimChunkOp>(getLoc(), scanner);
+
+  // If the chunk has size > 0, there may be more to read.
+  auto zeroOp = builder.create<mlir::arith::ConstantOp>(
+      getLoc(), builder.getIndexType(), builder.getIndexAttr(0));
+  auto haveRowsOp = builder.create<mlir::arith::CmpIOp>(
+      getLoc(), mlir::arith::CmpIPredicate::ugt, claimOp.getSize(), zeroOp);
+  haveMore.push_back(haveRowsOp);
+
+  auto selOp = buildIotaSelectionVector(builder, getLoc(), claimOp.getSize());
+  results.push_back(selOp);
+
+  // Read the columns
+  for (auto [col, type] : llvm::zip_equal(columns, getCol().getTypes())) {
+    auto tensorType = convertType(llvm::cast<ColumnType>(type));
+    if (!tensorType) {
+      return mlir::failure();
+    }
+
+    auto readOp = builder.create<TableColumnReadOp>(
+        getLoc(), tensorType, col, claimOp.getStart(), claimOp.getSize());
+    results.push_back(readOp);
+  }
+
   return mlir::success();
 }
 
