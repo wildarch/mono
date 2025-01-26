@@ -306,7 +306,7 @@ void SQLParser::parseFromRelation(const pg_query::RangeVar &rel) {
   llvm::SmallVector<mlir::Value> columnReads;
   llvm::SmallVector<mlir::StringAttr> columnNames;
   for (auto col : columns) {
-    auto readOp = _builder.create<columnar::ReadTableOp>(
+    auto readOp = _builder.create<columnar::ReadColumnOp>(
         loc(rel.location()),
         _builder.getType<columnar::ColumnType>(col.getType()), col);
     columnReads.push_back(readOp);
@@ -1266,7 +1266,7 @@ mlir::StringAttr SQLParser::columnName(const pg_query::ResTarget &target,
 mlir::StringAttr SQLParser::columnName(mlir::Value column) {
   // TODO: dataflow analysis?
   auto res = llvm::dyn_cast<mlir::OpResult>(column);
-  if (auto readOp = column.getDefiningOp<columnar::ReadTableOp>()) {
+  if (auto readOp = column.getDefiningOp<columnar::ReadColumnOp>()) {
     return _builder.getStringAttr(readOp.getColumn().getName());
   } else if (auto joinOp = column.getDefiningOp<columnar::JoinOp>()) {
     // Take from input.

@@ -7,10 +7,10 @@
 #column_B_a = #columnar.table_col<#table_B "a" : si64>
 
 columnar.query {
-    // CHECK: %[[#A:]] = columnar.read_table #column_A_a
-    %0 = columnar.read_table #column_A_a : <si64>
-    // CHECK: %[[#B:]] = columnar.read_table #column_B_a
-    %1 = columnar.read_table #column_B_a : <si64>
+    // CHECK: %[[#A:]] = columnar.read_column #column_A_a
+    %0 = columnar.read_column #column_A_a : <si64>
+    // CHECK: %[[#B:]] = columnar.read_column #column_B_a
+    %1 = columnar.read_column #column_B_a : <si64>
 
     // CHECK: %[[#SELECT_A:]] = columnar.select %[[#A]]
     // CHECK:   columnar.pred %arg0

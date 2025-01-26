@@ -1,11 +1,11 @@
 columnar.query {
     // From Employee
-    %id = columnar.read_table "Employee" "id" : <ui64>
-    %name = columnar.read_table "Employee" "name" : <!columnar.str>
+    %id = columnar.read_column "Employee" "id" : <ui64>
+    %name = columnar.read_column "Employee" "name" : <!columnar.str>
 
     // From TimeTransaction
-    %employee_id = columnar.read_table "TimeTransaction" "employee_id" : <ui64>
-    %hours = columnar.read_table "TimeTransaction" "hours" : <f64>
+    %employee_id = columnar.read_column "TimeTransaction" "employee_id" : <ui64>
+    %hours = columnar.read_column "TimeTransaction" "hours" : <f64>
 
     // Join all from clauses
     %join:4 = columnar.join (%id, %name) (%employee_id, %hours) 

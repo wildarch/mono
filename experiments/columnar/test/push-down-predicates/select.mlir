@@ -6,8 +6,8 @@
 
 // CHECK-LABEL: columnar.query {
 columnar.query {
-  // CHECK: %[[#A:]] = columnar.read_table
-  %0 = columnar.read_table #column_A_a : <si64>
+  // CHECK: %[[#A:]] = columnar.read_column
+  %0 = columnar.read_column #column_A_a : <si64>
 
   // CHECK %[[#SELECT:]] = columnar.select %[[#A]]
   %1 = columnar.select %0 : !col_si64 {

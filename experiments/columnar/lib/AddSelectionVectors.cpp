@@ -158,7 +158,7 @@ static mlir::LogicalResult selTable(SelAddOp op,
   for (auto input : op.getInputs()) {
     if (input.getDefiningOp<ConstantOp>()) {
       continue;
-    } else if (auto readOp = input.getDefiningOp<ReadTableOp>()) {
+    } else if (auto readOp = input.getDefiningOp<ReadColumnOp>()) {
       auto table = readOp.getColumn().getTable();
       if (!common) {
         common = table;

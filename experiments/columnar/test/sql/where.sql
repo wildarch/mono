@@ -1,8 +1,8 @@
 -- RUN: translate --import-sql %s | mlir-opt --push-down-predicates | FileCheck %s
 
 -- CHECK-LABEL: columnar.query {
--- CHECK: %[[#ORDERKEY:]] = columnar.read_table #column_lineitem_l_orderkey
--- CHECK: %[[#LINENUMBER:]] = columnar.read_table #column_lineitem_l_linenumber
+-- CHECK: %[[#ORDERKEY:]] = columnar.read_column #column_lineitem_l_orderkey
+-- CHECK: %[[#LINENUMBER:]] = columnar.read_column #column_lineitem_l_linenumber
 -- CHECK: %[[#SELECT:]]:2 = columnar.select %[[#ORDERKEY]], %[[#LINENUMBER]]
 -- CHECK:   columnar.pred %arg1
 -- CHECK:     %[[#CONST:]] = columnar.constant 24
@@ -14,8 +14,8 @@ FROM lineitem
 WHERE l_linenumber < 24;
 
 -- CHECK-LABEL: columnar.query {
--- CHECK: %[[#ORDERKEY:]] = columnar.read_table #column_lineitem_l_orderkey
--- CHECK: %[[#QTY:]] = columnar.read_table #column_lineitem_l_quantity
+-- CHECK: %[[#ORDERKEY:]] = columnar.read_column #column_lineitem_l_orderkey
+-- CHECK: %[[#QTY:]] = columnar.read_column #column_lineitem_l_quantity
 -- CHECK: %[[#SELECT:]]:2 = columnar.select %[[#ORDERKEY]], %[[#QTY]]
 -- CHECK:   columnar.pred %arg1
 -- CHECK:     %[[#CONST:]] = columnar.constant #columnar<dec 2400>
@@ -27,7 +27,7 @@ FROM lineitem
 WHERE l_quantity < 24;
 
 -- CHECK-LABEL: columnar.query {
--- CHECK: %[[#SHIPDATE:]] = columnar.read_table #column_lineitem_l_shipdate
+-- CHECK: %[[#SHIPDATE:]] = columnar.read_column #column_lineitem_l_shipdate
 -- CHECK: %[[#SELECT:]] = columnar.select %[[#SHIPDATE]]
 -- CHECK:   columnar.pred %arg0
 -- CHECK:     %[[#CONST:]] = columnar.constant #columnar<date 1994 1 1>
@@ -39,7 +39,7 @@ FROM lineitem
 WHERE l_shipdate >= CAST('1994-01-01' AS date);
 
 -- CHECK-LABEL: columnar.query {
--- CHECK: %[[#SHIPDATE:]] = columnar.read_table #column_lineitem_l_shipdate
+-- CHECK: %[[#SHIPDATE:]] = columnar.read_column #column_lineitem_l_shipdate
 -- CHECK: %[[#SELECT:]] = columnar.select %[[#SHIPDATE]]
 -- CHECK:   columnar.pred %arg0
 -- CHECK:     %[[#C1995:]] = columnar.constant #columnar<date 1995 1 1>
@@ -55,7 +55,7 @@ WHERE l_shipdate >= CAST('1994-01-01' AS date)
   AND l_shipdate < CAST('1995-01-01' AS date);
 
 -- CHECK-LABEL: columnar.query {
--- CHECK: %[[#DISCOUNT:]] = columnar.read_table #column_lineitem_l_discount
+-- CHECK: %[[#DISCOUNT:]] = columnar.read_column #column_lineitem_l_discount
 -- CHECK: %[[#SELECT:]] = columnar.select %[[#DISCOUNT]]
 -- CHECK:   columnar.pred %arg0
 -- CHECK:     %[[#LOWER:]] = columnar.constant #columnar<dec 5>

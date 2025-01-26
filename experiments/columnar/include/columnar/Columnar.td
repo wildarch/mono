@@ -74,7 +74,11 @@ def Select : Columnar_Type<"Select", "sel"> {
 }
 
 def ScannerHandle : Columnar_Type<"ScannerHandle", "scanner_handle"> {
-    let summary = "Table column scanner handle";
+    let summary = "Table scanner handle";
+}
+
+def ColumnHandle : Columnar_Type<"ColumnHandle", "column_handle"> {
+    let summary = "Table column handle";
 }
 
 // Attributes
@@ -149,6 +153,12 @@ def TableColumn : Columnar_Attr<"TableColumn", "table_col"> {
         `<` $table $name `:` $type `>`
     }];
 }
+
+def TableColumnArray : ArrayOfAttr<
+        Columnar_Dialect,
+        "TableColumnArray",
+        "table_columns",
+        "TableColumnAttr">;
 
 def DecimalAttr : Columnar_Attr<"Decimal", "dec", [TypedAttrInterface]> {
     let parameters = (ins "std::int64_t":$value);
@@ -279,11 +289,7 @@ def QueryOutputOp : Columnar_Op<"query.output", [
 // ================================= CORE OPS =================================
 // ============================================================================
 
-def ReadTableOp : Columnar_Op<"read_table", [
-        Pure,
-        DeclareOpInterfaceMethods<
-            LowerPipelineOpInterface, 
-            ["lowerGlobalOpen", "lowerGlobalClose"]>]> {
+def ReadColumnOp : Columnar_Op<"read_column", [Pure]> {
     let summary = "Reads a column from a table";
 
     let arguments = (ins TableColumn:$column);
@@ -625,10 +631,7 @@ def SelFilterOp : Columnar_Op<"sel.filter", [Pure]> {
 
 def SelTableOp : Columnar_Op<"sel.table", [
         Pure, 
-        ConstantLike,
-        DeclareOpInterfaceMethods<
-            LowerPipelineOpInterface, 
-            ["lowerGlobalOpen", "lowerGlobalClose"]>]> {
+        ConstantLike]> {
     let summary = "The selection vector of a base table";
 
     let arguments = (ins Table:$table);
@@ -642,7 +645,9 @@ def SelTableOp : Columnar_Op<"sel.table", [
     let hasFolder = 1;
 }
 
-// TODO: Define pass to introduce this
+// ============================================================================
+// ================================ TODO OPS ==================================
+// ============================================================================
 def PrintOp : Columnar_Op<"print", [
         DeclareOpInterfaceMethods<
             LowerPipelineOpInterface, 
@@ -657,9 +662,6 @@ def PrintOp : Columnar_Op<"print", [
     }];
 }
 
-// ============================================================================
-// =========================== LOWER PIPELINES OPS ============================
-// ============================================================================
 def PipelineOp : Columnar_Op<"pipeline", [NoTerminator, IsolatedFromAbove]> {
     let regions = (region SizedRegion<1>:$body);
 
@@ -667,6 +669,26 @@ def PipelineOp : Columnar_Op<"pipeline", [NoTerminator, IsolatedFromAbove]> {
         $body attr-dict
     }];
 }
+
+def ReadTableOp : Columnar_Op<"read_table", [
+        Pure,
+        DeclareOpInterfaceMethods<
+            LowerPipelineOpInterface, 
+            ["lowerGlobalOpen", "lowerGlobalClose"]>]> {
+    let summary = "Reads a table";
+
+    let arguments = (ins Table:$table, TableColumnArray:$columnsToRead);
+
+    let results = (outs ColumnOf<Select>:$sel, Variadic<Column>:$col);
+
+    let assemblyFormat = [{
+        $table $columnsToRead `:` type($col) attr-dict
+    }];
+}
+
+// ============================================================================
+// =========================== LOWER PIPELINES OPS ============================
+// ============================================================================
 
 def TensorCol : 1DTensorOf<[AnyType]>;
 
@@ -698,17 +720,33 @@ def PipelineLowYieldOp : Columnar_Op<"pipeline_low.yield", [
     }];
 }
 
-def OpenColumnOp : Columnar_Op<"open_column"> {
+def TableColumnOpenOp : Columnar_Op<"table.column.open"> {
+    let summary = "Open a table column for reading";
+
     let arguments = (ins TableColumn:$column);
 
-    let results = (outs ScannerHandle:$result);
+    let results = (outs ColumnHandle:$result);
 
     let assemblyFormat = [{
         $column attr-dict
     }];
 }
 
-def SelScannerOp : Columnar_Op<"sel_scanner"> {
+def TableColumnReadOp : Columnar_Op<"table.column.read"> {
+    let summary = "Reads a column chunk as a tensor";
+
+    let arguments = (ins ColumnHandle:$handle, Index:$start, Index:$size);
+
+    let results = (outs TensorCol:$result);
+
+    let assemblyFormat = [{
+        $handle `:` type($result) $start $size attr-dict
+    }];
+}
+
+def TableScannerOpenOp : Columnar_Op<"table.scanner.open"> {
+    let summary = "Create a new table scanner";
+
     let arguments = (ins Table:$table);
 
     let results = (outs ScannerHandle:$result);
@@ -718,25 +756,15 @@ def SelScannerOp : Columnar_Op<"sel_scanner"> {
     }];
 }
 
-def TensorReadColumnOp : Columnar_Op<"tensor.read_column"> {
-    let summary = "Reads a column chunk as a tensor";
+def TableScannerClaimChunkOp : Columnar_Op<"table.scanner.claim_chunk"> {
+    let summary = "Claim a chunk of the table rows for reading";
 
-    let arguments = (ins ScannerHandle:$scanner);
+    let arguments = (ins ScannerHandle:$handle);
 
-    let results = (outs TensorCol:$result);
-
-    let assemblyFormat = [{
-        $scanner `:` type($result) attr-dict
-    }];
-}
-
-def ScannerHaveMoreOp : Columnar_Op<"scanner.have_more", [Pure]> {
-    let arguments = (ins ScannerHandle:$scanner);
-
-    let results = (outs I1:$result);
+    let results = (outs Index:$start, Index:$size);
 
     let assemblyFormat = [{
-        $scanner attr-dict
+        $handle attr-dict
     }];
 }
 
@@ -770,6 +798,7 @@ def LowerPipelines : Pass<"lower-pipelines", "mlir::ModuleOp"> {
 
     let dependentDialects = [
         "mlir::arith::ArithDialect",
+        "mlir::tensor::TensorDialect",
     ];
 }
 
