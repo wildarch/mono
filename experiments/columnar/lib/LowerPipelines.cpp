@@ -121,7 +121,8 @@ ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
 mlir::LogicalResult
 PrintOp::lowerGlobalOpen(mlir::OpBuilder &builder,
                          llvm::SmallVectorImpl<mlir::Value> &newGlobals) {
-  // TODO: Open result printer
+  auto handle = builder.create<PrintOpenOp>(getLoc());
+  newGlobals.push_back(handle);
   return mlir::success();
 }
 
@@ -137,12 +138,21 @@ PrintOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
                    llvm::SmallVectorImpl<mlir::Value> &results,
                    llvm::SmallVectorImpl<mlir::Value> &haveMore) {
   Adaptor adaptor(operands, *this);
-
   auto sel = adaptor.getSel();
-  for (auto [name, input] : llvm::zip_equal(getNames(), adaptor.getInputs())) {
-    builder.create<TensorPrintOp>(getLoc(), name, input, sel);
+
+  auto handle = globals[0];
+
+  // New chunk
+  auto nrows = builder.create<mlir::tensor::DimOp>(getLoc(), sel, 0);
+  auto chunk = builder.create<PrintChunkAllocOp>(getLoc(), nrows);
+
+  // Append columns
+  for (auto input : adaptor.getInputs()) {
+    builder.create<PrintChunkAppendOp>(getLoc(), chunk, input, sel);
   }
 
+  // Write chunk
+  builder.create<PrintWriteOp>(getLoc(), handle, chunk);
   return mlir::success();
 }
 
