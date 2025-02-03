@@ -81,6 +81,14 @@ def ColumnHandle : Columnar_Type<"ColumnHandle", "column_handle"> {
     let summary = "Table column handle";
 }
 
+def PrintChunk : Columnar_Type<"PrintChunk", "print_chunk"> {
+    let summary = "Print chunk";
+}
+
+def PrintHandle : Columnar_Type<"PrintHandle", "print_handle"> {
+    let summary = "Print handle";
+}
+
 // Attributes
 def StringArray : ArrayOfAttr<
         Columnar_Dialect,
@@ -765,6 +773,54 @@ def TableScannerClaimChunkOp : Columnar_Op<"table.scanner.claim_chunk"> {
 
     let assemblyFormat = [{
         $handle attr-dict
+    }];
+}
+
+def PrintOpenOp : Columnar_Op<"print.open"> {
+    let summary = "Open the output printer";
+
+    let results = (outs PrintHandle:$result);
+
+    let assemblyFormat = [{
+        attr-dict
+    }];
+}
+
+def PrintChunkAllocOp : Columnar_Op<"print.chunk.alloc"> {
+    let summary = "Allocate a chunks of strings for formatting output";
+
+    let arguments = (ins Index:$nrows);
+
+    let results = (outs PrintChunk:$result);
+
+    let assemblyFormat = [{
+        $nrows attr-dict
+    }];
+}
+
+def PrintChunkAppendOp : Columnar_Op<"print.chunk.append"> {
+    let summary = "Append a column to a chunk";
+
+    let arguments = (ins 
+        PrintChunk:$chunk, 
+        TensorCol:$col, 
+        1DTensorOf<[Index]>:$sel);
+
+    let assemblyFormat = [{
+        $chunk
+        $col `:` type($col) 
+        `sel` `` `=` `` $sel `:` type($sel)
+        attr-dict
+    }];
+}
+
+def PrintWriteOp : Columnar_Op<"print.write"> {
+    let summary = "Write a chunk of output rows";
+
+    let arguments = (ins PrintHandle:$handle, PrintChunk:$chunk);
+
+    let assemblyFormat = [{
+        $handle $chunk attr-dict
     }];
 }
 
