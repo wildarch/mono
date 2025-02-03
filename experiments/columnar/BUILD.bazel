@@ -7,6 +7,7 @@ td_library(
     ],
     includes = ["include"],
     deps = [
+        "@llvm-project//mlir:BufferizableOpInterfaceTdFiles",
         "@llvm-project//mlir:BuiltinDialectTdFiles",
         "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
         "@llvm-project//mlir:OpBaseTdFiles",
@@ -80,6 +81,7 @@ cc_library(
     name = "columnar",
     srcs = [
         "lib/AddSelectionVectors.cpp",
+        "lib/Bufferize.cpp",
         "lib/Canonicalize.cpp",
         "lib/Columnar.cpp",
         "lib/LowerOps.cpp",
@@ -93,12 +95,17 @@ cc_library(
     deps = [
         ":IncGen",
         "@llvm-project//mlir:ArithDialect",
+        "@llvm-project//mlir:ArithTransforms",
+        "@llvm-project//mlir:BufferizationTransforms",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:InferTypeOpInterface",
+        "@llvm-project//mlir:LinalgDialect",
+        "@llvm-project//mlir:LinalgTransforms",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:SideEffectInterfaces",
         "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:TensorTransforms",
         "@llvm-project//mlir:Transforms",
     ],
 )
