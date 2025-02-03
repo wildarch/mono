@@ -1,6 +1,7 @@
 #ifndef COLUMNAR
 #define COLUMNAR
 
+include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/BuiltinAttributeInterfaces.td"
@@ -740,7 +741,10 @@ def TableColumnOpenOp : Columnar_Op<"table.column.open"> {
     }];
 }
 
-def TableColumnReadOp : Columnar_Op<"table.column.read"> {
+def TableColumnReadOp : Columnar_Op<"table.column.read", [
+        DeclareOpInterfaceMethods<
+            BufferizableOpInterface, 
+            ["bufferize", "bufferizesToAllocation"]>]> {
     let summary = "Reads a column chunk as a tensor";
 
     let arguments = (ins ColumnHandle:$handle, Index:$start, Index:$size);
@@ -798,7 +802,12 @@ def PrintChunkAllocOp : Columnar_Op<"print.chunk.alloc"> {
     }];
 }
 
-def PrintChunkAppendOp : Columnar_Op<"print.chunk.append"> {
+def PrintChunkAppendOp : Columnar_Op<"print.chunk.append", [
+        DeclareOpInterfaceMethods<BufferizableOpInterface, [
+            "bufferize", 
+            "bufferizesToMemoryRead", 
+            "bufferizesToMemoryWrite",
+            "getAliasingValues"]>]> {
     let summary = "Append a column to a chunk";
 
     let arguments = (ins 
@@ -835,6 +844,19 @@ def TensorPrintOp : Columnar_Op<"tensor.print"> {
         $input `:` type($input) 
         `sel` `` `=` `` $sel `:` type($sel)
         attr-dict
+    }];
+}
+
+// ============================================================================
+// ============================ BUFFERIZATION OPS =============================
+// ============================================================================
+def RuntimeCallOp : Columnar_Op<"runtime_call"> {
+    let arguments = (ins StrAttr:$func, Variadic<AnyType>:$inputs);
+
+    let results = (outs Variadic<AnyType>:$results);
+
+    let assemblyFormat = [{
+        $func `(` $inputs `)` attr-dict `:` functional-type($inputs, $results)
     }];
 }
 
