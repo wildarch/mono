@@ -361,4 +361,20 @@ mlir::LogicalResult SelAddOp::inferReturnTypes(
 
 mlir::OpFoldResult SelTableOp::fold(FoldAdaptor adaptor) { return getTable(); }
 
+mlir::LogicalResult MakeStructOp::inferReturnTypes(
+    mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
+    Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  llvm::SmallVector<mlir::Type> fieldTypes(adaptor.getValues().getTypes());
+  inferredReturnTypes.push_back(StructType::get(ctx, fieldTypes));
+  return mlir::success();
+}
+
+mlir::LogicalResult GetStructElementOp::inferReturnTypes(
+    mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
+    Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  auto structType = llvm::cast<StructType>(adaptor.getValue().getType());
+  inferredReturnTypes.push_back(structType.getFieldTypes()[adaptor.getIndex()]);
+  return mlir::success();
+}
+
 } // namespace columnar
