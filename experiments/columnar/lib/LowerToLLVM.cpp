@@ -56,7 +56,16 @@ void LowerToLLVM::runOnOperation() {
         /*arg_attrs=*/nullptr, /*res_attrs*/ nullptr);
   }
 
-  // TODO: Replace with function calls
+  // Replace with function calls
+  mlir::IRRewriter rewriter(&getContext());
+  llvm::SmallVector<RuntimeCallOp> callOps;
+  getOperation()->walk([&](RuntimeCallOp op) { callOps.push_back(op); });
+
+  for (auto op : callOps) {
+    rewriter.setInsertionPoint(op);
+    rewriter.replaceOpWithNewOp<mlir::func::CallOp>(
+        op, op.getFuncAttr(), op.getResultTypes(), op.getInputs());
+  }
 
   // TODO: Group pipeline arguments into structs.
   // TODO: Replace pipeline blocks with references to functions.
