@@ -90,6 +90,16 @@ def PrintHandle : Columnar_Type<"PrintHandle", "print_handle"> {
     let summary = "Print handle";
 }
 
+def Struct : Columnar_Type<"Struct", "struct"> {
+    let summary = "Compound type analogous to a C struct";
+
+    let parameters = (ins ArrayRefParameter<"mlir::Type">:$fieldTypes);
+
+    let assemblyFormat = [{
+        `<` $fieldTypes `>`
+    }];
+}
+
 // Attributes
 def StringArray : ArrayOfAttr<
         Columnar_Dialect,
@@ -857,6 +867,29 @@ def RuntimeCallOp : Columnar_Op<"runtime_call"> {
 
     let assemblyFormat = [{
         $func `(` $inputs `)` attr-dict `:` functional-type($inputs, $results)
+    }];
+}
+
+// ============================================================================
+// ============================ LOWER TO LLVM OPS =============================
+// ============================================================================
+def MakeStructOp : Columnar_Op<"struct.make", [Pure, InferTypeOpAdaptor]> {
+    let arguments = (ins Variadic<AnyType>:$values);
+
+    let results = (outs Struct:$result);
+
+    let assemblyFormat = [{
+        $values `:` type($values) attr-dict
+    }];
+}
+
+def GetStructElementOp : Columnar_Op<"struct.get", [Pure, InferTypeOpAdaptor]> {
+    let arguments = (ins Struct:$value, I64Attr:$index);
+
+    let results = (outs AnyType:$result);
+
+    let assemblyFormat = [{
+        $value `:` type($value) $index attr-dict
     }];
 }
 
