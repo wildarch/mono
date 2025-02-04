@@ -56,7 +56,7 @@ mlir::LogicalResult PrintChunkAppendOp::bufferize(
   }
 
   // Call the runtime function.
-  auto func = rewriter.getStringAttr("col_table_column_read");
+  auto func = rewriter.getStringAttr("col_print_chunk_append");
   mlir::bufferization::replaceOpWithNewBufferizedOp<RuntimeCallOp>(
       rewriter, *this, mlir::TypeRange{}, func,
       mlir::ValueRange{getChunk(), *col, *sel});

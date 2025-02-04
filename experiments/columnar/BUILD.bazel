@@ -84,8 +84,8 @@ cc_library(
         "lib/Bufferize.cpp",
         "lib/Canonicalize.cpp",
         "lib/Columnar.cpp",
-        "lib/LowerOps.cpp",
         "lib/LowerPipelines.cpp",
+        "lib/LowerToLLVM.cpp",
         "lib/PushDownPredicates.cpp",
     ],
     hdrs = [
