@@ -880,13 +880,12 @@ def LowerPipelines : Pass<"lower-pipelines", "mlir::ModuleOp"> {
     ];
 }
 
-def LowerOps : Pass<"lower-ops", "mlir::ModuleOp"> {
-    let summary = "Lower columnar ops into standard MLIR dialects";
+def LowerToLLVM : Pass<"lower-to-llvm", "mlir::ModuleOp"> {
+    let summary = "Lower pipelines to LLVM functions";
 
     let dependentDialects = [
-        "mlir::arith::ArithDialect",
         "mlir::func::FuncDialect",
-        "mlir::tensor::TensorDialect",
+        "mlir::LLVM::LLVMDialect",
     ];
 }
 
