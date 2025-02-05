@@ -1,4 +1,4 @@
-!globals = !columnar.struct<!columnar.scanner_handle, !columnar.column_handle, !columnar.print_handle>
+!globals = !columnar.ptr<!columnar.struct<!columnar.scanner_handle, !columnar.column_handle, !columnar.print_handle>>
 
 columnar.pipeline_low global_open {
   %c42 = arith.constant 42 : index
@@ -6,7 +6,7 @@ columnar.pipeline_low global_open {
   %c3 = arith.constant 3 : index
   %1 = columnar.runtime_call "col_table_column_open"(%c42, %c3) : (index, index) -> (!columnar.column_handle)
   %2 = columnar.runtime_call "col_print_open"() : () -> (!columnar.print_handle)
-  %3 = columnar.struct.make %0, %1, %2 : !columnar.scanner_handle, !columnar.column_handle, !columnar.print_handle
+  %3 = columnar.struct.alloc %0, %1, %2 : !columnar.scanner_handle, !columnar.column_handle, !columnar.print_handle
   columnar.pipeline_low.yield %3 : !globals 
 } body {
 ^bb0(%arg0: !globals):
