@@ -361,18 +361,20 @@ mlir::LogicalResult SelAddOp::inferReturnTypes(
 
 mlir::OpFoldResult SelTableOp::fold(FoldAdaptor adaptor) { return getTable(); }
 
-mlir::LogicalResult MakeStructOp::inferReturnTypes(
+mlir::LogicalResult AllocStructOp::inferReturnTypes(
     mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
     Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
   llvm::SmallVector<mlir::Type> fieldTypes(adaptor.getValues().getTypes());
-  inferredReturnTypes.push_back(StructType::get(ctx, fieldTypes));
+  inferredReturnTypes.push_back(
+      PointerType::get(StructType::get(ctx, fieldTypes)));
   return mlir::success();
 }
 
 mlir::LogicalResult GetStructElementOp::inferReturnTypes(
     mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
     Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
-  auto structType = llvm::cast<StructType>(adaptor.getValue().getType());
+  auto ptrType = llvm::cast<PointerType>(adaptor.getValue().getType());
+  auto structType = llvm::cast<StructType>(ptrType.getPointee());
   inferredReturnTypes.push_back(structType.getFieldTypes()[adaptor.getIndex()]);
   return mlir::success();
 }
