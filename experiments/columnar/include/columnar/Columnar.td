@@ -100,6 +100,29 @@ def Struct : Columnar_Type<"Struct", "struct"> {
     }];
 }
 
+def Ptr : Columnar_Type<"Pointer", "ptr"> {
+    let parameters = (ins TypeParameter<"::mlir::Type", "pointee type">:$pointee);
+
+    let builders = [
+        TypeBuilderWithInferredContext<(ins "Type":$type), [{
+            return Base::get(type.getContext(), type);
+        }]>,
+    ];
+
+    let assemblyFormat = [{
+        `<` $pointee `>`
+    }];
+}
+
+class PtrOf<Type type>
+        : ConfinedType<Ptr, [
+            SubstLeaves<"$_self", "::llvm::cast<PointerType>($_self).getPointee()", type.predicate>],
+            "pointer to " # type.summary,
+            "PointerType">
+        , SameBuildabilityAs<type, "PointerType::get(" # type.builderCall # ")"> {
+    Type elementType = type;
+}
+
 // Attributes
 def StringArray : ArrayOfAttr<
         Columnar_Dialect,
@@ -873,10 +896,10 @@ def RuntimeCallOp : Columnar_Op<"runtime_call"> {
 // ============================================================================
 // ============================ LOWER TO LLVM OPS =============================
 // ============================================================================
-def MakeStructOp : Columnar_Op<"struct.make", [Pure, InferTypeOpAdaptor]> {
+def AllocStructOp : Columnar_Op<"struct.alloc", [Pure, InferTypeOpAdaptor]> {
     let arguments = (ins Variadic<AnyType>:$values);
 
-    let results = (outs Struct:$result);
+    let results = (outs PtrOf<Struct>:$result);
 
     let assemblyFormat = [{
         $values `:` type($values) attr-dict
@@ -884,7 +907,7 @@ def MakeStructOp : Columnar_Op<"struct.make", [Pure, InferTypeOpAdaptor]> {
 }
 
 def GetStructElementOp : Columnar_Op<"struct.get", [Pure, InferTypeOpAdaptor]> {
-    let arguments = (ins Struct:$value, I64Attr:$index);
+    let arguments = (ins PtrOf<Struct>:$value, I64Attr:$index);
 
     let results = (outs AnyType:$result);
 
