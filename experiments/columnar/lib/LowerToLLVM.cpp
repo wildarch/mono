@@ -1,11 +1,13 @@
 #include "columnar/Columnar.h"
 
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
+#include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Dialect/LLVMIR/FunctionCallUtils.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -236,9 +238,13 @@ void LowerToLLVM::runOnOperation() {
   });
 
   mlir::RewritePatternSet patterns(&getContext());
+  mlir::populateSCFToControlFlowConversionPatterns(patterns);
+
   mlir::populateFuncToLLVMConversionPatterns(typeConverter, patterns);
   mlir::arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   mlir::populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
+  mlir::cf::populateControlFlowToLLVMConversionPatterns(typeConverter,
+                                                        patterns);
   patterns.add<AllocStructOpLowering>(typeConverter);
   patterns.add<GetStructElementOpLowering>(typeConverter);
 

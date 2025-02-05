@@ -955,6 +955,7 @@ def LowerToLLVM : Pass<"lower-to-llvm", "mlir::ModuleOp"> {
     let summary = "Lower pipelines to LLVM functions";
 
     let dependentDialects = [
+        "mlir::cf::ControlFlowDialect",
         "mlir::func::FuncDialect",
         "mlir::LLVM::LLVMDialect",
     ];

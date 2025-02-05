@@ -4,6 +4,7 @@
 #include <mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h>
 #include <mlir/Dialect/Bufferization/Transforms/Passes.h>
 #include <mlir/Dialect/Linalg/IR/Linalg.h>
+#include <mlir/Dialect/Linalg/Passes.h>
 #include <mlir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h>
 #include <mlir/Dialect/MemRef/IR/MemRef.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
@@ -19,12 +20,13 @@ int main(int argc, char **argv) {
   registry.insert<mlir::tensor::TensorDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
   registry.insert<mlir::func::FuncDialect>();
+  registry.insert<mlir::scf::SCFDialect>();
 
   // Bufferization
   mlir::arith::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::bufferization::registerOneShotBufferize();
   mlir::linalg::registerBufferizableOpInterfaceExternalModels(registry);
-  mlir::registerConvertLinalgToStandard();
+  mlir::registerConvertLinalgToLoopsPass();
   mlir::tensor::registerBufferizableOpInterfaceExternalModels(registry);
 
   mlir::registerCanonicalizer();
