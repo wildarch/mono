@@ -916,6 +916,21 @@ def GetStructElementOp : Columnar_Op<"struct.get", [Pure, InferTypeOpAdaptor]> {
     }];
 }
 
+def PipelineRefOp : Columnar_Op<"pipeline_ref", [IsolatedFromAbove]> {
+    let arguments = (ins 
+        OptionalAttr<SymbolRefAttr>:$globalOpen,
+        SymbolRefAttr:$body,
+        OptionalAttr<SymbolRefAttr>:$globalClose);
+    
+    let assemblyFormat = [{
+        (`global_open` $globalOpen^)?
+        `body` $body
+        (`global_close` $globalClose^)?
+        attr-dict
+    }];
+}
+
+
 // ============================================================================
 // =================================== PASSES =================================
 // ============================================================================

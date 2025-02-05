@@ -1,4 +1,5 @@
 #include <columnar/Columnar.h>
+#include <mlir/Conversion/Passes.h>
 #include <mlir/Dialect/Arith/IR/Arith.h>
 #include <mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h>
 #include <mlir/Dialect/Bufferization/Transforms/Passes.h>
@@ -17,12 +18,14 @@ int main(int argc, char **argv) {
   registry.insert<mlir::linalg::LinalgDialect>();
   registry.insert<mlir::tensor::TensorDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
+  registry.insert<mlir::func::FuncDialect>();
 
   // Bufferization
   mlir::arith::registerBufferizableOpInterfaceExternalModels(registry);
-  mlir::linalg::registerBufferizableOpInterfaceExternalModels(registry);
-  mlir::tensor::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::bufferization::registerOneShotBufferize();
+  mlir::linalg::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::registerConvertLinalgToStandard();
+  mlir::tensor::registerBufferizableOpInterfaceExternalModels(registry);
 
   mlir::registerCanonicalizer();
   columnar::registerPasses();
