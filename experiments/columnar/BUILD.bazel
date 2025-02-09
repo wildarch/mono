@@ -84,6 +84,7 @@ cc_library(
         "lib/Bufferize.cpp",
         "lib/Canonicalize.cpp",
         "lib/Columnar.cpp",
+        "lib/LLVMTranslation.cpp",
         "lib/LowerPipelines.cpp",
         "lib/LowerToLLVM.cpp",
         "lib/PushDownPredicates.cpp",
@@ -108,6 +109,7 @@ cc_library(
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:SCFToControlFlow",
         "@llvm-project//mlir:SideEffectInterfaces",
+        "@llvm-project//mlir:TargetLLVM",
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:TensorTransforms",
         "@llvm-project//mlir:Transforms",
@@ -140,5 +142,15 @@ cc_binary(
         ":libpg_query_cc_proto",
         "@libpg_query",
         "@llvm-project//mlir:TranslateLib",
+    ],
+)
+
+cc_binary(
+    name = "execute",
+    srcs = ["execute.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":columnar",
+        "@llvm-project//mlir:ExecutionEngine",
     ],
 )

@@ -52,4 +52,6 @@ namespace columnar {
 /** Element type for columns produced by a COUNT aggregator. */
 mlir::Type getCountElementType(mlir::MLIRContext *ctx);
 
+void registerLLVMTranslation(mlir::DialectRegistry &registry);
+
 } // namespace columnar
