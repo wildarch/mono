@@ -1,5 +1,5 @@
 #include <columnar/Columnar.h>
-#include <iostream>
+#include <columnar/Runtime.h>
 
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
@@ -77,44 +77,54 @@ static int runJit(mlir::ModuleOp module) {
 
   auto &engine = maybeEngine.get();
 
+  // Bind runtime functions
+  engine->registerSymbols(columnar::registerRuntimeSymbols);
+
   // Run pipelines to completion
   for (auto pipe : pipelines) {
+    using GlobalOpenFunc = void *();
+    using BodyFunc = bool(void *);
+    using GlobalCloseFunc = void(void *);
+
     // Initialize global state.
     void *globalState;
     if (auto func = pipe.getGlobalOpen()) {
-      if (auto err = engine->invoke(func->getLeafReference(),
-                                    engine->result(globalState))) {
-        llvm::errs() << "Failed to run globalOpen for pipeline: " << err
+      auto maybeFuncPtr = engine->lookup(func->getLeafReference());
+      if (auto err = maybeFuncPtr.takeError()) {
+        llvm::errs() << "Failed to lookup globalOpen for pipeline: " << err
                      << "\n";
         return -1;
       }
+
+      auto *funcPtr = ((GlobalOpenFunc *)maybeFuncPtr.get());
+      globalState = funcPtr();
     }
 
     // Run body repeatedly.
+    auto maybeBodyFunc = engine->lookup(pipe.getBody().getLeafReference());
+    if (auto err = maybeBodyFunc.takeError()) {
+      llvm::errs() << "Cannot find body function: " << err << "\n";
+      return -1;
+    }
+
+    auto *bodyFunc = ((BodyFunc *)maybeBodyFunc.get());
     bool haveMore = true;
     while (haveMore) {
-      if (auto err = engine->invoke(pipe.getBody().getLeafReference(),
-                                    engine->result(haveMore))) {
-        llvm::errs() << "Failed to run body for pipeline: " << err << "\n";
-        return -1;
-      }
+      haveMore = bodyFunc(globalState);
     }
 
     // Free global state.
     if (auto func = pipe.getGlobalClose()) {
-      if (auto err = engine->invoke(func->getLeafReference(), globalState)) {
-        llvm::errs() << "Failed to run globalClose for pipeline: " << err
+      auto maybeFuncPtr = engine->lookup(func->getLeafReference());
+      if (auto err = maybeFuncPtr.takeError()) {
+        llvm::errs() << "Failed to lookup globalClose for pipeline: " << err
                      << "\n";
         return -1;
       }
-    }
-  }
 
-  // Invoke the JIT-compiled function.
-  auto invocationResult = engine->invokePacked("main");
-  if (invocationResult) {
-    llvm::errs() << "JIT invocation failed\n";
-    return -1;
+      auto *funcPtr = ((GlobalCloseFunc *)maybeFuncPtr.get());
+      funcPtr(globalState);
+    }
   }
 
   return 0;
