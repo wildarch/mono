@@ -88,13 +88,16 @@ cc_library(
         "lib/LowerPipelines.cpp",
         "lib/LowerToLLVM.cpp",
         "lib/PushDownPredicates.cpp",
+        "lib/Runtime.cpp",
     ],
     hdrs = [
         "include/columnar/Columnar.h",
+        "include/columnar/Runtime.h",
     ],
     includes = ["include/"],
     deps = [
         ":IncGen",
+        "@llvm-project//llvm:OrcJIT",
         "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:ArithToLLVM",
         "@llvm-project//mlir:ArithTransforms",
