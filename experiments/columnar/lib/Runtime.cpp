@@ -12,6 +12,23 @@ class TableColumn;
 class Printer;
 class PrintChunk;
 
+struct MemRef {
+  void *alloc;
+  void *align;
+  std::size_t offset;
+  std::size_t size;
+  std::size_t stride;
+};
+
+#define MEMREF_PARAM(name)                                                     \
+  void *name##_alloc, void *name##_align, std::size_t name##_offset,           \
+      std::size_t name##_size, std::size_t name##_stride
+
+#define MEMREF_VAR(name)                                                       \
+  MemRef name {                                                                \
+    name##_alloc, name##_align, name##_offset, name##_size, name##_stride,     \
+  }
+
 extern "C" {
 
 /**
@@ -47,14 +64,14 @@ TableColumn *col_table_column_open(TableId table, ColumnId column) {
 void col_table_column_read(TableColumn *column, std::size_t start,
                            std::size_t size,
                            // TODO: decode this memref
-                           void *ref0, void *ref1, std::size_t ref2,
-                           std::size_t ref3, std::size_t ref4) {
+                           MEMREF_PARAM(col)) {
+  MEMREF_VAR(col);
   llvm::errs() << "col_table_column_read\n";
-  llvm::errs() << "allocated=" << ref0 << "\n";
-  llvm::errs() << "aligned=" << ref1 << "\n";
-  llvm::errs() << "offset=" << ref2 << "\n";
-  llvm::errs() << "size=" << ref3 << "\n";
-  llvm::errs() << "stride=" << ref4 << "\n";
+  llvm::errs() << "allocated=" << col.alloc << "\n";
+  llvm::errs() << "aligned=" << col.align << "\n";
+  llvm::errs() << "offset=" << col.offset << "\n";
+  llvm::errs() << "size=" << col.size << "\n";
+  llvm::errs() << "stride=" << col.stride << "\n";
   // TODO
 }
 
@@ -73,18 +90,11 @@ PrintChunk *col_print_chunk_alloc(std::size_t size) {
   return nullptr;
 }
 
-void col_print_chunk_append(PrintChunk *chunk,
-                            // TODO: decode this memref
-                            void *col_alloc, void *col_align,
-                            std::size_t col_offset, std::size_t col_size,
-                            std::size_t col_stride,
-                            // TODO: decode this memref
-                            void *sel_alloc, void *sel_align,
-                            std::size_t sel_offset, std::size_t sel_size,
-                            std::size_t sel_stride) {
+void col_print_chunk_append(PrintChunk *chunk, MEMREF_PARAM(col),
+                            MEMREF_PARAM(sel)) {
+  MEMREF_VAR(col);
+  MEMREF_VAR(sel);
   llvm::errs() << "col_print_chunk_append\n";
-  llvm::errs() << "sel = " << sel_align << " offset=" << sel_offset
-               << " size=" << sel_size << " stride=" << sel_stride << "\n";
   // TODO
 }
 }
