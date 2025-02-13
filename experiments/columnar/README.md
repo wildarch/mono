@@ -104,6 +104,14 @@ To support all TPC-H queries, we would need the following 'advanced' features:
 - `SUM` inside `SUM`
 - `OUTER JOIN`
 
+DuckDB makes generating the TPC-H dataset easy:
+
+```sql
+CALL dbgen(sf = 1);
+
+EXPORT DATABASE 'tpch-sf1' (FORMAT PARQUET);
+```
+
 ## References
 - https://voltrondata.com/blog/what-is-substrait-high-level-primer
 - https://15721.courses.cs.cmu.edu/spring2018/papers/03-compilation/shaikhha-sigmod2016.pdf
