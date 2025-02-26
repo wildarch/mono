@@ -1,6 +1,8 @@
 #include <cstdint>
 
 #include "columnar/Runtime.h"
+#include "columnar/runtime/TableColumn.h"
+#include "columnar/runtime/TableScanner.h"
 
 namespace {
 
@@ -62,9 +64,7 @@ TableColumn *col_table_column_open(TableId table, ColumnId column) {
 }
 
 void col_table_column_read(TableColumn *column, std::size_t start,
-                           std::size_t size,
-                           // TODO: decode this memref
-                           MEMREF_PARAM(col)) {
+                           std::size_t size, MEMREF_PARAM(col)) {
   MEMREF_VAR(col);
   llvm::errs() << "col_table_column_read\n";
   llvm::errs() << "allocated=" << col.alloc << "\n";

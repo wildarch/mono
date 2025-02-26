@@ -92,11 +92,11 @@ cc_library(
     ],
     hdrs = [
         "include/columnar/Columnar.h",
-        "include/columnar/Runtime.h",
     ],
     includes = ["include/"],
     deps = [
         ":IncGen",
+        ":runtime",
         "@llvm-project//llvm:OrcJIT",
         "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:ArithToLLVM",
@@ -116,6 +116,26 @@ cc_library(
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:TensorTransforms",
         "@llvm-project//mlir:Transforms",
+    ],
+)
+
+cc_library(
+    name = "runtime",
+    srcs = [
+        "lib/Runtime.cpp",
+        "lib/runtime/Print.cpp",
+        "lib/runtime/TableColumn.cpp",
+        "lib/runtime/TableScanner.cpp",
+    ],
+    hdrs = [
+        "include/columnar/Runtime.h",
+        "include/columnar/runtime/Print.h",
+        "include/columnar/runtime/TableColumn.h",
+        "include/columnar/runtime/TableScanner.h",
+    ],
+    includes = ["include/"],
+    deps = [
+        "@llvm-project//llvm:OrcJIT",
     ],
 )
 

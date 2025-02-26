@@ -45,7 +45,43 @@ class GetStructElementOpLowering
                   mlir::ConversionPatternRewriter &rewriter) const override;
 };
 
+class ConstantStringOpLowering
+    : public mlir::ConvertOpToLLVMPattern<ConstantStringOp> {
+  using mlir::ConvertOpToLLVMPattern<ConstantStringOp>::ConvertOpToLLVMPattern;
+
+  mlir::LogicalResult
+  matchAndRewrite(ConstantStringOp op, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const override;
+};
+
 } // namespace
+
+static mlir::Value getOrCreateGlobalString(mlir::Location loc,
+                                           mlir::OpBuilder &builder,
+                                           llvm::StringRef name,
+                                           llvm::StringRef value,
+                                           mlir::ModuleOp module) {
+  // Create the global at the entry of the module.
+  mlir::LLVM::GlobalOp global;
+  if (!(global = module.lookupSymbol<mlir::LLVM::GlobalOp>(name))) {
+    mlir::OpBuilder::InsertionGuard insertGuard(builder);
+    builder.setInsertionPointToStart(module.getBody());
+    auto type = mlir::LLVM::LLVMArrayType::get(
+        mlir::IntegerType::get(builder.getContext(), 8), value.size());
+    global = builder.create<mlir::LLVM::GlobalOp>(
+        loc, type, /*isConstant=*/true, mlir::LLVM::Linkage::Internal, name,
+        builder.getStringAttr(value),
+        /*alignment=*/0);
+  }
+
+  // Get the pointer to the first character in the global string.
+  auto globalPtr = builder.create<mlir::LLVM::AddressOfOp>(loc, global);
+  auto cst0 = builder.create<mlir::LLVM::ConstantOp>(loc, builder.getI64Type(),
+                                                     builder.getIndexAttr(0));
+  return builder.create<mlir::LLVM::GEPOp>(
+      loc, mlir::LLVM::LLVMPointerType::get(builder.getContext()),
+      global.getType(), globalPtr, llvm::ArrayRef<mlir::Value>({cst0, cst0}));
+}
 
 mlir::LogicalResult AllocStructOpLowering::matchAndRewrite(
     AllocStructOp op, OpAdaptor adaptor,
@@ -103,6 +139,16 @@ mlir::LogicalResult GetStructElementOpLowering::matchAndRewrite(
   // Extract the value
   rewriter.replaceOpWithNewOp<mlir::LLVM::ExtractValueOp>(op, loadOp,
                                                           op.getIndex());
+  return mlir::success();
+}
+
+mlir::LogicalResult ConstantStringOpLowering::matchAndRewrite(
+    ConstantStringOp op, OpAdaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  auto value = op.getValue();
+  auto newOp = getOrCreateGlobalString(op.getLoc(), rewriter, value, value,
+                                       op->getParentOfType<mlir::ModuleOp>());
+  rewriter.replaceOp(op, newOp);
   return mlir::success();
 }
 
@@ -236,6 +282,9 @@ void LowerToLLVM::runOnOperation() {
 
     return mlir::LLVM::LLVMStructType::getLiteral(t.getContext(), types);
   });
+  typeConverter.addConversion([](StringLiteralType t) -> mlir::Type {
+    return mlir::LLVM::LLVMPointerType::get(t.getContext());
+  });
 
   mlir::RewritePatternSet patterns(&getContext());
   mlir::populateSCFToControlFlowConversionPatterns(patterns);
@@ -245,8 +294,8 @@ void LowerToLLVM::runOnOperation() {
   mlir::populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
   mlir::cf::populateControlFlowToLLVMConversionPatterns(typeConverter,
                                                         patterns);
-  patterns.add<AllocStructOpLowering>(typeConverter);
-  patterns.add<GetStructElementOpLowering>(typeConverter);
+  patterns.add<AllocStructOpLowering, GetStructElementOpLowering,
+               ConstantStringOpLowering>(typeConverter);
 
   if (failed(
           applyFullConversion(getOperation(), target, std::move(patterns)))) {

@@ -379,4 +379,8 @@ mlir::LogicalResult GetStructElementOp::inferReturnTypes(
   return mlir::success();
 }
 
+mlir::OpFoldResult ConstantStringOp::fold(FoldAdaptor adaptor) {
+  return getValueAttr();
+}
+
 } // namespace columnar

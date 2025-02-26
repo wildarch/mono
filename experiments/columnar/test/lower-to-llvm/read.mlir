@@ -1,10 +1,10 @@
 !globals = !columnar.ptr<!columnar.struct<!columnar.scanner_handle, !columnar.column_handle, !columnar.print_handle>>
 
 columnar.pipeline_low global_open {
-  %c3 = arith.constant 3 : index
-  %c42 = arith.constant 42 : index
-  %0 = columnar.runtime_call "col_table_scanner_open"(%c42) : (index) -> !columnar.scanner_handle
-  %1 = columnar.runtime_call "col_table_column_open"(%c42, %c3) : (index, index) -> !columnar.column_handle
+  %c_nation = columnar.constant_string "nation.tab"
+  %c_n_nationkey = columnar.constant_string "n_nationkey.col"
+  %0 = columnar.runtime_call "col_table_scanner_open"(%c_nation) : (!columnar.str_lit) -> !columnar.scanner_handle
+  %1 = columnar.runtime_call "col_table_column_open"(%c_n_nationkey) : (!columnar.str_lit) -> !columnar.column_handle
   %2 = columnar.runtime_call "col_print_open"() : () -> !columnar.print_handle
   %3 = columnar.struct.alloc %0, %1, %2 : !columnar.scanner_handle, !columnar.column_handle, !columnar.print_handle
   columnar.pipeline_low.yield %3 : !globals
