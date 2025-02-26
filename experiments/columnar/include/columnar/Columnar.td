@@ -123,6 +123,10 @@ class PtrOf<Type type>
     Type elementType = type;
 }
 
+def StringLiteral : Columnar_Type<"StringLiteral", "str_lit"> {
+    let summary = "String literal";
+}
+
 // Attributes
 def StringArray : ArrayOfAttr<
         Columnar_Dialect,
@@ -930,6 +934,17 @@ def PipelineRefOp : Columnar_Op<"pipeline_ref", [IsolatedFromAbove]> {
     }];
 }
 
+def ConstantStringOp : Columnar_Op<"constant_string", [Pure, ConstantLike]> {
+    let arguments = (ins StrAttr:$value);
+
+    let results = (outs StringLiteral:$result);
+
+    let assemblyFormat = [{
+        $value attr-dict
+    }];
+
+    let hasFolder = 1;
+}
 
 // ============================================================================
 // =================================== PASSES =================================
