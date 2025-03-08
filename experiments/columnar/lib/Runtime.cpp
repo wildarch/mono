@@ -1,18 +1,14 @@
 #include <cstdint>
+#include <iostream>
 
 #include "columnar/Runtime.h"
+#include "columnar/runtime/Print.h"
 #include "columnar/runtime/TableColumn.h"
 #include "columnar/runtime/TableScanner.h"
 
 namespace {
 
-using TableId = std::uint64_t;
-using ColumnId = std::uint64_t;
-
-class TableScanner;
-class TableColumn;
-class Printer;
-class PrintChunk;
+using namespace columnar::runtime;
 
 struct MemRef {
   void *alloc;
@@ -20,6 +16,16 @@ struct MemRef {
   std::size_t offset;
   std::size_t size;
   std::size_t stride;
+
+  template <typename T> llvm::ArrayRef<T> asArrayRef() const {
+    assert(stride == 1);
+    return {static_cast<const T *>(align) + offset, size};
+  }
+
+  template <typename T> llvm::MutableArrayRef<T> asArrayRefMut() {
+    assert(stride == 1);
+    return {static_cast<T *>(align) + offset, size};
+  }
 };
 
 #define MEMREF_PARAM(name)                                                     \
@@ -32,7 +38,6 @@ struct MemRef {
   }
 
 extern "C" {
-
 /**
  * Note: I suspect the format for memref is:
  * - void* allocated pointer
@@ -42,60 +47,54 @@ extern "C" {
  * - std::size_t stride
  */
 
-TableScanner *col_table_scanner_open(TableId id) {
-  llvm::errs() << "col_table_scanner_open\n";
-  // TODO
-  return nullptr;
+TableScanner *col_table_scanner_open(std::uint64_t tableSize) {
+  return new TableScanner(tableSize);
 }
 
+// NOTE: C repr instead of C++ (for interop).
 struct ClaimedRange {
   std::size_t start;
   std::size_t size;
 };
 
 ClaimedRange col_table_scanner_claim_chunk(TableScanner *scanner) {
-  llvm::errs() << "col_table_scanner_claim_chunk\n";
-  return {0, 0};
+  auto claim = scanner->claimChunk();
+  return {claim.start, claim.size};
 }
 
-TableColumn *col_table_column_open(TableId table, ColumnId column) {
-  llvm::errs() << "col_table_column_open\n";
-  return nullptr;
+TableColumn *col_table_column_open(const char *path) {
+  auto *col = new TableColumn();
+  if (auto err = col->open(path)) {
+    llvm::errs() << "Invalid columnar path '" << path << "': " << err << "\n";
+    std::abort();
+  }
+
+  return col;
 }
 
-void col_table_column_read(TableColumn *column, std::size_t start,
-                           std::size_t size, MEMREF_PARAM(col)) {
-  MEMREF_VAR(col);
-  llvm::errs() << "col_table_column_read\n";
-  llvm::errs() << "allocated=" << col.alloc << "\n";
-  llvm::errs() << "aligned=" << col.align << "\n";
-  llvm::errs() << "offset=" << col.offset << "\n";
-  llvm::errs() << "size=" << col.size << "\n";
-  llvm::errs() << "stride=" << col.stride << "\n";
-  // TODO
+void col_table_column_read_int32(TableColumn *column, std::size_t start,
+                                 std::size_t size, MEMREF_PARAM(dest)) {
+  MEMREF_VAR(dest);
+  column->read(start, size, dest.asArrayRefMut<std::int32_t>());
 }
 
-Printer *col_print_open() {
-  llvm::errs() << "col_print_open\n";
-  return nullptr;
-}
+Printer *col_print_open() { return new Printer(); }
 
 void col_print_write(Printer *printer, PrintChunk *chunk) {
-  llvm::errs() << "col_print_write\n";
-  // TODO
+  printer->write(*chunk);
+  delete chunk;
 }
 
 PrintChunk *col_print_chunk_alloc(std::size_t size) {
-  llvm::errs() << "col_print_chunk_alloc\n";
-  return nullptr;
+  return new PrintChunk(size);
 }
 
 void col_print_chunk_append(PrintChunk *chunk, MEMREF_PARAM(col),
                             MEMREF_PARAM(sel)) {
   MEMREF_VAR(col);
   MEMREF_VAR(sel);
-  llvm::errs() << "col_print_chunk_append\n";
-  // TODO
+  chunk->append(col.asArrayRef<std::int32_t>(),
+                sel.asArrayRef<std::uint32_t>());
 }
 }
 
@@ -121,7 +120,7 @@ llvm::orc::SymbolMap registerRuntimeSymbols(llvm::orc::MangleAndInterner mai) {
   REGISTER(col_table_scanner_open);
   REGISTER(col_table_scanner_claim_chunk);
   REGISTER(col_table_column_open);
-  REGISTER(col_table_column_read);
+  REGISTER(col_table_column_read_int32);
   REGISTER(col_print_open);
   REGISTER(col_print_write);
   REGISTER(col_print_chunk_alloc);

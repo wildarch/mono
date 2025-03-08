@@ -12,7 +12,8 @@ struct PrintChunk {
 
   inline PrintChunk(std::size_t size) : lines(size) {}
 
-  void append(llvm::ArrayRef<std::int32_t> values);
+  void append(llvm::ArrayRef<std::int32_t> values,
+              llvm::ArrayRef<std::uint32_t> sel);
 };
 
 class Printer {
