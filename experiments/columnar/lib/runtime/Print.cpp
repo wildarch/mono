@@ -4,10 +4,11 @@
 
 namespace columnar::runtime {
 
-void PrintChunk::append(llvm::ArrayRef<std::int32_t> values) {
+void PrintChunk::append(llvm::ArrayRef<std::int32_t> values,
+                        llvm::ArrayRef<std::uint32_t> sel) {
   assert(values.size() == lines.size());
-  for (auto [i, v] : llvm::enumerate(values)) {
-    lines[i] += v;
+  for (auto [line, idx] : llvm::enumerate(sel)) {
+    lines[line] += values[idx];
   }
 }
 

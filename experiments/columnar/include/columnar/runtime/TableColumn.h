@@ -12,10 +12,11 @@ private:
 public:
   ~TableColumn();
 
-  llvm::Error open(llvm::Twine name);
+  llvm::Error open(llvm::Twine path);
   llvm::Error close();
 
-  void read(std::size_t start, std::size_t size, std::int32_t *dest);
+  void read(std::size_t start, std::size_t size,
+            llvm::MutableArrayRef<std::int32_t> dest);
 };
 
 } // namespace columnar::runtime
