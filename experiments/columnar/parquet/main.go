@@ -2,16 +2,22 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/apache/arrow/go/parquet"
 	"github.com/apache/arrow/go/parquet/file"
 	"github.com/apache/arrow/go/parquet/schema"
 )
+
+type TableMetaData struct {
+	TableSize int64
+}
 
 func writeColumnI32(reader *file.Int32ColumnChunkReader, out io.Writer) error {
 	buf := make([]int32, 1024)
@@ -88,6 +94,17 @@ func readFile(path string) error {
 	sc := reader.MetaData().Schema
 	schema.PrintSchema(sc.Root(), os.Stdout, 2)
 	log.Printf("Found %d rows", reader.NumRows())
+
+	tabMeta := TableMetaData{
+		TableSize: reader.NumRows(),
+	}
+	tabPath := fmt.Sprintf("%s.tab", strings.TrimSuffix(path, ".parquet"))
+	fmt.Printf("table file %s\n", tabPath)
+	tabJson, _ := json.Marshal(tabMeta)
+	err = os.WriteFile(tabPath, tabJson, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create table file: %w", err)
+	}
 
 	for i := 0; i < sc.NumColumns(); i++ {
 		col := sc.Column(i)
