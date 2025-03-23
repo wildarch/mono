@@ -112,6 +112,21 @@ CALL dbgen(sf = 1);
 EXPORT DATABASE 'tpch-sf1' (FORMAT PARQUET);
 ```
 
+## Pipeline
+- ... Higher-level stuff ...
+- `lower-pipelines`
+- `one-shot-bufferize` + `linalg-to-loops`
+- `lower-to-llvm`
+- execute
+
+```bash
+bazel run //experiments/columnar:mlir-opt -- \
+    /home/daan/workspace/mono/experiments/columnar/test/lower-pipelines/read.mlir \
+    --lower-pipelines \
+    --one-shot-bufferize --convert-linalg-to-loops \
+    --lower-to-llvm
+```
+
 ## References
 - https://voltrondata.com/blog/what-is-substrait-high-level-primer
 - https://15721.courses.cs.cmu.edu/spring2018/papers/03-compilation/shaikhha-sigmod2016.pdf

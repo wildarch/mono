@@ -182,10 +182,10 @@ def SortDirectionArray : ArrayOfAttr<
         "SortDirection">;
 
 def Table : Columnar_Attr<"Table", "table"> {
-    let parameters = (ins StringRefParameter<>:$name);
+    let parameters = (ins StringRefParameter<>:$name, StringRefParameter<>:$path);
     
     let assemblyFormat = [{
-        `<` $name `>`
+        `<` $name `path` `` `=` `` $path `>`
     }];
 }
 
@@ -193,10 +193,11 @@ def TableColumn : Columnar_Attr<"TableColumn", "table_col"> {
     let parameters = (ins 
         "TableAttr":$table,
         StringRefParameter<>:$name, 
-        "mlir::Type":$type);
+        "mlir::Type":$type,
+        StringRefParameter<>:$path);
 
     let assemblyFormat = [{
-        `<` $table $name `:` $type `>`
+        `<` $table $name `:` $type `path` `` `=` `` $path `>`
     }];
 }
 
@@ -766,18 +767,6 @@ def PipelineLowYieldOp : Columnar_Op<"pipeline_low.yield", [
     }];
 }
 
-def TableColumnOpenOp : Columnar_Op<"table.column.open"> {
-    let summary = "Open a table column for reading";
-
-    let arguments = (ins TableColumn:$column);
-
-    let results = (outs ColumnHandle:$result);
-
-    let assemblyFormat = [{
-        $column attr-dict
-    }];
-}
-
 def TableColumnReadOp : Columnar_Op<"table.column.read", [
         DeclareOpInterfaceMethods<
             BufferizableOpInterface, 
@@ -790,52 +779,6 @@ def TableColumnReadOp : Columnar_Op<"table.column.read", [
 
     let assemblyFormat = [{
         $handle `:` type($result) $start $size attr-dict
-    }];
-}
-
-def TableScannerOpenOp : Columnar_Op<"table.scanner.open"> {
-    let summary = "Create a new table scanner";
-
-    let arguments = (ins Table:$table);
-
-    let results = (outs ScannerHandle:$result);
-
-    let assemblyFormat = [{
-        $table attr-dict
-    }];
-}
-
-def TableScannerClaimChunkOp : Columnar_Op<"table.scanner.claim_chunk"> {
-    let summary = "Claim a chunk of the table rows for reading";
-
-    let arguments = (ins ScannerHandle:$handle);
-
-    let results = (outs Index:$start, Index:$size);
-
-    let assemblyFormat = [{
-        $handle attr-dict
-    }];
-}
-
-def PrintOpenOp : Columnar_Op<"print.open"> {
-    let summary = "Open the output printer";
-
-    let results = (outs PrintHandle:$result);
-
-    let assemblyFormat = [{
-        attr-dict
-    }];
-}
-
-def PrintChunkAllocOp : Columnar_Op<"print.chunk.alloc"> {
-    let summary = "Allocate a chunks of strings for formatting output";
-
-    let arguments = (ins Index:$nrows);
-
-    let results = (outs PrintChunk:$result);
-
-    let assemblyFormat = [{
-        $nrows attr-dict
     }];
 }
 
@@ -860,33 +803,6 @@ def PrintChunkAppendOp : Columnar_Op<"print.chunk.append", [
     }];
 }
 
-def PrintWriteOp : Columnar_Op<"print.write"> {
-    let summary = "Write a chunk of output rows";
-
-    let arguments = (ins PrintHandle:$handle, PrintChunk:$chunk);
-
-    let assemblyFormat = [{
-        $handle $chunk attr-dict
-    }];
-}
-
-def TensorPrintOp : Columnar_Op<"tensor.print"> {
-    let arguments = (ins 
-        StrAttr:$name, 
-        TensorCol:$input, 
-        1DTensorOf<[Index]>:$sel);
-
-    let assemblyFormat = [{
-        $name 
-        $input `:` type($input) 
-        `sel` `` `=` `` $sel `:` type($sel)
-        attr-dict
-    }];
-}
-
-// ============================================================================
-// ============================ BUFFERIZATION OPS =============================
-// ============================================================================
 def RuntimeCallOp : Columnar_Op<"runtime_call"> {
     let arguments = (ins StrAttr:$func, Variadic<AnyType>:$inputs);
 

@@ -1463,13 +1463,13 @@ static void initTPCHCatalog(mlir::MLIRContext *ctx, Catalog &catalog) {
   TableDef tableDefs[] = {PART,   SUPPLIER, PARTSUPP, CUSTOMER,
                           ORDERS, LINEITEM, NATION,   REGION};
   for (const auto &def : tableDefs) {
-    auto table = columnar::TableAttr::get(ctx, def.name);
+    auto table = columnar::TableAttr::get(ctx, def.name, def.name);
     catalog.addTable(table);
 
     for (const auto &col : def.columns) {
       auto type = col.type(ctx);
       catalog.addColumn(
-          columnar::TableColumnAttr::get(ctx, table, col.name, type));
+          columnar::TableColumnAttr::get(ctx, table, col.name, type, col.name));
     }
   }
 }
