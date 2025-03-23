@@ -1,10 +1,10 @@
 // RUN: mlir-opt --push-down-predicates %s | FileCheck %s
 !col_si64 = !columnar.col<si64>
 
-#table_A = #columnar.table<"A">
-#table_B = #columnar.table<"B">
-#column_A_a = #columnar.table_col<#table_A "a" : si64>
-#column_B_a = #columnar.table_col<#table_B "a" : si64>
+#table_A = #columnar.table<"A" path="/tmp/A.tab">
+#table_B = #columnar.table<"B" path="/tmp/B.tab">
+#column_A_a = #columnar.table_col<#table_A "a" : si64 path="/tmp/a.col">
+#column_B_a = #columnar.table_col<#table_B "a" : si64 path="/tmp/b.col">
 
 columnar.query {
     // CHECK: %[[#A:]] = columnar.read_column #column_A_a
