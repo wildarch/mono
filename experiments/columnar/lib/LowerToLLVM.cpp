@@ -66,11 +66,13 @@ static mlir::Value getOrCreateGlobalString(mlir::Location loc,
   if (!(global = module.lookupSymbol<mlir::LLVM::GlobalOp>(name))) {
     mlir::OpBuilder::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToStart(module.getBody());
-    auto type = mlir::LLVM::LLVMArrayType::get(
-        mlir::IntegerType::get(builder.getContext(), 8), value.size());
+    std::string nullTerminated = value.str();
+    nullTerminated += '\0';
+    auto type = mlir::LLVM::LLVMArrayType::get(builder.getI8Type(),
+                                               nullTerminated.size());
     global = builder.create<mlir::LLVM::GlobalOp>(
         loc, type, /*isConstant=*/true, mlir::LLVM::Linkage::Internal, name,
-        builder.getStringAttr(value),
+        builder.getStringAttr(nullTerminated),
         /*alignment=*/0);
   }
 

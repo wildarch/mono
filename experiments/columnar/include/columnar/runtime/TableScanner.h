@@ -2,6 +2,8 @@
 
 #include <atomic>
 
+#include "llvm/Support/Error.h"
+
 namespace columnar::runtime {
 
 class TableScanner {
@@ -10,7 +12,7 @@ private:
   std::atomic_size_t _nextStart = 0;
 
 public:
-  TableScanner(std::size_t tableSize);
+  llvm::Error open(llvm::Twine path);
 
   struct ClaimedRange {
     std::size_t start;

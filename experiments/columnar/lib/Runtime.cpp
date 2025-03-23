@@ -47,8 +47,14 @@ extern "C" {
  * - std::size_t stride
  */
 
-TableScanner *col_table_scanner_open(std::uint64_t tableSize) {
-  return new TableScanner(tableSize);
+TableScanner *col_table_scanner_open(const char *path) {
+  auto *col = new TableScanner();
+  if (auto err = col->open(path)) {
+    llvm::errs() << "Invalid table path '" << path << "': " << err << "\n";
+    std::abort();
+  }
+
+  return col;
 }
 
 // NOTE: C repr instead of C++ (for interop).
@@ -89,12 +95,11 @@ PrintChunk *col_print_chunk_alloc(std::size_t size) {
   return new PrintChunk(size);
 }
 
-void col_print_chunk_append(PrintChunk *chunk, MEMREF_PARAM(col),
-                            MEMREF_PARAM(sel)) {
+void col_print_chunk_append_int32(PrintChunk *chunk, MEMREF_PARAM(col),
+                                  MEMREF_PARAM(sel)) {
   MEMREF_VAR(col);
   MEMREF_VAR(sel);
-  chunk->append(col.asArrayRef<std::int32_t>(),
-                sel.asArrayRef<std::uint32_t>());
+  chunk->append(col.asArrayRef<std::int32_t>(), sel.asArrayRef<std::size_t>());
 }
 }
 
@@ -124,7 +129,7 @@ llvm::orc::SymbolMap registerRuntimeSymbols(llvm::orc::MangleAndInterner mai) {
   REGISTER(col_print_open);
   REGISTER(col_print_write);
   REGISTER(col_print_chunk_alloc);
-  REGISTER(col_print_chunk_append);
+  REGISTER(col_print_chunk_append_int32);
 
 #undef REGISTER
 
