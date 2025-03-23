@@ -1,6 +1,7 @@
 #include "columnar/Columnar.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Transforms/DialectConversion.h"
 
@@ -25,6 +26,8 @@ static mlir::Type convertElementType(mlir::Type t) {
   if (llvm::isa<SelectType>(t)) {
     return mlir::IndexType::get(t.getContext());
   } else if (llvm::isa<mlir::FloatType>(t)) {
+    return t;
+  } else if (llvm::isa<mlir::IntegerType>(t)) {
     return t;
   }
 
@@ -63,13 +66,22 @@ mlir::LogicalResult
 ReadTableOp::lowerGlobalOpen(mlir::OpBuilder &builder,
                              llvm::SmallVectorImpl<mlir::Value> &newGlobals) {
   // Open scanner
-  auto scannerOp = builder.create<TableScannerOpenOp>(getLoc(), getTable());
-  newGlobals.push_back(scannerOp);
+  auto tablePath =
+      builder.create<ConstantStringOp>(getLoc(), getTable().getPath());
+  auto scannerOp = builder.create<RuntimeCallOp>(
+      getLoc(), builder.getType<ScannerHandleType>(),
+      builder.getStringAttr("col_table_scanner_open"),
+      mlir::ValueRange{tablePath});
+  newGlobals.push_back(scannerOp.getResult(0));
 
   // Open columns
   for (auto col : getColumnsToRead()) {
-    auto columnOp = builder.create<TableColumnOpenOp>(getLoc(), col);
-    newGlobals.push_back(columnOp);
+    auto colPath = builder.create<ConstantStringOp>(getLoc(), col.getPath());
+    auto columnOp = builder.create<RuntimeCallOp>(
+        getLoc(), builder.getType<ColumnHandleType>(),
+        builder.getStringAttr("col_table_column_open"),
+        mlir::ValueRange{colPath});
+    newGlobals.push_back(columnOp->getResult(0));
   }
 
   return mlir::success();
@@ -90,16 +102,20 @@ ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
   auto columns = globals.drop_front();
 
   // Claim a chunk of rows to read
-  auto claimOp = builder.create<TableScannerClaimChunkOp>(getLoc(), scanner);
+  auto claimOp = builder.create<RuntimeCallOp>(
+      getLoc(), mlir::TypeRange{builder.getIndexType(), builder.getIndexType()},
+      builder.getStringAttr("col_table_scanner_claim_chunk"), scanner);
+  auto start = claimOp->getResult(0);
+  auto size = claimOp->getResult(1);
 
   // If the chunk has size > 0, there may be more to read.
   auto zeroOp = builder.create<mlir::arith::ConstantOp>(
       getLoc(), builder.getIndexType(), builder.getIndexAttr(0));
   auto haveRowsOp = builder.create<mlir::arith::CmpIOp>(
-      getLoc(), mlir::arith::CmpIPredicate::ugt, claimOp.getSize(), zeroOp);
+      getLoc(), mlir::arith::CmpIPredicate::ugt, size, zeroOp);
   haveMore.push_back(haveRowsOp);
 
-  auto selOp = buildIotaSelectionVector(builder, getLoc(), claimOp.getSize());
+  auto selOp = buildIotaSelectionVector(builder, getLoc(), size);
   results.push_back(selOp);
 
   // Read the columns
@@ -109,8 +125,8 @@ ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
       return mlir::failure();
     }
 
-    auto readOp = builder.create<TableColumnReadOp>(
-        getLoc(), tensorType, col, claimOp.getStart(), claimOp.getSize());
+    auto readOp = builder.create<TableColumnReadOp>(getLoc(), tensorType, col,
+                                                    start, size);
     results.push_back(readOp);
   }
 
@@ -121,8 +137,10 @@ ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
 mlir::LogicalResult
 PrintOp::lowerGlobalOpen(mlir::OpBuilder &builder,
                          llvm::SmallVectorImpl<mlir::Value> &newGlobals) {
-  auto handle = builder.create<PrintOpenOp>(getLoc());
-  newGlobals.push_back(handle);
+  auto printOp = builder.create<RuntimeCallOp>(
+      getLoc(), builder.getType<PrintHandleType>(),
+      builder.getStringAttr("col_print_open"), mlir::ValueRange{});
+  newGlobals.push_back(printOp.getResult(0));
   return mlir::success();
 }
 
@@ -144,7 +162,10 @@ PrintOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
 
   // New chunk
   auto nrows = builder.create<mlir::tensor::DimOp>(getLoc(), sel, 0);
-  auto chunk = builder.create<PrintChunkAllocOp>(getLoc(), nrows);
+  auto allocOp = builder.create<RuntimeCallOp>(
+      getLoc(), builder.getType<PrintChunkType>(),
+      builder.getStringAttr("col_print_chunk_alloc"), mlir::ValueRange{nrows});
+  auto chunk = allocOp.getResult(0);
 
   // Append columns
   for (auto input : adaptor.getInputs()) {
@@ -152,13 +173,18 @@ PrintOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
   }
 
   // Write chunk
-  builder.create<PrintWriteOp>(getLoc(), handle, chunk);
+  builder.create<RuntimeCallOp>(getLoc(), mlir::TypeRange{},
+                                builder.getStringAttr("col_print_write"),
+                                mlir::ValueRange{handle, chunk});
   return mlir::success();
 }
 
-static void addArgumentsFor(mlir::Block &block, mlir::ValueRange values) {
-  for (auto v : values) {
-    block.addArgument(v.getType(), v.getLoc());
+static void unpackStructPointer(mlir::Value v, mlir::OpBuilder &builder,
+                                llvm::SmallVectorImpl<mlir::Value> &out) {
+  auto ptrType = llvm::cast<PointerType>(v.getType());
+  auto structType = llvm::cast<StructType>(ptrType.getPointee());
+  for (auto i : llvm::seq(structType.getFieldTypes().size())) {
+    out.emplace_back(builder.create<GetStructElementOp>(v.getLoc(), v, i));
   }
 }
 
@@ -200,11 +226,15 @@ static mlir::LogicalResult lowerPipeline(mlir::IRRewriter &rewriter,
       globalsPerOp.push_back(newGlobals.size());
     }
 
-    rewriter.create<PipelineLowYieldOp>(pipelineOp.getLoc(), globals);
+    auto globalStructOp =
+        rewriter.create<AllocStructOp>(pipelineOp.getLoc(), globals);
+    rewriter.create<PipelineLowYieldOp>(pipelineOp.getLoc(),
+                                        mlir::ValueRange{globalStructOp});
 
     // Globals are available in all blocks
-    addArgumentsFor(bodyBlock, globals);
-    addArgumentsFor(globalCloseBlock, globals);
+    bodyBlock.addArgument(globalStructOp.getType(), globalStructOp.getLoc());
+    globalCloseBlock.addArgument(globalStructOp.getType(),
+                                 globalStructOp.getLoc());
   }
 
   // Global free
@@ -212,7 +242,10 @@ static mlir::LogicalResult lowerPipeline(mlir::IRRewriter &rewriter,
     mlir::OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointToStart(&globalCloseBlock);
 
-    auto args = globalCloseBlock.getArguments();
+    llvm::SmallVector<mlir::Value> globalArgs;
+    unpackStructPointer(globalCloseBlock.getArgument(0), rewriter, globalArgs);
+    auto args = llvm::ArrayRef<mlir::Value>(globalArgs);
+
     for (auto [op, numGlobals] : llvm::zip_equal(toLower, globalsPerOp)) {
       auto opArgs = args.take_front(numGlobals);
       args = args.drop_front(numGlobals);
@@ -239,7 +272,10 @@ static mlir::LogicalResult lowerPipeline(mlir::IRRewriter &rewriter,
     // Tracks whether all ops in the body want to be called again.
     llvm::SmallVector<mlir::Value> haveMore;
 
-    auto args = bodyBlock.getArguments();
+    llvm::SmallVector<mlir::Value> globalArgs;
+    unpackStructPointer(bodyBlock.getArgument(0), rewriter, globalArgs);
+    auto args = llvm::ArrayRef<mlir::Value>(globalArgs);
+
     for (auto [op, numGlobals] : llvm::zip_equal(toLower, globalsPerOp)) {
       auto globals = args.take_front(numGlobals);
       args = args.drop_front(numGlobals);

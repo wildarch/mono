@@ -1,6 +1,6 @@
 // RUN: mlir-opt --lower-pipelines %s | FileCheck %s
-#table_mytable = #columnar.table<"mytable">
-#column_mytable_l_value = #columnar.table_col<#table_mytable "l_value" : f64>
+#table_mytable = #columnar.table<"mytable" path="/home/daan/Downloads/tpch-sf1/nation.tab">
+#column_mytable_l_value = #columnar.table_col<#table_mytable "n_nationkey" : i32 path="/home/daan/Downloads/tpch-sf1/n_nationkey.col"> 
 
 // CHECK: columnar.pipeline_low 
 // CHECK-LABEL: global_open {
@@ -26,6 +26,6 @@
 //
 // CHECK: columnar.pipeline_low.yield %[[#MORE]] : i1
 columnar.pipeline {
-  %sel, %col = columnar.read_table #table_mytable [#column_mytable_l_value] : !columnar.col<f64>
-  columnar.print ["l_value"] %col : !columnar.col<f64> sel=%sel
+  %sel, %col = columnar.read_table #table_mytable [#column_mytable_l_value] : !columnar.col<i32>
+  columnar.print ["n_nationkey"] %col : !columnar.col<i32> sel=%sel
 }
