@@ -2,10 +2,10 @@
 !col_si64 = !columnar.col<si64>
 !col_f64 = !columnar.col<f64>
 
-#table_A = #columnar.table<"A">
-#column_A_a = #columnar.table_col<#table_A "a" : si64>
-#column_A_b = #columnar.table_col<#table_A "b" : si64>
-#column_A_c = #columnar.table_col<#table_A "c" : f64>
+#table_A = #columnar.table<"A" path="/tmp/A.tab">
+#column_A_a = #columnar.table_col<#table_A "a" : si64 path="/tmp/a.col">
+#column_A_b = #columnar.table_col<#table_A "b" : si64 path="/tmp/b.col">
+#column_A_c = #columnar.table_col<#table_A "c" : f64 path="/tmp/c.col">
 
 // Basic
 // CHECK-LABEL: columnar.query {

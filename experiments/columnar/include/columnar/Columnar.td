@@ -832,7 +832,7 @@ def GetStructElementOp : Columnar_Op<"struct.get", [Pure, InferTypeOpAdaptor]> {
     let results = (outs AnyType:$result);
 
     let assemblyFormat = [{
-        $value `:` type($value) $index attr-dict
+        $index $value `:` type($value) attr-dict
     }];
 }
 
