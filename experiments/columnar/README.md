@@ -86,14 +86,6 @@ This can be resolved once selection vectors are made explicit.
 A standard _available expressions_ dataflow analysis suffices in most cases.
 This could be extended with detection of common operations across union children.
 
-## Lowering
-Steps:
-1. Make selection vectors explicit (`select` is removed)
-2. Make nulls explicit (can be skipped for TPC-H)
-3. Split pipeline breakers into source/sink side (`join`, `aggregate` and `union`)
-4. Group into pipelines
-5. Lower pipeline to `func` over `memref`. Body uses `arith` and `vector`.
-
 ## TPC-H Coverage
 To support all TPC-H queries, we would need the following 'advanced' features:
 - `ORDER BY`: Sorting the final output
@@ -112,8 +104,37 @@ CALL dbgen(sf = 1);
 EXPORT DATABASE 'tpch-sf1' (FORMAT PARQUET);
 ```
 
+## Lowering
+### Query Plan to Pipelines
+Ops to split:
+- `AggregateOp`
+- `JoinOp`
+- `OrderByOp`
+- `LimitOp`
+
+Special case: `UnionOp`
+
+Procedure:
+1. Split up ops so that no op is both source and a sink at the same time. 
+   *NOTE:* requires that we establish blocking relationships between operators. e.g. aggregate output must wait until we complete the build.
+2. Starting from sinks, find all ops that transitively feed column data into that sink. 
+   These ops will constitute the pipeline.
+   Because sinks never output column data, we will only add source and transform ops.
+   The sink op is *moved* into the pipeline (cloning it could have side effects). 
+   The source and transform ops are *cloned* because they do not have side effects. 
+   We only need to make sure that we also clone blocking relationships of sources.
+
 ## Pipeline
-- ... Higher-level stuff ...
+- translate (`--import-sql`)
+- TODO: Constant propagation
+- `push-down-predicates`
+- TODO: Join order optimization
+- TODO: Pull up projections
+- TODO: Common sub-expression elimination
+- `add-selection-vectors`
+- TODO: Make NULLs explicit
+- TODO: Split pipeline breakers into source/sink sides
+- TODO: Group into pipelines
 - `lower-pipelines`
 - `one-shot-bufferize` + `linalg-to-loops`
 - `lower-to-llvm`
