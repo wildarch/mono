@@ -252,6 +252,14 @@ def IsProjection : NativeOpTrait<"IsProjection"> {
     let cppNamespace = "::columnar";
 }
 
+def Source : NativeOpTrait<"Source"> {
+    let cppNamespace = "::columnar";
+}
+
+def Sink : NativeOpTrait<"Sink"> {
+    let cppNamespace = "::columnar";
+}
+
 def LowerPipelineOpInterface : OpInterface<"LowerPipelineOpInterface"> {
   let methods = [
     InterfaceMethod<
@@ -306,7 +314,8 @@ def QueryOp : Columnar_Op<"query", [IsolatedFromAbove]> {
 def QueryOutputOp : Columnar_Op<"query.output", [
         Terminator,
         AttrSizedOperandSegments, 
-        ParentOneOf<["QueryOp", "SubQueryOp"]>]> {
+        ParentOneOf<["QueryOp", "SubQueryOp", "PipelineOp"]>,
+        Sink]> {
     let summary = "Outputs the final query results";
 
     let arguments = (ins
@@ -336,7 +345,7 @@ def QueryOutputOp : Columnar_Op<"query.output", [
 // ================================= CORE OPS =================================
 // ============================================================================
 
-def ReadColumnOp : Columnar_Op<"read_column", [Pure]> {
+def ReadColumnOp : Columnar_Op<"read_column", [Pure, Source]> {
     let summary = "Reads a column from a table";
 
     let arguments = (ins TableColumn:$column);
@@ -348,7 +357,11 @@ def ReadColumnOp : Columnar_Op<"read_column", [Pure]> {
     }];
 }
 
-def ConstantOp : Columnar_Op<"constant", [Pure, ConstantLike, InferTypeOpAdaptor]> {
+def ConstantOp : Columnar_Op<"constant", [
+        Pure, 
+        ConstantLike, 
+        InferTypeOpAdaptor, 
+        Source]> {
     let arguments = (ins TypedAttrInterface:$value);
 
     let results = (outs Column:$result);
@@ -363,7 +376,9 @@ def ConstantOp : Columnar_Op<"constant", [Pure, ConstantLike, InferTypeOpAdaptor
 def AggregateOp : Columnar_Op<"aggregate", [
         Pure, 
         AttrSizedOperandSegments, 
-        InferTypeOpAdaptor]> {
+        InferTypeOpAdaptor,
+        Source,
+        Sink]> {
     let arguments = (ins 
         Variadic<Column>:$groupBy, 
         Variadic<Column>:$aggregate,
@@ -389,7 +404,9 @@ def AggregateOp : Columnar_Op<"aggregate", [
 def JoinOp : Columnar_Op<"join", [
         Pure, 
         AttrSizedOperandSegments, 
-        InferTypeOpAdaptor]> {
+        InferTypeOpAdaptor,
+        Source,
+        Sink]> {
     let summary = "Cartesian product of two sets of columns";
 
     let arguments = (ins
@@ -464,7 +481,9 @@ def PredicateEvalOp : Columnar_Op<"pred.eval", [
 def UnionOp : Columnar_Op<"union", [
         Pure, 
         SameVariadicOperandSize,
-        AllTypesMatch<["lhs", "rhs", "results"]>]> {
+        AllTypesMatch<["lhs", "rhs", "results"]>,
+        Source,
+        Sink]> {
     let arguments = (ins Variadic<Column>:$lhs, Variadic<Column>:$rhs);
 
     let results = (outs Variadic<Column>:$results);
@@ -477,7 +496,9 @@ def UnionOp : Columnar_Op<"union", [
 def OrderByOp : Columnar_Op<"order_by", [
         Pure, 
         AttrSizedOperandSegments, 
-        InferTypeOpAdaptor]> {
+        InferTypeOpAdaptor,
+        Source,
+        Sink]> {
     let arguments = (ins 
         Variadic<Column>:$keys, 
         SortDirectionArray:$dirs,
@@ -498,7 +519,9 @@ def OrderByOp : Columnar_Op<"order_by", [
 def LimitOp : Columnar_Op<"limit", [
         Pure, 
         AllTypesMatch<["inputs", "results"]>, 
-        InferTypeOpAdaptor]> {
+        InferTypeOpAdaptor,
+        Source,
+        Sink]> {
     let arguments = (ins 
         I64Attr:$limit,
         Variadic<Column>:$inputs);
@@ -871,6 +894,10 @@ def PushDownPredicates: Pass<"push-down-predicates", "::columnar::QueryOp"> {
 
 def AddSelectionVectors: Pass<"add-selection-vectors", "::columnar::QueryOp"> {
     let summary = "Adds explicit selection vectors";
+}
+
+def MakePipelines: Pass<"make-pipelines", "mlir::ModuleOp"> {
+    let summary = "Groups and splits operators into pipelines";
 }
 
 def LowerPipelines : Pass<"lower-pipelines", "mlir::ModuleOp"> {
