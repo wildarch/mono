@@ -34,6 +34,12 @@ template <typename ConcreteType>
 class IsProjection
     : public mlir::OpTrait::TraitBase<ConcreteType, IsProjection> {};
 
+template <typename ConcreteType>
+class Source : public mlir::OpTrait::TraitBase<ConcreteType, Source> {};
+
+template <typename ConcreteType>
+class Sink : public mlir::OpTrait::TraitBase<ConcreteType, Sink> {};
+
 #include "columnar/Interfaces.h.inc"
 
 } // namespace columnar
