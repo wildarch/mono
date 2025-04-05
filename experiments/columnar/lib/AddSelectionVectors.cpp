@@ -21,49 +21,7 @@ public:
   void runOnOperation() final;
 };
 
-class ExtractCommonSel {
-private:
-  mlir::Value sel;
-
-public:
-  mlir::Value input(mlir::Value v);
-  llvm::SmallVector<mlir::Value> inputs(mlir::ValueRange vals);
-  mlir::Value getCommonSelectionVector();
-};
-
 } // namespace
-
-mlir::Value ExtractCommonSel::input(mlir::Value v) {
-  if (auto applyOp = v.getDefiningOp<SelApplyOp>()) {
-    if (!sel || sel == applyOp.getSel()) {
-      // Compatible selection vectors.
-      sel = applyOp.getSel();
-      return applyOp.getInput();
-    } else {
-      // Incompatible
-      sel = nullptr;
-      return v;
-    }
-  } else if (v.getDefiningOp<ConstantOp>()) {
-    // Any selection vector is OK.
-    return v;
-  } else {
-    // No selection vector found.
-    sel = nullptr;
-    return v;
-  }
-}
-
-llvm::SmallVector<mlir::Value> ExtractCommonSel::inputs(mlir::ValueRange vals) {
-  llvm::SmallVector<mlir::Value> results;
-  for (auto v : vals) {
-    results.push_back(input(v));
-  }
-
-  return results;
-}
-
-mlir::Value ExtractCommonSel::getCommonSelectionVector() { return sel; }
 
 /*
 Base reads:
@@ -178,40 +136,17 @@ static mlir::LogicalResult selTable(SelAddOp op,
   return mlir::success();
 }
 
-static mlir::LogicalResult applyCmp(CmpOp op, mlir::PatternRewriter &rewriter) {
+static mlir::LogicalResult addCmp(CmpOp op, mlir::PatternRewriter &rewriter) {
   if (op.getSel()) {
     return mlir::failure();
   }
 
-  ExtractCommonSel extract;
-  auto lhs = extract.input(op.getLhs());
-  auto rhs = extract.input(op.getRhs());
-  auto sel = extract.getCommonSelectionVector();
-  if (!sel) {
-    return mlir::failure();
-  }
+  auto selAddOp = rewriter.create<SelAddOp>(op.getLoc(), op.getOperands());
+  auto lhs = selAddOp->getResult(0);
+  auto rhs = selAddOp->getResult(1);
+  auto sel = selAddOp.getSel();
 
   auto newOp = rewriter.create<CmpOp>(op.getLoc(), op.getPred(), lhs, rhs, sel);
-  rewriter.replaceOpWithNewOp<SelApplyOp>(op, newOp, sel);
-  return mlir::success();
-}
-
-template <typename T>
-static mlir::LogicalResult
-applyNumericalBinOp(T op, mlir::PatternRewriter &rewriter) {
-  if (op.getSel()) {
-    return mlir::failure();
-  }
-
-  ExtractCommonSel extract;
-  auto lhs = extract.input(op.getLhs());
-  auto rhs = extract.input(op.getRhs());
-  auto sel = extract.getCommonSelectionVector();
-  if (!sel) {
-    return mlir::failure();
-  }
-
-  auto newOp = rewriter.create<T>(op.getLoc(), lhs, rhs, sel);
   rewriter.replaceOpWithNewOp<SelApplyOp>(op, newOp, sel);
   return mlir::success();
 }
@@ -221,6 +156,38 @@ static bool isIdentitySel(mlir::Value v) {
   return mlir::matchPattern(v, mlir::m_Constant<SelIdAttr>(nullptr));
 }
 
+template <typename T>
+static mlir::LogicalResult addNumericalBinOp(T op,
+                                             mlir::PatternRewriter &rewriter) {
+  if (op.getSel()) {
+    return mlir::failure();
+  }
+
+  auto selAddOp = rewriter.create<SelAddOp>(op.getLoc(), op.getOperands());
+  auto lhs = selAddOp->getResult(0);
+  auto rhs = selAddOp->getResult(1);
+  auto sel = selAddOp.getSel();
+  auto newOp = rewriter.create<T>(op.getLoc(), lhs, rhs, sel);
+  rewriter.replaceOpWithNewOp<SelApplyOp>(op, newOp, sel);
+  return mlir::success();
+}
+
+static mlir::LogicalResult addQueryOutput(QueryOutputOp op,
+                                          mlir::PatternRewriter &rewriter) {
+  if (op.getSel()) {
+    return mlir::failure();
+  }
+
+  auto selAddOp = rewriter.create<SelAddOp>(op.getLoc(), op.getColumns());
+  rewriter.modifyOpInPlace(op, [&]() {
+    op.getColumnsMutable().assign(selAddOp.getResults());
+    op.getSelMutable().assign(selAddOp.getSel());
+  });
+
+  return mlir::success();
+}
+
+// Fold selection vector into input.
 static mlir::LogicalResult applyFilter(SelFilterOp op,
                                        mlir::PatternRewriter &rewriter) {
   auto applyOp = op.getFilter().getDefiningOp<SelApplyOp>();
@@ -235,24 +202,49 @@ static mlir::LogicalResult applyFilter(SelFilterOp op,
   return mlir::success();
 }
 
-static mlir::LogicalResult applyQueryOutput(QueryOutputOp op,
-                                            mlir::PatternRewriter &rewriter) {
-  if (op.getSel()) {
-    return mlir::failure();
+// If all inputs are SelApplyOp with the same selection vector, the ops cancel
+// out.
+static mlir::LogicalResult addApply(SelAddOp op,
+                                    mlir::PatternRewriter &rewriter) {
+  mlir::Value sel;
+  for (auto input : op.getInputs()) {
+    if (input.getDefiningOp<ConstantOp>()) {
+      // Compatible with any selection vector.
+      continue;
+    }
+
+    auto applyOp = input.getDefiningOp<SelApplyOp>();
+    if (!applyOp) {
+      // All inputs must be apply.
+      return mlir::failure();
+    }
+
+    if (sel && applyOp.getSel() != sel) {
+      // Incompatible selection vectors.
+      return mlir::failure();
+    }
+
+    sel = applyOp.getSel();
   }
 
-  ExtractCommonSel extract;
-  auto newColumns = extract.inputs(op.getColumns());
-  auto sel = extract.getCommonSelectionVector();
   if (!sel) {
-    return mlir::failure();
+    // All inputs are constants
+    sel =
+        rewriter.create<ConstantOp>(op.getLoc(), rewriter.getAttr<SelIdAttr>());
   }
 
-  rewriter.modifyOpInPlace(op, [&]() {
-    op.getColumnsMutable().assign(newColumns);
-    op.getSelMutable().assign(sel);
-  });
+  llvm::SmallVector<mlir::Value> replacements;
+  for (auto input : op.getInputs()) {
+    if (input.getDefiningOp<ConstantOp>()) {
+      replacements.push_back(input);
+    } else {
+      replacements.push_back(input.getDefiningOp<SelApplyOp>().getInput());
+    }
+  }
 
+  replacements.push_back(sel);
+
+  rewriter.replaceOp(op, replacements);
   return mlir::success();
 }
 
@@ -260,13 +252,15 @@ void AddSelectionVectors::runOnOperation() {
   mlir::RewritePatternSet patterns(&getContext());
   patterns.add(lowerSelect);
   patterns.add(selTable);
-  patterns.add(applyCmp);
+  patterns.add(addCmp);
+  patterns.add(addNumericalBinOp<AddOp>);
+  patterns.add(addNumericalBinOp<SubOp>);
+  patterns.add(addNumericalBinOp<MulOp>);
+  patterns.add(addNumericalBinOp<DivOp>);
+  patterns.add(addQueryOutput);
+
   patterns.add(applyFilter);
-  patterns.add(applyNumericalBinOp<AddOp>);
-  patterns.add(applyNumericalBinOp<SubOp>);
-  patterns.add(applyNumericalBinOp<MulOp>);
-  patterns.add(applyNumericalBinOp<DivOp>);
-  patterns.add(applyQueryOutput);
+  patterns.add(addApply);
 
   if (mlir ::failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
                                                        std::move(patterns)))) {

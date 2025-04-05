@@ -133,14 +133,19 @@ Procedure:
 - TODO: Common sub-expression elimination
 - `add-selection-vectors`
 - TODO: Make NULLs explicit
-- TODO: Split pipeline breakers into source/sink sides
-- TODO: Group into pipelines
+- `make-pipelines`
 - `lower-pipelines`
 - `one-shot-bufferize` + `linalg-to-loops`
 - `lower-to-llvm`
 - execute
 
 ```bash
+bazel run //experiments/columnar:translate -- --import-sql /home/daan/workspace/mono/experiments/columnar/test/sql/read.sql > /tmp/bug.mlir
+
+bazel run //experiments/columnar:mlir-opt -- /tmp/bug.mlir --push-down-predicates --add-selection-vectors --make-pipelines
+
+TODO 
+
 bazel run //experiments/columnar:mlir-opt -- \
     /home/daan/workspace/mono/experiments/columnar/test/lower-pipelines/read.mlir \
     --lower-pipelines \

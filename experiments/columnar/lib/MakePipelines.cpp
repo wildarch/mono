@@ -83,7 +83,6 @@ void MakePipelines::runOnOperation() {
   // Clean up QueryOps that now don't have terminators anymore.
   llvm::SmallVector<QueryOp> queryOps;
   getOperation()->walk([&](QueryOp op) { queryOps.emplace_back(op); });
-
   for (auto op : queryOps) {
     rewriter.eraseOp(op);
   }
