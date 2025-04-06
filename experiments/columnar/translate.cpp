@@ -1335,7 +1335,7 @@ parseSQLToProto(const char *query) {
 }
 
 static mlir::Type typeIdent(mlir::MLIRContext *ctx) {
-  return mlir::IntegerType::get(ctx, 64);
+  return mlir::IntegerType::get(ctx, 32);
 }
 
 static mlir::Type typeString(mlir::MLIRContext *ctx) {

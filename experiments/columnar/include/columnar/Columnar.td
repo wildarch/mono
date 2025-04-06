@@ -315,7 +315,10 @@ def QueryOutputOp : Columnar_Op<"query.output", [
         Terminator,
         AttrSizedOperandSegments, 
         ParentOneOf<["QueryOp", "SubQueryOp", "PipelineOp"]>,
-        Sink]> {
+        Sink,
+        DeclareOpInterfaceMethods<
+            LowerPipelineOpInterface,
+            ["lowerGlobalOpen", "lowerGlobalClose"]>]> {
     let summary = "Outputs the final query results";
 
     let arguments = (ins
@@ -718,20 +721,6 @@ def SelTableOp : Columnar_Op<"sel.table", [
 // ============================================================================
 // ================================ TODO OPS ==================================
 // ============================================================================
-def PrintOp : Columnar_Op<"print", [
-        DeclareOpInterfaceMethods<
-            LowerPipelineOpInterface, 
-            ["lowerGlobalOpen", "lowerGlobalClose"]>]> {
-    let arguments = (ins StringArray:$names, Variadic<Column>:$inputs, ColumnOf<Select>:$sel);
-
-    let assemblyFormat = [{
-        $names
-        $inputs `:` type($inputs) 
-        `sel` `` `=` `` $sel
-        attr-dict
-    }];
-}
-
 def PipelineOp : Columnar_Op<"pipeline", [NoTerminator, IsolatedFromAbove]> {
     let regions = (region SizedRegion<1>:$body);
 
@@ -898,6 +887,10 @@ def AddSelectionVectors: Pass<"add-selection-vectors", "::columnar::QueryOp"> {
 
 def MakePipelines: Pass<"make-pipelines", "mlir::ModuleOp"> {
     let summary = "Groups and splits operators into pipelines";
+}
+
+def GroupTableReads: Pass<"group-table-reads", "::columnar::PipelineOp"> {
+    let summary = "Groups column read ops into a single table read op";
 }
 
 def LowerPipelines : Pass<"lower-pipelines", "mlir::ModuleOp"> {
