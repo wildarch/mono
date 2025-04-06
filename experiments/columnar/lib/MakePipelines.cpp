@@ -46,7 +46,7 @@ static void makePipeline(mlir::Operation *sink, mlir::IRRewriter &rewriter) {
     newOperands.emplace_back(createInPipeline(oper, mapping, rewriter));
   }
 
-  rewriter.moveOpAfter(sink, &pipeBody, pipeBody.begin());
+  rewriter.moveOpBefore(sink, &pipeBody, pipeBody.end());
   rewriter.modifyOpInPlace(sink, [&]() { sink->setOperands(newOperands); });
 }
 

@@ -133,10 +133,10 @@ ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
   return mlir::success();
 }
 
-// PrintOp
+// QueryOutputOp
 mlir::LogicalResult
-PrintOp::lowerGlobalOpen(mlir::OpBuilder &builder,
-                         llvm::SmallVectorImpl<mlir::Value> &newGlobals) {
+QueryOutputOp::lowerGlobalOpen(mlir::OpBuilder &builder,
+                               llvm::SmallVectorImpl<mlir::Value> &newGlobals) {
   auto printOp = builder.create<RuntimeCallOp>(
       getLoc(), builder.getType<PrintHandleType>(),
       builder.getStringAttr("col_print_open"), mlir::ValueRange{});
@@ -144,19 +144,22 @@ PrintOp::lowerGlobalOpen(mlir::OpBuilder &builder,
   return mlir::success();
 }
 
-mlir::LogicalResult PrintOp::lowerGlobalClose(mlir::OpBuilder &builder,
-                                              mlir::ValueRange globals) {
+mlir::LogicalResult QueryOutputOp::lowerGlobalClose(mlir::OpBuilder &builder,
+                                                    mlir::ValueRange globals) {
   // TODO: Close result printer
   return mlir::success();
 }
 
 mlir::LogicalResult
-PrintOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
-                   mlir::ValueRange operands,
-                   llvm::SmallVectorImpl<mlir::Value> &results,
-                   llvm::SmallVectorImpl<mlir::Value> &haveMore) {
+QueryOutputOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
+                         mlir::ValueRange operands,
+                         llvm::SmallVectorImpl<mlir::Value> &results,
+                         llvm::SmallVectorImpl<mlir::Value> &haveMore) {
   Adaptor adaptor(operands, *this);
   auto sel = adaptor.getSel();
+  if (!sel) {
+    return mlir::failure();
+  }
 
   auto handle = globals[0];
 
@@ -168,8 +171,8 @@ PrintOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
   auto chunk = allocOp.getResult(0);
 
   // Append columns
-  for (auto input : adaptor.getInputs()) {
-    builder.create<PrintChunkAppendOp>(getLoc(), chunk, input, sel);
+  for (auto col : adaptor.getColumns()) {
+    builder.create<PrintChunkAppendOp>(getLoc(), chunk, col, sel);
   }
 
   // Write chunk

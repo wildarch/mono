@@ -133,6 +133,7 @@ Procedure:
 - TODO: Common sub-expression elimination
 - `add-selection-vectors`
 - TODO: Make NULLs explicit
+- `group-table-reads`
 - `make-pipelines`
 - `lower-pipelines`
 - `one-shot-bufferize` + `linalg-to-loops`
@@ -142,12 +143,12 @@ Procedure:
 ```bash
 bazel run //experiments/columnar:translate -- --import-sql /home/daan/workspace/mono/experiments/columnar/test/sql/read.sql > /tmp/bug.mlir
 
-bazel run //experiments/columnar:mlir-opt -- /tmp/bug.mlir --push-down-predicates --add-selection-vectors --make-pipelines
-
-TODO 
-
 bazel run //experiments/columnar:mlir-opt -- \
-    /home/daan/workspace/mono/experiments/columnar/test/lower-pipelines/read.mlir \
+    /tmp/bug.mlir \
+    --push-down-predicates \
+    --add-selection-vectors \
+    --make-pipelines \
+    --group-table-reads \
     --lower-pipelines \
     --one-shot-bufferize --convert-linalg-to-loops \
     --lower-to-llvm
