@@ -151,7 +151,9 @@ bazel run //experiments/columnar:mlir-opt -- \
     --group-table-reads \
     --lower-pipelines \
     --one-shot-bufferize --convert-linalg-to-loops \
-    --lower-to-llvm
+    --lower-to-llvm > /tmp/exec.mlir
+  
+bazel run //experiments/columnar:execute -- /tmp/exec.mlir
 ```
 
 ## References

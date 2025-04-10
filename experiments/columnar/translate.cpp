@@ -1462,14 +1462,21 @@ static void initTPCHCatalog(mlir::MLIRContext *ctx, Catalog &catalog) {
 
   TableDef tableDefs[] = {PART,   SUPPLIER, PARTSUPP, CUSTOMER,
                           ORDERS, LINEITEM, NATION,   REGION};
+  const char *BASE_PATH = "/home/daan/Downloads/tpch-sf1/";
   for (const auto &def : tableDefs) {
-    auto table = columnar::TableAttr::get(ctx, def.name, def.name);
+    std::string path = BASE_PATH;
+    path += def.name;
+    path += ".tab";
+    auto table = columnar::TableAttr::get(ctx, def.name, path);
     catalog.addTable(table);
 
     for (const auto &col : def.columns) {
       auto type = col.type(ctx);
+      std::string path = BASE_PATH;
+      path += col.name;
+      path += ".col";
       catalog.addColumn(
-          columnar::TableColumnAttr::get(ctx, table, col.name, type, col.name));
+          columnar::TableColumnAttr::get(ctx, table, col.name, type, path));
     }
   }
 }
