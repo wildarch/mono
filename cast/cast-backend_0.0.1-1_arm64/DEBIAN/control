@@ -1,0 +1,6 @@
+Package: cast-backend
+Version: 0.0.1
+Maintainer: Daan de Graaf <daandegraaf9@gmail.com>
+Architecture: arm64
+Homepage: https://wildarch.dev
+Description: Backend for media casting server
