@@ -21,7 +21,7 @@ WHERE l_linenumber < 24;
 -- CHECK:     %[[#CONST:]] = columnar.constant #columnar<dec 2400>
 -- CHECK:     %[[#CMP:]] = columnar.cmp LT %arg2, %[[#CONST]]
 -- CHECK:     columnar.pred.eval %[[#CMP]]
--- CHECK: columnar.query.output %[[#SELECT]]#0 : !columnar.col<i64> ["l_orderkey"]
+-- CHECK: columnar.query.output %[[#SELECT]]#0 : !columnar.col<i32> ["l_orderkey"]
 SELECT l_orderkey
 FROM lineitem
 WHERE l_quantity < 24;

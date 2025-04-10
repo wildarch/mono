@@ -32,5 +32,5 @@
 
 columnar.pipeline {
   %sel, %col = columnar.read_table #table_mytable [#column_mytable_l_value] : !columnar.col<i32>
-  columnar.print ["n_nationkey"] %col : !columnar.col<i32> sel=%sel
+  columnar.query.output %col : !columnar.col<i32> ["n_nationkey"] sel=%sel
 }
