@@ -24,7 +24,5 @@ git remote set-url origin git@github.com:wildarch/mono.git
 ```
 
 # TODO move to devcontainer
-- configsync
 - ansible
 - columnar read parquet
-- slim docker image version without llvm debug build (for CI)

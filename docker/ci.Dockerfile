@@ -57,3 +57,5 @@ WORKDIR /opt
 # libpg_query
 RUN wget -O - https://github.com/pganalyze/libpg_query/archive/refs/tags/17-6.1.0.tar.gz | tar xzf - \
     && make -C libpg_query-17-6.1.0/ install
+
+# NOTE: Stay root because GitHub actions/checkout needs that.
