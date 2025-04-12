@@ -33,6 +33,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
   pkg-config \
   zlib1g-dev \
   libzstd-dev \
+  protobuf-compiler \
   && rm -rf /var/lib/apt/lists/*
 
 # - Use clang-20 as default compiler
@@ -41,6 +42,13 @@ RUN update-alternatives --install /usr/bin/cc cc /usr/bin/clang-20 100 \
     && update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-20 100 \
     && echo "ubuntu ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu \
     && chmod a=r /etc/sudoers.d/ubuntu
+
+# External dependencies
+WORKDIR /opt
+
+# libpg_query
+RUN wget -O - https://github.com/pganalyze/libpg_query/archive/refs/tags/17-6.1.0.tar.gz | tar xzf - \
+    && make -C libpg_query-17-6.1.0/ install
 
 # Debug build of LLVM
 # ADD build_llvm_debug.sh /tmp/build_llvm_debug.sh
