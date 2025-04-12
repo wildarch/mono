@@ -1,4 +1,0 @@
-sh_binary(
-    name = "configsync",
-    srcs = ["configsync.sh"],
-)

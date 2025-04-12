@@ -1,4 +1,4 @@
-// RUN columnar-opt --lower-pipelines %s | FileCheck %s
+// RUN: columnar-opt --lower-pipelines %s | FileCheck %s
 #table_mytable = #columnar.table<"mytable" path="/home/daan/Downloads/tpch-sf1/nation.tab">
 #column_mytable_l_value = #columnar.table_col<#table_mytable "n_nationkey" : i32 path="/home/daan/Downloads/tpch-sf1/n_nationkey.col">
 

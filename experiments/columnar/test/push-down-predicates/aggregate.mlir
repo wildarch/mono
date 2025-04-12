@@ -1,4 +1,4 @@
-// RUN columnar-opt --push-down-predicates %s | FileCheck %s
+// RUN: columnar-opt --push-down-predicates %s | FileCheck %s
 !col_si64 = !columnar.col<si64>
 !col_f64 = !columnar.col<f64>
 
