@@ -14,10 +14,8 @@ This means foregoing a central tool for building and testing parts of the repo, 
 The devcontainer should keep things relatively reliable/portable.
 
 ## Devcontainer
-The docker image will be based on Ubuntu LTS and include the following tools and libraries:
-- golang
-- LLVM (Release version from APT, and debug build from source)
-- ccache
-- cmake
-- gdb
-- ninja
+Steps:
+- [x] Build cast backend
+- [ ] Build columnar
+- [ ] Tweak ansible deployment scripts
+- [ ] Update CI

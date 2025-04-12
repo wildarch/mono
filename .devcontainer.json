@@ -20,7 +20,8 @@
         // Allow GDB to disable address space layout randomization.
         "--cap-add=SYS_PTRACE",
         "--security-opt",
-        "seccomp=unconfined"
+        "seccomp=unconfined",
+        "--net=host"
     ],
     "customizations": {
         "vscode": {
@@ -31,15 +32,16 @@
                 ],
                 "files.insertFinalNewline": true,
                 "files.trimTrailingWhitespace": true,
-                "mlir.server_path": "/usr/bin/mlir-lsp-server-18",
-                "mlir.tablegen_server_path": "/usr/bin/tblgen-lsp-server-18",
-                "mlir.pdll_server_path": "/usr/bin/mlir-pdll-lsp-server-18"
+                "mlir.server_path": "/usr/bin/mlir-lsp-server-20",
+                "mlir.tablegen_server_path": "/usr/bin/tblgen-lsp-server-20",
+                "mlir.pdll_server_path": "/usr/bin/mlir-pdll-lsp-server-20"
             },
             "extensions": [
-                "llvm-vs-code-extensions.vscode-mlir",
+                "golang.go",
                 "llvm-vs-code-extensions.vscode-clangd",
-                "xaver.clang-format",
-                "golang.go"
+                "llvm-vs-code-extensions.vscode-mlir",
+                "ms-vscode.cmake-tools",
+                "xaver.clang-format"
             ]
         }
     },

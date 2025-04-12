@@ -1,0 +1,54 @@
+add_library(
+    columnar
+    AddSelectionVectors.cpp
+    Bufferize.cpp
+    Canonicalize.cpp
+    Columnar.cpp
+    GroupTableReads.cpp
+    LLVMTranslation.cpp
+    LowerPipelines.cpp
+    LowerToLLVM.cpp
+    MakePipelines.cpp
+    PushDownPredicates.cpp
+    Runtime.cpp
+    runtime/Print.cpp
+    runtime/TableColumn.cpp
+    runtime/TableScanner.cpp
+)
+
+target_include_directories(columnar
+    PUBLIC
+    ../include
+    ${CMAKE_BINARY_DIR}/include
+)
+
+add_dependencies(
+    columnar
+    MLIRColumnarIncGen
+    MLIRColumnarInterfacesIncGen
+    MLIRColumnarPassesIncGen
+)
+
+target_link_libraries(
+    columnar
+    ${llvm_libs}
+    MLIRArithDialect
+    MLIRArithTransforms
+    MLIRBufferizationTransforms
+    MLIRFuncToLLVM
+    MLIRIR
+    MLIRLinalgDialect
+    MLIRLinalgTransforms
+    MLIRLLVMCommonConversion
+    MLIRLLVMDialect
+    MLIRMemRefDialect
+    MLIRMemRefToLLVM
+    MLIRParser
+    MLIRPass
+    MLIRSCFToControlFlow
+    MLIRControlFlowToLLVM
+    MLIRArithToLLVM
+    MLIRTensorDialect
+    MLIRToLLVMIRTranslationRegistration
+    MLIRTransforms
+)

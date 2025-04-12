@@ -107,7 +107,8 @@ mlir::LogicalResult AllocStructOpLowering::matchAndRewrite(
 
   // Call to malloc
   auto callOp = rewriter.create<mlir::LLVM::CallOp>(
-      op.getLoc(), mallocOp.getFunctionType(), mallocOp.getSymNameAttr(), size);
+      op.getLoc(), mallocOp->getFunctionType(), mallocOp->getSymNameAttr(),
+      size);
 
   // Create the struct locally first
   mlir::Value structVal =

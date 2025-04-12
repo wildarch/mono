@@ -1,4 +1,3 @@
-#include <columnar/Columnar.h>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Error.h>
@@ -8,6 +7,8 @@
 #include <mlir/IR/IRMapping.h>
 #include <mlir/Tools/mlir-translate/MlirTranslateMain.h>
 #include <mlir/Tools/mlir-translate/Translation.h>
+
+#include <columnar/Columnar.h>
 
 #include "pg_query.h"
 #include "pg_query.pb.h"
