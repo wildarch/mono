@@ -15,16 +15,20 @@ EOF
 mkdir -p /opt/llvm-src
 tar -xf /tmp/$LLVM_PROJECT_FILE_NAME.tar.xz \
    -C /opt/llvm-src --strip-components 1
+rm /tmp/$LLVM_PROJECT_FILE_NAME.tar.xz
 
 # Configure, build and install
 mkdir /tmp/build/
 
-# Main differences with thirdpart/setup_llvm.sh from the avantgraph repo:
+# Based on https://mlir.llvm.org/getting_started/ with some tweaks:
 # - Build in Debug mode to enable debug utils such as the --debug flag
+# - Use clang-20 and mold
 # - Install to /opt/llvm-debug
-# - Does not build clang because we already install it using APT
+# - Reduced number of parallel link jobs to avoid running out of memory
 cmake -G Ninja -S /opt/llvm-src/llvm -B /tmp/build \
    -DCMAKE_BUILD_TYPE=Debug \
+   -DCMAKE_C_COMPILER=clang-20  \
+   -DCMAKE_CXX_COMPILER=clang++-20 \
    -DCMAKE_INSTALL_PREFIX=/opt/llvm-debug \
    -DLLVM_ENABLE_ASSERTIONS=ON \
    -DLLVM_ENABLE_PROJECTS="mlir" \
@@ -34,6 +38,7 @@ cmake -G Ninja -S /opt/llvm-src/llvm -B /tmp/build \
    -DLLVM_PARALLEL_LINK_JOBS=2 \
    -DLLVM_TARGETS_TO_BUILD="Native" \
    -DLLVM_USE_LINKER=mold \
+   -DLLVM_USE_SPLIT_DWARF=ON \
 
 cmake --build /tmp/build
 cmake --install /tmp/build

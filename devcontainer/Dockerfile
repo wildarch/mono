@@ -11,6 +11,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
   && echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | tee /etc/apt/sources.list.d/kitware.list >/dev/null \
   && wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - \
   && add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" \
+  && wget https://repo1.maven.org/maven2/org/apache/arrow/ubuntu/apache-arrow-apt-source-latest-noble.deb \
+  && apt install -y -V ./apache-arrow-apt-source-latest-noble.deb \
+  && rm apache-arrow-apt-source-latest-noble.deb \
   && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -34,6 +37,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
   zlib1g-dev \
   libzstd-dev \
   protobuf-compiler \
+  libarrow-dev \
+  libparquet-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # - Use clang-20 as default compiler
@@ -51,8 +56,8 @@ RUN wget -O - https://github.com/pganalyze/libpg_query/archive/refs/tags/17-6.1.
     && make -C libpg_query-17-6.1.0/ install
 
 # Debug build of LLVM
-# ADD build_llvm_debug.sh /tmp/build_llvm_debug.sh
-# RUN /tmp/build_llvm_debug.sh && rm /tmp/build_llvm_debug.sh
+ADD build_llvm_debug.sh /tmp/build_llvm_debug.sh
+RUN /tmp/build_llvm_debug.sh && rm /tmp/build_llvm_debug.sh
 
 USER ubuntu
 WORKDIR /home/ubuntu

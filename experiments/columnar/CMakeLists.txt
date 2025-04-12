@@ -37,6 +37,25 @@ add_subdirectory(lib)
 find_package(Protobuf REQUIRED)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS /usr/local/include/pg_query/pg_query.proto)
 
+# pg_query (See https://dominikberner.ch/cmake-find-library/)
+find_library(PG_QUERY_LIBRARY pg_query REQUIRED)
+find_path(PG_QUERY_INCLUDE_DIR NAMES pg_query.h)
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(
+    libpg_query DEFAULT_MSG
+    PG_QUERY_LIBRARY
+    PG_QUERY_INCLUDE_DIR)
+mark_as_advanced(PG_QUERY_LIBRARY PG_QUERY_INCLUDE_DIR)
+add_library(libpg_query::libpg_query SHARED IMPORTED)
+set_target_properties(
+    libpg_query::libpg_query
+    PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${PG_QUERY_INCLUDE_DIR}"
+    IMPORTED_LOCATION ${PG_QUERY_LIBRARY})
+
+# Parquet
+find_package(Parquet REQUIRED)
+
 add_executable(
     translate
     translate.cpp
@@ -44,11 +63,6 @@ add_executable(
     ${PROTO_HDRS}
 )
 target_compile_features(translate PRIVATE cxx_std_17)
-set_target_properties(
-    translate
-    PROPERTIES
-    CMAKE_LINKER_TYPE MOLD
-)
 target_include_directories(
     translate
     PRIVATE
@@ -59,8 +73,8 @@ target_include_directories(
 target_link_libraries(translate
     PRIVATE
     columnar
-    libpg_query.a
     ${Protobuf_LIBRARIES}
+    libpg_query::libpg_query
 )
 
 add_executable(
@@ -68,11 +82,6 @@ add_executable(
     columnar-opt.cpp
 )
 target_compile_features(columnar-opt PRIVATE cxx_std_17)
-set_target_properties(
-    columnar-opt
-    PROPERTIES
-    CMAKE_LINKER_TYPE MOLD
-)
 target_link_libraries(columnar-opt
     PRIVATE
     columnar
@@ -84,13 +93,18 @@ add_executable(
     execute.cpp
 )
 target_compile_features(execute PRIVATE cxx_std_17)
-set_target_properties(
-    execute
-    PROPERTIES
-    CMAKE_LINKER_TYPE MOLD
-)
 target_link_libraries(execute
     PRIVATE
     columnar
     MLIRExecutionEngine
+)
+
+add_executable(
+    parquet
+    parquet.cpp
+)
+target_compile_features(parquet PRIVATE cxx_std_17)
+target_link_libraries(parquet
+    PRIVATE
+    Parquet::parquet_shared
 )

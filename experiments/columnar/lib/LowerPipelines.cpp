@@ -1,9 +1,9 @@
-#include "columnar/Columnar.h"
+#include <mlir/Dialect/Arith/IR/Arith.h>
+#include <mlir/Dialect/MemRef/IR/MemRef.h>
+#include <mlir/Dialect/Tensor/IR/Tensor.h>
+#include <mlir/Transforms/DialectConversion.h>
 
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "columnar/Columnar.h"
 
 namespace columnar {
 

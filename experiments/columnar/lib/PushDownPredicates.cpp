@@ -1,8 +1,8 @@
-#include "columnar/Columnar.h"
+#include <mlir/IR/IRMapping.h>
+#include <mlir/IR/PatternMatch.h>
+#include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 
-#include "mlir/IR/IRMapping.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "columnar/Columnar.h"
 
 namespace columnar {
 

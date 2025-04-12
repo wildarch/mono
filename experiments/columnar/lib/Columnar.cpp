@@ -1,10 +1,10 @@
-#include "columnar/Columnar.h"
+#include <llvm/ADT/TypeSwitch.h>
+#include <mlir/Bytecode/BytecodeOpInterface.h>
+#include <mlir/IR/Builders.h>
+#include <mlir/IR/DialectImplementation.h>
+#include <mlir/IR/OpImplementation.h>
 
-#include "mlir/Bytecode/BytecodeOpInterface.h"
-#include "mlir/IR/Builders.h"
-#include "mlir/IR/DialectImplementation.h"
-#include "mlir/IR/OpImplementation.h"
-#include "llvm/ADT/TypeSwitch.h"
+#include "columnar/Columnar.h"
 
 #include "columnar/Dialect.cpp.inc"
 
