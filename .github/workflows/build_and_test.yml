@@ -4,8 +4,6 @@ jobs:
   build-and-test:
     runs-on: ubuntu-24.04
     container: ghcr.io/wildarch/mono:ci
-    env:
-      GITHUB_WORKSPACE: /home/ubuntu
     steps:
       - uses: actions/checkout@v4
       - run: |
