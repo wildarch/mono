@@ -58,9 +58,5 @@ WORKDIR /opt
 RUN wget -O - https://github.com/pganalyze/libpg_query/archive/refs/tags/17-6.1.0.tar.gz | tar xzf - \
     && make -C libpg_query-17-6.1.0/ install
 
-# Debug build of LLVM
-ADD build_llvm_debug.sh /tmp/build_llvm_debug.sh
-RUN /tmp/build_llvm_debug.sh && rm /tmp/build_llvm_debug.sh
-
 USER ubuntu
 WORKDIR /home/ubuntu

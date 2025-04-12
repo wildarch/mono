@@ -1,4 +1,3 @@
-#include <columnar/Columnar.h>
 #include <mlir/Conversion/Passes.h>
 #include <mlir/Dialect/Arith/IR/Arith.h>
 #include <mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h>
@@ -11,6 +10,8 @@
 #include <mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h>
 #include <mlir/Tools/mlir-opt/MlirOptMain.h>
 #include <mlir/Transforms/Passes.h>
+
+#include <columnar/Columnar.h>
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;

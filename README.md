@@ -14,19 +14,17 @@ sudo apt install ansible
 ansible-galaxy install -r ansible/requirements.yml
 ansible-playbook ansible/zbook.yml -K
 
-# 4. Install dependencies for building the monorepo
-ansible-playbook ansible/build.yml -K
-
-$ 5. Restore personal configuration
+$ 4. Restore personal configuration
 bazel run //configsync restore
 
-# 6. Once SSH Keys are setup, change to an SSH url:
+# 5. Once SSH Keys are setup, change to an SSH url:
 git remote set-url origin git@github.com:wildarch/mono.git
+
+# 6. Open in VS Code, and click re-open in container button.
 ```
 
 # TODO move to devcontainer
 - configsync
 - ansible
-- GitHub CI
-- columnar lit tests
 - columnar read parquet
+- slim docker image version without llvm debug build (for CI)

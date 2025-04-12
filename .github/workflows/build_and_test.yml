@@ -1,11 +1,15 @@
-name: Build and test 
+name: Build and test
 on: [push]
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
+    container: ghcr.io/wildarch/mono:ci
     steps:
       - uses: actions/checkout@v3
-      - run: ansible-galaxy install -r ansible/requirements.yml
-      - run: ansible-playbook ansible/build.yml
-      - run: bazel build //...
-      - run: bazel test //...
+      - run: |
+          cmake -S experiments/columnar -B /tmp/build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DCMAKE_CXX_COMPILER=clang++-20  \
+              -DCMAKE_LINKER_TYPE=MOLD \
+      - run: cmake --build /tmp/build --target check
+

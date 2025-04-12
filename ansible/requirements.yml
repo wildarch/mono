@@ -3,5 +3,4 @@
 # ansible-galaxy install -r ansible/requirements.yml
 roles:
   - name: gantsign.visual-studio-code
-  - name: gantsign.golang
   - name: geerlingguy.docker

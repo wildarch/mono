@@ -6,7 +6,7 @@ Problem: The internal representation of queries remains very close to relational
    Converting between these two models makes that lowering more complex.
 2. We are tempted to make optimization decisions that make sense when processing per-tuple, but have detrimental effects in a per-column setting.
 
-Solution: We present an intermediate query representation design that is equivalent and indeed very similar to relational algebra, but operates over columns instead of tables. 
+Solution: We present an intermediate query representation design that is equivalent and indeed very similar to relational algebra, but operates over columns instead of tables.
 This makes lowering to a vectorized execution plan simpler without complicating high-level optimizations. It also addresses the problem of how to refer to identify column as described [here](https://xuanwo.io/2024/02-what-i-talk-about-when-i-talk-about-query-optimizer-part-1/).
 
 ## Operators
@@ -21,7 +21,7 @@ We consider the relational algebra consisting of the following operators:
 
 They can be expressed with columnar operators as follows:
 - Access: Multiple independent `read_column` ops
-- Aggregate: `aggregate` takes in a list of group-by columns and a list of columns to aggregate. 
+- Aggregate: `aggregate` takes in a list of group-by columns and a list of columns to aggregate.
   It also stored the aggregator per aggregated column.
   Returns columns represented the post-aggregation group-by keys and aggregated values.
 - Constant: `constant` ops for individual columns.
@@ -49,27 +49,27 @@ Given the child operator, pushdown is possible under the following conditions:
 - Access: Never
 - Aggregate: All columns are in the group-by clause.
 - Constant: Directly apply the filter to the constant. Note: Not part of a classical pushdown.
-- Join: The filter exclusively uses columns from a single side of the join. 
+- Join: The filter exclusively uses columns from a single side of the join.
   Otherwise, it is a join condition and belongs directly after the join.
-- Projection: Always possible, by including the projection body in the predicate. 
+- Projection: Always possible, by including the projection body in the predicate.
   May be undesirable if the computation is expensive, but it seems possible to fix that with CSE later.
 - Selection: Can be merged into a combined `SelectOp` with both predicates.
-- Union: Duplicate and apply to all children. 
+- Union: Duplicate and apply to all children.
 
 The predicates are stored inside the `SelectOp`, so they are moved with the op itself automatically.
 
-### Projection Pull-up 
+### Projection Pull-up
 In our IR, projection pull-up corresponds to arithmetic over columns.
 We can delay such an operation `A` if the output appears as an input to:
 - Access: N/A, has no children.
-- Aggregate: If `A` is used by an aggregator it cannot be pulled up further. 
-  If the output of `A` is a group-by key, then we can instead put its input columns into the group-by key, and place `A` after the aggregation. 
-  This is generally if it does not make the group-by key much larger, i.e. `A` should not have too many input columns.  
+- Aggregate: If `A` is used by an aggregator it cannot be pulled up further.
+  If the output of `A` is a group-by key, then we can instead put its input columns into the group-by key, and place `A` after the aggregation.
+  This is generally if it does not make the group-by key much larger, i.e. `A` should not have too many input columns.
 - Constant: N/A, has no children.
 - Join: Useful if the output of `A` is not used in the join predicate.
   If it is part of the predicate, we can still do the pull-up, but it will offer little benefit, similar to the case with Aggregate.
 - Selection: This is equivalent to predicate pushdown.
-- Union: Only possible if all children include the same operation, and has not perf. benefit. 
+- Union: Only possible if all children include the same operation, and has not perf. benefit.
   We ignore it.
 
 ### Join Order Optimization
@@ -80,7 +80,7 @@ In some cases a bit of arithmetic (basically preprocessing one of the join sides
 We can then extract the join tree and run any standard optimizer algorithm on it.
 
 ### Common Sub Expression Elimination
-Common sub expressions may occur between arithmetic to produce columns and selection predicates. 
+Common sub expressions may occur between arithmetic to produce columns and selection predicates.
 This can be resolved once selection vectors are made explicit.
 
 A standard _available expressions_ dataflow analysis suffices in most cases.
@@ -115,13 +115,13 @@ Ops to split:
 Special case: `UnionOp`
 
 Procedure:
-1. Split up ops so that no op is both source and a sink at the same time. 
+1. Split up ops so that no op is both source and a sink at the same time.
    *NOTE:* requires that we establish blocking relationships between operators. e.g. aggregate output must wait until we complete the build.
-2. Starting from sinks, find all ops that transitively feed column data into that sink. 
+2. Starting from sinks, find all ops that transitively feed column data into that sink.
    These ops will constitute the pipeline.
    Because sinks never output column data, we will only add source and transform ops.
-   The sink op is *moved* into the pipeline (cloning it could have side effects). 
-   The source and transform ops are *cloned* because they do not have side effects. 
+   The sink op is *moved* into the pipeline (cloning it could have side effects).
+   The source and transform ops are *cloned* because they do not have side effects.
    We only need to make sure that we also clone blocking relationships of sources.
 
 ## Pipeline
@@ -141,20 +141,41 @@ Procedure:
 - execute
 
 ```bash
-bazel run //experiments/columnar:translate -- --import-sql /home/daan/workspace/mono/experiments/columnar/test/sql/read.sql > /tmp/bug.mlir
+cmake --build experiments/columnar/build
 
-bazel run //experiments/columnar:mlir-opt -- \
-    /tmp/bug.mlir \
+experiments/columnar/build/translate --import-sql experiments/columnar/test/sql/read.sql > /tmp/bug.mlir
+
+experiments/columnar/build/columnar-opt /tmp/bug.mlir \
     --push-down-predicates \
     --add-selection-vectors \
     --make-pipelines \
     --group-table-reads \
     --lower-pipelines \
     --one-shot-bufferize --convert-linalg-to-loops \
-    --lower-to-llvm > /tmp/exec.mlir
-  
-bazel run //experiments/columnar:execute -- /tmp/exec.mlir
+    --lower-to-llvm \
+    > /tmp/exec.mlir
+
+experiments/columnar/build/execute /tmp/exec.mlir
 ```
+
+## Runtime
+### Interaction with Parquet readers.
+There are a handful of physical column types
+- BOOLEAN: 1 bit boolean
+- INT32: 32 bit signed ints
+- INT64: 64 bit signed ints
+- INT96: 96 bit signed ints
+- FLOAT: IEEE 32-bit floating point values
+- DOUBLE: IEEE 64-bit floating point values
+- BYTE_ARRAY: arbitrarily long byte arrays
+- FIXED_LEN_BYTE_ARRAY: fixed length byte arrays
+
+These require dedicated endpoints in the runtime.
+
+A claimed range now consists of:
+- The row group index (`int`)
+- Offset (number of values to skip within the row group `std::int64_t`)
+- The size of the chunk
 
 ## References
 - https://voltrondata.com/blog/what-is-substrait-high-level-primer
