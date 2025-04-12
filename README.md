@@ -15,7 +15,7 @@ ansible-galaxy install -r ansible/requirements.yml
 ansible-playbook ansible/zbook.yml -K
 
 $ 4. Restore personal configuration
-bazel run //configsync restore
+./configsync.sh restore
 
 # 5. Once SSH Keys are setup, change to an SSH url:
 git remote set-url origin git@github.com:wildarch/mono.git
