@@ -262,8 +262,8 @@ void AddSelectionVectors::runOnOperation() {
   patterns.add(applyFilter);
   patterns.add(addApply);
 
-  if (mlir ::failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
-                                                       std::move(patterns)))) {
+  if (mlir ::failed(
+          mlir::applyPatternsGreedily(getOperation(), std::move(patterns)))) {
     return signalPassFailure();
   }
 

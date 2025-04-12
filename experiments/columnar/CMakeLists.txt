@@ -33,28 +33,6 @@ add_subdirectory(include/columnar)
 
 add_subdirectory(lib)
 
-add_executable(
-    execute
-    execute.cpp
-)
-target_compile_features(execute PRIVATE cxx_std_17)
-target_link_libraries(execute
-    PRIVATE
-    columnar
-    MLIRExecutionEngine
-)
-
-add_executable(
-    columnar-opt
-    columnar-opt.cpp
-)
-target_compile_features(columnar-opt PRIVATE cxx_std_17)
-target_link_libraries(columnar-opt
-    PRIVATE
-    columnar
-    MLIROptLib
-)
-
 # Protobuf
 find_package(Protobuf REQUIRED)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS /usr/local/include/pg_query/pg_query.proto)
@@ -66,6 +44,11 @@ add_executable(
     ${PROTO_HDRS}
 )
 target_compile_features(translate PRIVATE cxx_std_17)
+set_target_properties(
+    translate
+    PROPERTIES
+    CMAKE_LINKER_TYPE MOLD
+)
 target_include_directories(
     translate
     PRIVATE
@@ -78,4 +61,36 @@ target_link_libraries(translate
     columnar
     libpg_query.a
     ${Protobuf_LIBRARIES}
+)
+
+add_executable(
+    columnar-opt
+    columnar-opt.cpp
+)
+target_compile_features(columnar-opt PRIVATE cxx_std_17)
+set_target_properties(
+    columnar-opt
+    PROPERTIES
+    CMAKE_LINKER_TYPE MOLD
+)
+target_link_libraries(columnar-opt
+    PRIVATE
+    columnar
+    MLIROptLib
+)
+
+add_executable(
+    execute
+    execute.cpp
+)
+target_compile_features(execute PRIVATE cxx_std_17)
+set_target_properties(
+    execute
+    PROPERTIES
+    CMAKE_LINKER_TYPE MOLD
+)
+target_link_libraries(execute
+    PRIVATE
+    columnar
+    MLIRExecutionEngine
 )

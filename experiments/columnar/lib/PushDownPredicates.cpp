@@ -486,8 +486,8 @@ void PushDownPredicates::runOnOperation() {
   patterns.add(removeUnusedInputs);
   patterns.add(mergeSelect);
 
-  if (mlir ::failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
-                                                       std::move(patterns)))) {
+  if (mlir ::failed(
+          mlir::applyPatternsGreedily(getOperation(), std::move(patterns)))) {
     return signalPassFailure();
   }
 }
