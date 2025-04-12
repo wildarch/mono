@@ -1,4 +1,4 @@
--- RUN: translate --import-sql %s | mlir-opt --push-down-predicates | FileCheck %s
+-- RUN: translate --import-sql %s | columnar-opt --push-down-predicates | FileCheck %s
 
 -- CHECK-LABEL: columnar.query {
 -- CHECK: %[[#ORDERKEY:]] = columnar.read_column #column_lineitem_l_orderkey

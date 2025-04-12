@@ -1,4 +1,4 @@
-// RUN: mlir-opt --add-selection-vectors %s | FileCheck %s
+// RUN columnar-opt --add-selection-vectors %s | FileCheck %s
 
 #table_nation = #columnar.table<"nation" path="nation">
 #column_nation_n_nationkey = #columnar.table_col<#table_nation "n_nationkey" : i64 path="n_nationkey">

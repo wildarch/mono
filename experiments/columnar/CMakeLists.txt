@@ -32,6 +32,7 @@ include(AddMLIR)
 add_subdirectory(include/columnar)
 
 add_subdirectory(lib)
+add_subdirectory(test)
 
 # Protobuf
 find_package(Protobuf REQUIRED)

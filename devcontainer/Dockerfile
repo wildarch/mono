@@ -17,29 +17,32 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
   && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  cmake \
-  file \
-  git \
-  golang-go \
-  ninja-build \
-  sudo \
-  vim-nox \
   bash-completion \
-  gdb \
   build-essential \
   ccache \
   clang-20 \
-  mold \
-  llvm-20 \
-  libmlir-20-dev \
-  mlir-20-tools \
-  pkg-config \
-  zlib1g-dev \
-  libzstd-dev \
-  protobuf-compiler \
+  cmake \
+  file \
+  gdb \
+  git \
+  golang-go \
   libarrow-dev \
+  libmlir-20-dev \
   libparquet-dev \
+  libzstd-dev \
+  llvm-20 \
+  mlir-20-tools \
+  mold \
+  ninja-build \
+  pkg-config \
+  protobuf-compiler \
+  python3-pip \
+  sudo \
+  vim-nox \
+  zlib1g-dev \
   && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --break-system-packages lit
 
 # - Use clang-20 as default compiler
 # - Allow user 'ubuntu' to run commands as root

@@ -1,4 +1,4 @@
-// RUN: mlir-opt --add-selection-vectors %s | FileCheck %s
+// RUN: columnar-opt --add-selection-vectors %s | FileCheck %s
 
 #table_lineitem = #columnar.table<"lineitem" path="/tmp/lineitem.tab">
 #column_lineitem_l_quantity = #columnar.table_col<#table_lineitem "l_quantity" : !columnar.dec path="/tmp/l_quantity.col">

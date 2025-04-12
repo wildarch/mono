@@ -1,8 +1,8 @@
-// RUN: mlir-opt --lower-pipelines %s | FileCheck %s
+// RUN columnar-opt --lower-pipelines %s | FileCheck %s
 #table_mytable = #columnar.table<"mytable" path="/home/daan/Downloads/tpch-sf1/nation.tab">
-#column_mytable_l_value = #columnar.table_col<#table_mytable "n_nationkey" : i32 path="/home/daan/Downloads/tpch-sf1/n_nationkey.col"> 
+#column_mytable_l_value = #columnar.table_col<#table_mytable "n_nationkey" : i32 path="/home/daan/Downloads/tpch-sf1/n_nationkey.col">
 
-// CHECK: columnar.pipeline_low 
+// CHECK: columnar.pipeline_low
 // CHECK-LABEL: global_open {
 // CHECK: %[[#NATION_PATH:]] = columnar.constant_string "/home/daan/Downloads/tpch-sf1/nation.tab"
 // CHECK: %[[#SCAN_OPEN:]] = columnar.runtime_call "col_table_scanner_open"(%[[#NATION_PATH]]) : (!columnar.str_lit) -> !columnar.scanner_handle
@@ -25,7 +25,7 @@
 // CHECK: %c0_0 = arith.constant 0 : index
 // CHECK: %dim = tensor.dim %generated, %c0_0 : tensor<?xindex>
 // CHECK: %[[#CHUNK:]] = columnar.runtime_call "col_print_chunk_alloc"(%dim) : (index) -> !columnar.print_chunk
-// CHECK: columnar.print.chunk.append %[[#CHUNK]] %[[#READ]] 
+// CHECK: columnar.print.chunk.append %[[#CHUNK]] %[[#READ]]
 // CHECK-SAME: sel=%generated
 // CHECK: columnar.runtime_call "col_print_write"(%[[#PRINT]], %[[#CHUNK]])
 // CHECK: columnar.pipeline_low.yield %[[#MORE]]

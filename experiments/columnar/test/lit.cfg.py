@@ -7,19 +7,20 @@ config.test_format = lit.formats.ShTest(execute_external=False)
 
 config.suffixes = ['.mlir', '.sql']
 
+config.test_source_root = os.path.dirname(__file__)
+
 # Find common tools such as FileCheck
 llvm_config.use_default_substitutions()
 
 # The tools we want to use in lit test (inside RUN)
 tools = [
-    "mlir-opt",
+    "columnar-opt",
     "translate",
 ]
 
 # Where we look for the tools
 tool_dirs = [
     config.llvm_tools_dir,
-    config.mlir_tools_dir,
     config.columnar_tools_dir,
 ]
 

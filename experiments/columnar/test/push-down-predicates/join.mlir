@@ -1,4 +1,4 @@
-// RUN: mlir-opt --push-down-predicates %s | FileCheck %s
+// RUN columnar-opt --push-down-predicates %s | FileCheck %s
 !col_si64 = !columnar.col<si64>
 
 #table_A = #columnar.table<"A" path="/tmp/A.tab">
@@ -35,7 +35,7 @@ columnar.query {
     }
 
     // CHECK: columnar.query.output %[[#JOIN]]#0, %[[#JOIN]]#1
-    columnar.query.output 
+    columnar.query.output
         %3#0, %3#1
         : !col_si64
         , !col_si64
@@ -71,7 +71,7 @@ columnar.query {
     }
 
     // CHECK: columnar.query.output %[[#JOIN]]#0, %[[#JOIN]]#1
-    columnar.query.output 
+    columnar.query.output
         %3#0, %3#1
         : !col_si64
         , !col_si64
@@ -104,7 +104,7 @@ columnar.query {
     }
 
     // CHECK: columnar.query.output %[[#SELECT]]#0, %[[#SELECT]]#1
-    columnar.query.output 
+    columnar.query.output
         %3#0, %3#1
         : !col_si64
         , !col_si64
@@ -140,7 +140,7 @@ columnar.query {
     }
 
     // CHECK: columnar.query.output %[[#JOIN]]#1, %[[#JOIN]]#0
-    columnar.query.output 
+    columnar.query.output
         %3#0, %3#1
         : !col_si64
         , !col_si64

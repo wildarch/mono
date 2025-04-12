@@ -1,4 +1,4 @@
-// RUN: mlir-opt --canonicalize %s | FileCheck %s
+// RUN columnar-opt --canonicalize %s | FileCheck %s
 
 #table_nation = #columnar.table<"nation" path="/tmp/nation.tab">
 #table_region = #columnar.table<"region" path="/tmp/region.tab">
