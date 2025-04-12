@@ -16,9 +16,19 @@ add_library(
     runtime/TableScanner.cpp
 )
 
+# LLVM/MLIR includes.
+# In SYSTEM mode to avoid reporting warnings on these headers.
+target_include_directories(columnar
+    SYSTEM
+    PUBLIC
+    ${MLIR_INCLUDE_DIRS}
+    ${LLVM_INCLUDE_DIRS}
+)
+
 target_include_directories(columnar
     PUBLIC
     ../include
+    # Generated MLIR dialect files
     ${CMAKE_BINARY_DIR}/include
 )
 
