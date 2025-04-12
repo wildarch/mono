@@ -22,7 +22,3 @@ git remote set-url origin git@github.com:wildarch/mono.git
 
 # 6. Open in VS Code, and click re-open in container button.
 ```
-
-# TODO move to devcontainer
-- ansible
-- columnar read parquet
