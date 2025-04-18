@@ -1,13 +1,59 @@
-#include "llvm/ADT/Sequence.h"
-#include <cassert>
-#include <cstdint>
-#include <iostream>
+#include <filesystem>
 
-#include <parquet/api/reader.h>
-#include <parquet/column_reader.h>
+#include <llvm/Support/CommandLine.h>
+#include <llvm/Support/raw_ostream.h>
+#include <memory>
 #include <parquet/file_reader.h>
-#include <parquet/types.h>
 
+#include "columnar/Catalog.h"
+#include "columnar/Columnar.h"
+#include "columnar/parquet/ParquetToCatalog.h"
+
+llvm::cl::opt<std::string>
+    dataDir("data", llvm::cl::desc("Directory containing queryable files"),
+            llvm::cl::value_desc("path to directory"));
+
+int main(int argc, char **argv) {
+  llvm::cl::ParseCommandLineOptions(argc, argv);
+
+  mlir::MLIRContext context;
+  context.loadDialect<columnar::ColumnarDialect>();
+
+  columnar::Catalog catalog;
+  if (!dataDir.empty()) {
+    std::filesystem::path dataDirPath(dataDir.getValue());
+    if (!std::filesystem::exists(dataDirPath)) {
+      llvm::errs() << "Data directory '" << dataDir << "' does not exist\n";
+      return 1;
+    }
+
+    if (!std::filesystem::is_directory(dataDirPath)) {
+      llvm::errs() << "Data directory '" << dataDir << "' is not a directory\n";
+      return 1;
+    }
+
+    for (const auto &entry : std::filesystem::directory_iterator(dataDirPath)) {
+      if (entry.is_regular_file() && entry.path().extension() == ".parquet") {
+        try {
+          auto reader = parquet::ParquetFileReader::OpenFile(entry.path());
+          auto meta = reader->metadata();
+          const auto &schema = *meta->schema();
+          columnar::parquet::addToCatalog(&context, catalog,
+                                          entry.path().string(), schema);
+        } catch (const std::exception &e) {
+          llvm::errs() << "WARNING: failed to add parquet file to catalog: '"
+                       << entry.path() << "': " << e.what() << "\n";
+        }
+      }
+    }
+  }
+
+  catalog.dump();
+
+  return 0;
+}
+
+/*
 int main(int argc, char **argv) {
   if (argc != 2) {
     std::cerr << "Invalid args\n";
@@ -43,3 +89,5 @@ int main(int argc, char **argv) {
   // TODO
   return 0;
 }
+
+*/

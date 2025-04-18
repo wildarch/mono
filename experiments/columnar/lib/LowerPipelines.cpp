@@ -76,7 +76,8 @@ ReadTableOp::lowerGlobalOpen(mlir::OpBuilder &builder,
 
   // Open columns
   for (auto col : getColumnsToRead()) {
-    auto colPath = builder.create<ConstantStringOp>(getLoc(), col.getPath());
+    // HACK: name is not path
+    auto colPath = builder.create<ConstantStringOp>(getLoc(), col.getName());
     auto columnOp = builder.create<RuntimeCallOp>(
         getLoc(), builder.getType<ColumnHandleType>(),
         builder.getStringAttr("col_table_column_open"),

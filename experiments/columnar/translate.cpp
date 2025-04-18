@@ -1474,11 +1474,8 @@ static void initTPCHCatalog(mlir::MLIRContext *ctx, Catalog &catalog) {
 
     for (const auto &col : def.columns) {
       auto type = col.type(ctx);
-      std::string path = BASE_PATH;
-      path += col.name;
-      path += ".col";
       catalog.addColumn(
-          columnar::TableColumnAttr::get(ctx, table, col.name, type, path));
+          columnar::TableColumnAttr::get(ctx, table, col.name, type));
     }
   }
 }

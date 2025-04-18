@@ -24,7 +24,7 @@ def Columnar_Dialect : Dialect {
 class Columnar_Op<string mnemonic, list<Trait> traits = []> :
     Op<Columnar_Dialect, mnemonic, traits>;
 
-class Columnar_Type<string name, string typeMnemonic, list<Trait> traits = []> : 
+class Columnar_Type<string name, string typeMnemonic, list<Trait> traits = []> :
     TypeDef<Columnar_Dialect, name, traits> {
     let mnemonic = typeMnemonic;
 }
@@ -49,7 +49,7 @@ def Column : Columnar_Type<"Column", "col"> {
     }];
 }
 
-class ColumnOf<Type type> 
+class ColumnOf<Type type>
         : ConfinedType<Column, [
             SubstLeaves<"$_self", "::llvm::cast<ColumnType>($_self).getElementType()", type.predicate>],
             "column type with " # type.summary # " elements",
@@ -183,21 +183,20 @@ def SortDirectionArray : ArrayOfAttr<
 
 def Table : Columnar_Attr<"Table", "table"> {
     let parameters = (ins StringRefParameter<>:$name, StringRefParameter<>:$path);
-    
+
     let assemblyFormat = [{
         `<` $name `path` `` `=` `` $path `>`
     }];
 }
 
 def TableColumn : Columnar_Attr<"TableColumn", "table_col"> {
-    let parameters = (ins 
+    let parameters = (ins
         "TableAttr":$table,
-        StringRefParameter<>:$name, 
-        "mlir::Type":$type,
-        StringRefParameter<>:$path);
+        StringRefParameter<>:$name,
+        "mlir::Type":$type);
 
     let assemblyFormat = [{
-        `<` $table $name `:` $type `path` `` `=` `` $path `>`
+        `<` $table $name `:` $type `>`
     }];
 }
 
@@ -264,10 +263,10 @@ def LowerPipelineOpInterface : OpInterface<"LowerPipelineOpInterface"> {
   let methods = [
     InterfaceMethod<
       "Initialize global state",
-      "mlir::LogicalResult", 
-      "lowerGlobalOpen", 
-      (ins 
-        "mlir::OpBuilder&":$builder, 
+      "mlir::LogicalResult",
+      "lowerGlobalOpen",
+      (ins
+        "mlir::OpBuilder&":$builder,
         "llvm::SmallVectorImpl<mlir::Value>&":$newGlobals),
         /*methodBody=*/[{}],
         /*defaultImplementation=*/[{
@@ -276,10 +275,10 @@ def LowerPipelineOpInterface : OpInterface<"LowerPipelineOpInterface"> {
     >,
     InterfaceMethod<
       "Free global state",
-      "mlir::LogicalResult", 
-      "lowerGlobalClose", 
-      (ins 
-        "mlir::OpBuilder&":$builder, 
+      "mlir::LogicalResult",
+      "lowerGlobalClose",
+      (ins
+        "mlir::OpBuilder&":$builder,
         "mlir::ValueRange":$globals),
         /*methodBody=*/[{}],
         /*defaultImplementation=*/[{
@@ -289,10 +288,10 @@ def LowerPipelineOpInterface : OpInterface<"LowerPipelineOpInterface"> {
     >,
     InterfaceMethod<
       "Lower the body",
-      "mlir::LogicalResult", 
-      "lowerBody", 
-      (ins 
-        "mlir::OpBuilder&":$builder, 
+      "mlir::LogicalResult",
+      "lowerBody",
+      (ins
+        "mlir::OpBuilder&":$builder,
         "mlir::ValueRange":$globals,
         "mlir::ValueRange":$operands,
         "llvm::SmallVectorImpl<mlir::Value>&":$results,
@@ -313,7 +312,7 @@ def QueryOp : Columnar_Op<"query", [IsolatedFromAbove]> {
 
 def QueryOutputOp : Columnar_Op<"query.output", [
         Terminator,
-        AttrSizedOperandSegments, 
+        AttrSizedOperandSegments,
         ParentOneOf<["QueryOp", "SubQueryOp", "PipelineOp"]>,
         Sink,
         DeclareOpInterfaceMethods<
@@ -326,9 +325,9 @@ def QueryOutputOp : Columnar_Op<"query.output", [
         StringArray:$names,
         Optional<ColumnOf<Select>>:$sel);
     let builders = [
-        OpBuilder<(ins 
-            "mlir::ValueRange":$columns, 
-            "llvm::ArrayRef<mlir::StringAttr>":$names), 
+        OpBuilder<(ins
+            "mlir::ValueRange":$columns,
+            "llvm::ArrayRef<mlir::StringAttr>":$names),
             [{
                 build($_builder, $_state, columns, names, /*sel=*/nullptr);
             }]>,
@@ -361,9 +360,9 @@ def ReadColumnOp : Columnar_Op<"read_column", [Pure, Source]> {
 }
 
 def ConstantOp : Columnar_Op<"constant", [
-        Pure, 
-        ConstantLike, 
-        InferTypeOpAdaptor, 
+        Pure,
+        ConstantLike,
+        InferTypeOpAdaptor,
         Source]> {
     let arguments = (ins TypedAttrInterface:$value);
 
@@ -377,16 +376,16 @@ def ConstantOp : Columnar_Op<"constant", [
 }
 
 def AggregateOp : Columnar_Op<"aggregate", [
-        Pure, 
-        AttrSizedOperandSegments, 
+        Pure,
+        AttrSizedOperandSegments,
         InferTypeOpAdaptor,
         Source,
         Sink]> {
-    let arguments = (ins 
-        Variadic<Column>:$groupBy, 
+    let arguments = (ins
+        Variadic<Column>:$groupBy,
         Variadic<Column>:$aggregate,
         AggregatorArray:$aggregators);
-    
+
     let results = (outs Variadic<Column>:$results);
 
     let assemblyFormat = [{
@@ -402,11 +401,11 @@ def AggregateOp : Columnar_Op<"aggregate", [
         mlir::ValueRange getGroupByResults();
         mlir::ValueRange getAggregationResults();
     }];
-} 
+}
 
 def JoinOp : Columnar_Op<"join", [
-        Pure, 
-        AttrSizedOperandSegments, 
+        Pure,
+        AttrSizedOperandSegments,
         InferTypeOpAdaptor,
         Source,
         Sink]> {
@@ -415,7 +414,7 @@ def JoinOp : Columnar_Op<"join", [
     let arguments = (ins
         Variadic<Column>:$lhs,
         Variadic<Column>:$rhs);
-    
+
     let results = (outs Variadic<Column>:$results);
 
     let assemblyFormat = [{
@@ -433,7 +432,7 @@ def JoinOp : Columnar_Op<"join", [
 }
 
 def SelectOp : Columnar_Op<"select", [
-        Pure, 
+        Pure,
         IsolatedFromAbove,
         NoTerminator,
         AllTypesMatch<["inputs", "results"]>]> {
@@ -447,7 +446,7 @@ def SelectOp : Columnar_Op<"select", [
 
     let assemblyFormat = [{
         $inputs `:` type($inputs)
-        $predicates 
+        $predicates
         attr-dict
     }];
 
@@ -461,17 +460,17 @@ def PredicateOp : Columnar_Op<"pred", [IsolatedFromAbove, HasParent<"SelectOp">]
 
     let regions = (region SizedRegion<1>:$body);
 
-    let assemblyFormat = [{ 
+    let assemblyFormat = [{
         $inputs `:` type($inputs)
-        $body  
-        attr-dict 
+        $body
+        attr-dict
     }];
 
     let hasFolder = 1;
 }
 
 def PredicateEvalOp : Columnar_Op<"pred.eval", [
-        Pure, 
+        Pure,
         Terminator,
         HasParent<"PredicateOp">]> {
     let arguments = (ins ColumnOf<I1>:$cond);
@@ -482,7 +481,7 @@ def PredicateEvalOp : Columnar_Op<"pred.eval", [
 }
 
 def UnionOp : Columnar_Op<"union", [
-        Pure, 
+        Pure,
         SameVariadicOperandSize,
         AllTypesMatch<["lhs", "rhs", "results"]>,
         Source,
@@ -497,16 +496,16 @@ def UnionOp : Columnar_Op<"union", [
 }
 
 def OrderByOp : Columnar_Op<"order_by", [
-        Pure, 
-        AttrSizedOperandSegments, 
+        Pure,
+        AttrSizedOperandSegments,
         InferTypeOpAdaptor,
         Source,
         Sink]> {
-    let arguments = (ins 
-        Variadic<Column>:$keys, 
+    let arguments = (ins
+        Variadic<Column>:$keys,
         SortDirectionArray:$dirs,
         Variadic<Column>:$values);
-    
+
     let results = (outs Variadic<Column>:$results);
 
     let assemblyFormat = [{
@@ -520,12 +519,12 @@ def OrderByOp : Columnar_Op<"order_by", [
 }
 
 def LimitOp : Columnar_Op<"limit", [
-        Pure, 
-        AllTypesMatch<["inputs", "results"]>, 
+        Pure,
+        AllTypesMatch<["inputs", "results"]>,
         InferTypeOpAdaptor,
         Source,
         Sink]> {
-    let arguments = (ins 
+    let arguments = (ins
         I64Attr:$limit,
         Variadic<Column>:$inputs);
 
@@ -541,18 +540,18 @@ def LimitOp : Columnar_Op<"limit", [
 // ============================================================================
 
 def CmpOp : Columnar_Op<"cmp", [
-        Pure, 
-        IsProjection, 
+        Pure,
+        IsProjection,
         AllTypesMatch<["lhs", "rhs"]>]> {
-    let arguments = (ins 
-        CmpPredicate:$pred, 
-        Column:$lhs, 
+    let arguments = (ins
+        CmpPredicate:$pred,
+        Column:$lhs,
         Column:$rhs,
         Optional<ColumnOf<Select>>:$sel);
     let builders = [
-        OpBuilder<(ins 
-            "CmpPredicate":$pred, 
-            "mlir::Value":$lhs, 
+        OpBuilder<(ins
+            "CmpPredicate":$pred,
+            "mlir::Value":$lhs,
             "mlir::Value":$rhs), [{
                 build($_builder, $_state, pred, lhs, rhs, /*sel=*/nullptr);
             }]>,
@@ -561,7 +560,7 @@ def CmpOp : Columnar_Op<"cmp", [
     let results = (outs ColumnOf<I1>:$result);
 
     let assemblyFormat = [{
-        $pred $lhs `,` $rhs `:` type($lhs) 
+        $pred $lhs `,` $rhs `:` type($lhs)
         (`sel` `` `=` `` $sel^)?
         attr-dict
     }];
@@ -610,8 +609,8 @@ class NumericBinOp<string mnemonic> : Columnar_Op<mnemonic, [
         Pure,
         IsProjection,
         AllTypesMatch<["lhs", "rhs", "result"]>]> {
-    let arguments = (ins 
-        Numeric:$lhs, 
+    let arguments = (ins
+        Numeric:$lhs,
         Numeric:$rhs,
         Optional<ColumnOf<Select>>:$sel);
     let builders = [
@@ -623,8 +622,8 @@ class NumericBinOp<string mnemonic> : Columnar_Op<mnemonic, [
     let results = (outs Numeric:$result);
 
     let assemblyFormat = [{
-        $lhs `,` $rhs `:` type($result) 
-        (`sel` `` `=` `` $sel^)? 
+        $lhs `,` $rhs `:` type($result)
+        (`sel` `` `=` `` $sel^)?
         attr-dict
     }];
 }
@@ -665,7 +664,7 @@ def SubQueryOp : Columnar_Op<"sub_query", [Pure, IsolatedFromAbove]> {
 // ============================================================================
 
 def SelAddOp : Columnar_Op<"sel.add", [
-        Pure, 
+        Pure,
         AllTypesMatch<["inputs", "results"]>,
         InferTypeOpAdaptor]> {
     let arguments = (ins Variadic<Column>:$inputs);
@@ -690,8 +689,8 @@ def SelApplyOp : Columnar_Op<"sel.apply", [
 def SelFilterOp : Columnar_Op<"sel.filter", [Pure]> {
     let summary = "Apply a filter to a selection vector";
 
-    let arguments = (ins 
-        ColumnOf<Select>:$inSel, 
+    let arguments = (ins
+        ColumnOf<Select>:$inSel,
         ColumnOf<I1>:$filter,
         ColumnOf<Select>:$filterSel);
 
@@ -703,7 +702,7 @@ def SelFilterOp : Columnar_Op<"sel.filter", [Pure]> {
 }
 
 def SelTableOp : Columnar_Op<"sel.table", [
-        Pure, 
+        Pure,
         ConstantLike]> {
     let summary = "The selection vector of a base table";
 
@@ -732,7 +731,7 @@ def PipelineOp : Columnar_Op<"pipeline", [NoTerminator, IsolatedFromAbove]> {
 def ReadTableOp : Columnar_Op<"read_table", [
         Pure,
         DeclareOpInterfaceMethods<
-            LowerPipelineOpInterface, 
+            LowerPipelineOpInterface,
             ["lowerGlobalOpen", "lowerGlobalClose"]>]> {
     let summary = "Reads a table";
 
@@ -752,13 +751,13 @@ def ReadTableOp : Columnar_Op<"read_table", [
 def TensorCol : 1DTensorOf<[AnyType]>;
 
 def PipelineLowOp : Columnar_Op<"pipeline_low", [IsolatedFromAbove]> {
-    let regions = (region 
+    let regions = (region
         MaxSizedRegion<1>:$globalOpen,
         MaxSizedRegion<1>:$open,
         SizedRegion<1>:$body,
         MaxSizedRegion<1>:$close,
         MaxSizedRegion<1>:$globalClose);
-    
+
     let assemblyFormat = [{
         (`global_open` $globalOpen^)?
         (`open` $open^)?
@@ -770,7 +769,7 @@ def PipelineLowOp : Columnar_Op<"pipeline_low", [IsolatedFromAbove]> {
 }
 
 def PipelineLowYieldOp : Columnar_Op<"pipeline_low.yield", [
-        Terminator, 
+        Terminator,
         HasParent<"PipelineLowOp">]> {
     let arguments = (ins Variadic<AnyType>:$values);
 
@@ -781,7 +780,7 @@ def PipelineLowYieldOp : Columnar_Op<"pipeline_low.yield", [
 
 def TableColumnReadOp : Columnar_Op<"table.column.read", [
         DeclareOpInterfaceMethods<
-            BufferizableOpInterface, 
+            BufferizableOpInterface,
             ["bufferize", "bufferizesToAllocation"]>]> {
     let summary = "Reads a column chunk as a tensor";
 
@@ -796,20 +795,20 @@ def TableColumnReadOp : Columnar_Op<"table.column.read", [
 
 def PrintChunkAppendOp : Columnar_Op<"print.chunk.append", [
         DeclareOpInterfaceMethods<BufferizableOpInterface, [
-            "bufferize", 
-            "bufferizesToMemoryRead", 
+            "bufferize",
+            "bufferizesToMemoryRead",
             "bufferizesToMemoryWrite",
             "getAliasingValues"]>]> {
     let summary = "Append a column to a chunk";
 
-    let arguments = (ins 
-        PrintChunk:$chunk, 
-        TensorCol:$col, 
+    let arguments = (ins
+        PrintChunk:$chunk,
+        TensorCol:$col,
         1DTensorOf<[Index]>:$sel);
 
     let assemblyFormat = [{
         $chunk
-        $col `:` type($col) 
+        $col `:` type($col)
         `sel` `` `=` `` $sel `:` type($sel)
         attr-dict
     }];
@@ -849,11 +848,11 @@ def GetStructElementOp : Columnar_Op<"struct.get", [Pure, InferTypeOpAdaptor]> {
 }
 
 def PipelineRefOp : Columnar_Op<"pipeline_ref", [IsolatedFromAbove]> {
-    let arguments = (ins 
+    let arguments = (ins
         OptionalAttr<SymbolRefAttr>:$globalOpen,
         SymbolRefAttr:$body,
         OptionalAttr<SymbolRefAttr>:$globalClose);
-    
+
     let assemblyFormat = [{
         (`global_open` $globalOpen^)?
         `body` $body

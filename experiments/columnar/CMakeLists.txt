@@ -28,12 +28,6 @@ set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})
 list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
 include(AddMLIR)
 
-# Directories with MLIR dialects
-add_subdirectory(include/columnar)
-
-add_subdirectory(lib)
-add_subdirectory(test)
-
 # Protobuf
 find_package(Protobuf REQUIRED)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS /usr/local/include/pg_query/pg_query.proto)
@@ -56,6 +50,12 @@ set_target_properties(
 
 # Parquet
 find_package(Parquet REQUIRED)
+
+# Directories with MLIR dialects
+add_subdirectory(include/columnar)
+
+add_subdirectory(lib)
+add_subdirectory(test)
 
 add_executable(
     translate
@@ -107,5 +107,6 @@ add_executable(
 target_compile_features(parquet PRIVATE cxx_std_17)
 target_link_libraries(parquet
     PRIVATE
+    columnar
     Parquet::parquet_shared
 )

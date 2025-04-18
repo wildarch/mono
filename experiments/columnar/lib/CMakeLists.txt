@@ -3,12 +3,14 @@ add_library(
     AddSelectionVectors.cpp
     Bufferize.cpp
     Canonicalize.cpp
+    Catalog.cpp
     Columnar.cpp
     GroupTableReads.cpp
     LLVMTranslation.cpp
     LowerPipelines.cpp
     LowerToLLVM.cpp
     MakePipelines.cpp
+    parquet/ParquetToCatalog.cpp
     PushDownPredicates.cpp
     Runtime.cpp
     runtime/Print.cpp
@@ -43,8 +45,10 @@ target_link_libraries(
     columnar
     ${llvm_libs}
     MLIRArithDialect
+    MLIRArithToLLVM
     MLIRArithTransforms
     MLIRBufferizationTransforms
+    MLIRControlFlowToLLVM
     MLIRFuncToLLVM
     MLIRIR
     MLIRLinalgDialect
@@ -56,9 +60,8 @@ target_link_libraries(
     MLIRParser
     MLIRPass
     MLIRSCFToControlFlow
-    MLIRControlFlowToLLVM
-    MLIRArithToLLVM
     MLIRTensorDialect
     MLIRToLLVMIRTranslationRegistration
     MLIRTransforms
+    Parquet::parquet_shared
 )
