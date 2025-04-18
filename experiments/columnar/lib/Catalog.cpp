@@ -1,6 +1,7 @@
 #include <llvm/ADT/StringRef.h>
 
 #include "columnar/Catalog.h"
+#include "columnar/Columnar.h"
 
 namespace columnar {
 
@@ -28,22 +29,23 @@ void Catalog::addColumn(columnar::TableColumnAttr column) {
   _columnsPerTable[table].push_back(column);
 }
 
-columnar::TableAttr Catalog::lookupTable(llvm::StringRef name) {
+columnar::TableAttr Catalog::lookupTable(llvm::StringRef name) const {
   return _tablesByName.lookup(name);
 }
 
-llvm::ArrayRef<TableColumnAttr> Catalog::columnsOf(TableAttr table) {
+llvm::ArrayRef<TableColumnAttr> Catalog::columnsOf(TableAttr table) const {
   auto it = _columnsPerTable.find(table);
   assert(it != _columnsPerTable.end() && "Table not found in columns map");
   return it->second;
 }
 
-void Catalog::dump() {
+void Catalog::dump() const {
   for (const auto &e : _tablesByName) {
     auto name = e.first();
     auto table = e.second;
     llvm::outs() << "Table: " << name << ": " << table << "\n";
-    for (auto [i, column] : llvm::enumerate(_columnsPerTable[table])) {
+    auto columns = columnsOf(table);
+    for (auto [i, column] : llvm::enumerate(columns)) {
       llvm::outs() << "  Column " << i << ": " << column << "\n";
     }
   }

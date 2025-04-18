@@ -1,10 +1,10 @@
 // RUN: columnar-opt --add-selection-vectors %s | FileCheck %s
 
 #table_lineitem = #columnar.table<"lineitem" path="/tmp/lineitem.tab">
-#column_lineitem_l_quantity = #columnar.table_col<#table_lineitem "l_quantity" : !columnar.dec path="/tmp/l_quantity.col">
-#column_lineitem_l_extendedprice = #columnar.table_col<#table_lineitem "l_extendedprice" : !columnar.dec path="/tmp/l_extendedprice.col">
-#column_lineitem_l_discount = #columnar.table_col<#table_lineitem "l_discount" : !columnar.dec path="/tmp/l_discount.col">
-#column_lineitem_l_shipdate = #columnar.table_col<#table_lineitem "l_shipdate" : !columnar.date path="/tmp/l_shipdate.col">
+#column_lineitem_l_quantity = #columnar.table_col<#table_lineitem "l_quantity" : !columnar.dec>
+#column_lineitem_l_extendedprice = #columnar.table_col<#table_lineitem "l_extendedprice" : !columnar.dec>
+#column_lineitem_l_discount = #columnar.table_col<#table_lineitem "l_discount" : !columnar.dec>
+#column_lineitem_l_shipdate = #columnar.table_col<#table_lineitem "l_shipdate" : !columnar.date>
 
 columnar.query {
   // CHECK: %0 = columnar.constant #columnar<dec 2400> : !columnar.dec

@@ -2,7 +2,7 @@
 !col_si64 = !columnar.col<si64>
 
 #table_A = #columnar.table<"A" path="/tmp/A.tab">
-#column_A_a = #columnar.table_col<#table_A "a" : si64 path="/tmp/a.col">
+#column_A_a = #columnar.table_col<#table_A "a" : si64>
 
 // CHECK-LABEL: columnar.query {
 columnar.query {

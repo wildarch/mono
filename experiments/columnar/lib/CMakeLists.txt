@@ -1,3 +1,5 @@
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS /usr/local/include/pg_query/pg_query.proto)
+
 add_library(
     columnar
     AddSelectionVectors.cpp
@@ -16,6 +18,9 @@ add_library(
     runtime/Print.cpp
     runtime/TableColumn.cpp
     runtime/TableScanner.cpp
+    SQLParser.cpp
+    ${PROTO_SRCS}
+    ${PROTO_HDRS}
 )
 
 # LLVM/MLIR includes.
@@ -32,6 +37,8 @@ target_include_directories(columnar
     ../include
     # Generated MLIR dialect files
     ${CMAKE_BINARY_DIR}/include
+    # Compiled protobuf .h and .cc are placed here
+    ${CMAKE_BINARY_DIR}/lib
 )
 
 add_dependencies(
@@ -44,6 +51,8 @@ add_dependencies(
 target_link_libraries(
     columnar
     ${llvm_libs}
+    ${Protobuf_LIBRARIES}
+    libpg_query::libpg_query
     MLIRArithDialect
     MLIRArithToLLVM
     MLIRArithTransforms

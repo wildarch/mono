@@ -3,8 +3,8 @@
 !col_i1 = !columnar.col<i1>
 
 #table_A = #columnar.table<"A" path="/tmp/A.tab">
-#column_A_a = #columnar.table_col<#table_A "a" : !columnar.dec path="/tmp/a.col">
-#column_A_b = #columnar.table_col<#table_A "b" : !columnar.dec path="/tmp/b.col">
+#column_A_a = #columnar.table_col<#table_A "a" : !columnar.dec>
+#column_A_b = #columnar.table_col<#table_A "b" : !columnar.dec>
 
 // Not part of predicate
 // CHECK-LABEL: columnar.query {

@@ -16,10 +16,10 @@ public:
   void addTable(columnar::TableAttr table);
   void addColumn(columnar::TableColumnAttr column);
 
-  columnar::TableAttr lookupTable(llvm::StringRef name);
-  llvm::ArrayRef<TableColumnAttr> columnsOf(TableAttr table);
+  columnar::TableAttr lookupTable(llvm::StringRef name) const;
+  llvm::ArrayRef<TableColumnAttr> columnsOf(TableAttr table) const;
 
-  void dump();
+  void dump() const;
 };
 
 } // namespace columnar

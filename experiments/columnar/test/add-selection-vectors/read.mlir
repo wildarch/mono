@@ -1,7 +1,7 @@
 // RUN: columnar-opt --add-selection-vectors %s | FileCheck %s
 
 #table_nation = #columnar.table<"nation" path="nation">
-#column_nation_n_nationkey = #columnar.table_col<#table_nation "n_nationkey" : i64 path="n_nationkey">
+#column_nation_n_nationkey = #columnar.table_col<#table_nation "n_nationkey" : i64>
 columnar.query {
   // CHECK: %[[#SEL:]] = columnar.sel.table #table_nation
   // CHECK: %[[#READ:]] = columnar.read_column

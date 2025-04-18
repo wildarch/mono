@@ -30,7 +30,6 @@ include(AddMLIR)
 
 # Protobuf
 find_package(Protobuf REQUIRED)
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS /usr/local/include/pg_query/pg_query.proto)
 
 # pg_query (See https://dominikberner.ch/cmake-find-library/)
 find_library(PG_QUERY_LIBRARY pg_query REQUIRED)
@@ -60,22 +59,11 @@ add_subdirectory(test)
 add_executable(
     translate
     translate.cpp
-    ${PROTO_SRCS}
-    ${PROTO_HDRS}
 )
 target_compile_features(translate PRIVATE cxx_std_17)
-target_include_directories(
-    translate
-    PRIVATE
-    # Compiled protobuf .h and .cc are placed here
-    ${CMAKE_BINARY_DIR}
-
-)
 target_link_libraries(translate
     PRIVATE
     columnar
-    ${Protobuf_LIBRARIES}
-    libpg_query::libpg_query
 )
 
 add_executable(

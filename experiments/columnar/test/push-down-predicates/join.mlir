@@ -3,8 +3,8 @@
 
 #table_A = #columnar.table<"A" path="/tmp/A.tab">
 #table_B = #columnar.table<"B" path="/tmp/B.tab">
-#column_A_a = #columnar.table_col<#table_A "a" : si64 path="/tmp/a.col">
-#column_B_b = #columnar.table_col<#table_B "b" : si64 path="/tmp/b.col">
+#column_A_a = #columnar.table_col<#table_A "a" : si64>
+#column_B_b = #columnar.table_col<#table_B "b" : si64>
 
 // LHS
 // CHECK-LABEL: columnar.query {

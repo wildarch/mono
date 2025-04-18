@@ -45,6 +45,11 @@ void addToCatalog(mlir::MLIRContext *ctx, Catalog &catalog,
   catalog.addTable(tableAttr);
   for (auto i : llvm::seq(schema.num_columns())) {
     auto column = schema.Column(i);
+    // TODO: Attach logical type to the column
+    /*
+    llvm::errs() << "logical type: " << column->logical_type()->ToString()
+                 << "\n";
+    */
     auto columnAttr =
         TableColumnAttr::get(ctx, tableAttr, column->name(),
                              convertPhysicalType(ctx, column->physical_type()));

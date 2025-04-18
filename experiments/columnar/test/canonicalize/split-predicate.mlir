@@ -2,13 +2,13 @@
 
 #table_nation = #columnar.table<"nation" path="/tmp/nation.tab">
 #table_region = #columnar.table<"region" path="/tmp/region.tab">
-#column_nation_n_comment = #columnar.table_col<#table_nation "n_comment" : !columnar.str path="/tmp/n_comment.col">
-#column_nation_n_name = #columnar.table_col<#table_nation "n_name" : !columnar.str path="/tmp/n_name.col">
-#column_nation_n_nationkey = #columnar.table_col<#table_nation "n_nationkey" : i64 path="/tmp/n_nationkey.col">
-#column_nation_n_regionkey = #columnar.table_col<#table_nation "n_regionkey" : i64 path="/tmp/n_regionkey.col">
-#column_region_r_comment = #columnar.table_col<#table_region "r_comment" : !columnar.str path="/tmp/r_comment.col">
-#column_region_r_name = #columnar.table_col<#table_region "r_name" : !columnar.str path="/tmp/r_name.col">
-#column_region_r_regionkey = #columnar.table_col<#table_region "r_regionkey" : i64 path="/tmp/r_regionkey.col">
+#column_nation_n_comment = #columnar.table_col<#table_nation "n_comment" : !columnar.str>
+#column_nation_n_name = #columnar.table_col<#table_nation "n_name" : !columnar.str>
+#column_nation_n_nationkey = #columnar.table_col<#table_nation "n_nationkey" : i64>
+#column_nation_n_regionkey = #columnar.table_col<#table_nation "n_regionkey" : i64>
+#column_region_r_comment = #columnar.table_col<#table_region "r_comment" : !columnar.str>
+#column_region_r_name = #columnar.table_col<#table_region "r_name" : !columnar.str>
+#column_region_r_regionkey = #columnar.table_col<#table_region "r_regionkey" : i64>
 
 columnar.query {
   %0 = columnar.read_column #column_nation_n_nationkey : <i64>
