@@ -1,4 +1,4 @@
-# Brownies
+# Bananas Foster
 ![](https://www.seriouseats.com/thmb/mp_r7zgFgqon5aA00bovcJSMGJU=/750x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/20240517-SEA-BananasFoster-AmandaSuarezgero-6015362d6a834b6fa71591ef7d812e69.jpg)
 
 Serves: 2.
