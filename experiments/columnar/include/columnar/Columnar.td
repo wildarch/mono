@@ -790,12 +790,16 @@ def TableColumnReadOp : Columnar_Op<"table.column.read", [
             ["bufferize", "bufferizesToAllocation"]>]> {
     let summary = "Reads a column chunk as a tensor";
 
-    let arguments = (ins ColumnHandle:$handle, Index:$start, Index:$size);
+    let arguments = (ins
+        ColumnHandle:$handle,
+        I32:$rowGroup,
+        I32:$skip,
+        I64:$size);
 
     let results = (outs TensorCol:$result);
 
     let assemblyFormat = [{
-        $handle `:` type($result) $start $size attr-dict
+        $handle `:` type($result) $rowGroup $skip $size attr-dict
     }];
 }
 

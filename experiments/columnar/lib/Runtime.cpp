@@ -1,5 +1,4 @@
 #include <cstdint>
-#include <iostream>
 
 #include "columnar/Runtime.h"
 #include "columnar/runtime/Print.h"
@@ -22,9 +21,9 @@ struct MemRef {
     return {static_cast<const T *>(align) + offset, size};
   }
 
-  template <typename T> llvm::MutableArrayRef<T> asArrayRefMut() {
+  template <typename T> T *asPointerMut() {
     assert(stride == 1);
-    return {static_cast<T *>(align) + offset, size};
+    return static_cast<T *>(align) + offset;
   }
 };
 
@@ -48,40 +47,40 @@ extern "C" {
  */
 
 TableScanner *col_table_scanner_open(const char *path) {
-  auto *col = new TableScanner();
-  if (auto err = col->open(path)) {
-    llvm::errs() << "Invalid table path '" << path << "': " << err << "\n";
-    std::abort();
-  }
+  auto *scanner = new TableScanner();
 
-  return col;
+  // TODO: handle exception
+  std::string pathString(path);
+  scanner->open(pathString);
+
+  return scanner;
 }
 
 // NOTE: C repr instead of C++ (for interop).
 struct ClaimedRange {
-  std::size_t start;
-  std::size_t size;
+  std::int32_t rowGroup;
+  std::int32_t skip;
+  std::int64_t size;
 };
 
 ClaimedRange col_table_scanner_claim_chunk(TableScanner *scanner) {
   auto claim = scanner->claimChunk();
-  return {claim.start, claim.size};
+  return {claim.rowGroup, claim.skip, claim.size};
 }
 
-TableColumn *col_table_column_open(const char *path) {
-  auto *col = new TableColumn();
-  if (auto err = col->open(path)) {
-    llvm::errs() << "Invalid columnar path '" << path << "': " << err << "\n";
-    std::abort();
-  }
+TableColumn *col_table_column_open(const char *path, std::int32_t idx) {
+  auto *col = new TableColumn(idx);
+  std::string pathString(path);
+  col->open(pathString);
 
   return col;
 }
 
-void col_table_column_read_int32(TableColumn *column, std::size_t start,
-                                 std::size_t size, MEMREF_PARAM(dest)) {
+void col_table_column_read_int32(TableColumn *column, std::int32_t rowGroup,
+                                 std::int32_t skip, std::int64_t size,
+                                 MEMREF_PARAM(dest)) {
   MEMREF_VAR(dest);
-  column->read(start, size, dest.asArrayRefMut<std::int32_t>());
+  column->read(rowGroup, skip, size, dest.asPointerMut<std::int32_t>());
 }
 
 Printer *col_print_open() { return new Printer(); }

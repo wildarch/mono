@@ -1,53 +1,35 @@
-#include <llvm/ADT/Twine.h>
+#include <cassert>
+
+#include <parquet/column_reader.h>
+#include <parquet/file_reader.h>
+#include <parquet/types.h>
 
 #include "columnar/runtime/TableColumn.h"
 
 namespace columnar::runtime {
 
-TableColumn::~TableColumn() {
-  if (_file != llvm::sys::fs::kInvalidFile) {
-    _mapped.unmap();
-    llvm::sys::fs::closeFile(_file);
-  }
+TableColumn::TableColumn(int idx) : _idx(idx) {}
+
+void TableColumn::open(const std::string &path) {
+  _reader = parquet::ParquetFileReader::OpenFile(path);
 }
 
-llvm::Error TableColumn::open(llvm::Twine path) {
-  assert(_file == llvm::sys::fs::kInvalidFile);
-  auto file = llvm::sys::fs::openNativeFileForRead(path);
-  if (auto err = file.takeError()) {
-    return err;
-  }
+void TableColumn::close() { _reader->Close(); }
 
-  _file = *file;
+void TableColumn::read(int rowGroup, int skip, std::int64_t size,
+                       std::int32_t *buffer) {
+  // TODO
+  auto groupReader = _reader->RowGroup(rowGroup);
+  auto colReader = groupReader->Column(_idx);
 
-  llvm::sys::fs::file_status fstat;
-  auto ec = llvm::sys::fs::status(_file, fstat);
-  if (ec) {
-    return llvm::createFileError(path, ec);
-  }
+  assert(colReader->type() == parquet::Type::INT32);
+  auto *i32Reader = static_cast<parquet::Int32Reader *>(colReader.get());
 
-  std::uint64_t offset = 0;
-  _mapped = llvm::sys::fs::mapped_file_region(
-      _file, llvm::sys::fs::mapped_file_region::readonly, fstat.getSize(),
-      offset, ec);
-  if (ec) {
-    return llvm::createFileError(path, ec);
-  }
+  i32Reader->Skip(skip);
 
-  return llvm::Error::success();
-}
-
-llvm::Error TableColumn::close() {
-  _mapped.unmap();
-  auto ec = llvm::sys::fs::closeFile(_file);
-  return llvm::errorCodeToError(ec);
-}
-
-void TableColumn::read(std::size_t start, std::size_t size,
-                       llvm::MutableArrayRef<std::int32_t> dest) {
-  assert(dest.size() >= size);
-  std::memcpy(dest.data(), _mapped.const_data() + start * sizeof(std::int32_t),
-              size * sizeof(std::int32_t));
+  std::int64_t valuesRead;
+  i32Reader->ReadBatch(size, nullptr, nullptr, buffer, &valuesRead);
+  assert(valuesRead == size);
 }
 
 } // namespace columnar::runtime

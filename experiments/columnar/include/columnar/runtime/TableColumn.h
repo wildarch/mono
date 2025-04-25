@@ -1,22 +1,21 @@
 #pragma once
 
-#include "llvm/Support/FileSystem.h"
+#include <parquet/file_reader.h>
 
 namespace columnar::runtime {
 
 class TableColumn {
 private:
-  llvm::sys::fs::file_t _file = llvm::sys::fs::kInvalidFile;
-  llvm::sys::fs::mapped_file_region _mapped;
+  int _idx;
+  std::shared_ptr<parquet::ParquetFileReader> _reader;
 
 public:
-  ~TableColumn();
+  TableColumn(int idx);
 
-  llvm::Error open(llvm::Twine path);
-  llvm::Error close();
+  void open(const std::string &path);
+  void close();
 
-  void read(std::size_t start, std::size_t size,
-            llvm::MutableArrayRef<std::int32_t> dest);
+  void read(int rowGroup, int skip, std::int64_t size, std::int32_t *buffer);
 };
 
 } // namespace columnar::runtime

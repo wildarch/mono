@@ -1,67 +1,38 @@
-#include <algorithm>
-
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/JSON.h>
+#include <mutex>
+#include <parquet/file_reader.h>
 
 #include "columnar/runtime/TableScanner.h"
 
 namespace columnar::runtime {
 
-static llvm::Expected<std::size_t> readTableSize(llvm::sys::fs::file_t file) {
-  llvm::SmallString<256> buffer;
-  if (auto err = llvm::sys::fs::readNativeFileToEOF(file, buffer)) {
-    return err;
-  }
-
-  auto json = llvm::json::parse(buffer);
-  if (auto err = json.takeError()) {
-    return err;
-  }
-
-  auto table = json->getAsObject();
-  if (!table) {
-    return llvm::createStringError("table meta is not valid JSON");
-  }
-
-  auto tableSize = table->getInteger("TableSize");
-  if (!tableSize) {
-    return llvm::createStringError(
-        "table meta does not have 'TableSize' property");
-  }
-
-  return *tableSize;
-}
-
-llvm::Error TableScanner::open(llvm::Twine path) {
-  auto file = llvm::sys::fs::openNativeFileForRead(path);
-  if (auto err = file.takeError()) {
-    return err;
-  }
-
-  auto tableSize = readTableSize(*file);
-  if (auto err = tableSize.takeError()) {
-    llvm::sys::fs::closeFile(*file);
-    return err;
-  }
-
-  _tableSize = *tableSize;
-  llvm::sys::fs::closeFile(*file);
-  return llvm::Error::success();
+void TableScanner::open(const std::string &path) {
+  _reader = parquet::ParquetFileReader::OpenFile(path);
 }
 
 auto TableScanner::claimChunk() -> ClaimedRange {
-  constexpr std::size_t CHUNK_SIZE = 1024;
-  std::size_t start =
-      _nextStart.fetch_add(CHUNK_SIZE, std::memory_order_relaxed);
-  if (start > _tableSize) {
-    // Nothing left to read.
-    return ClaimedRange{0, 0};
+  constexpr std::int64_t CHUNK_SIZE = 1024;
+
+  std::lock_guard guard(_mutex);
+  if (_rowGroup >= _reader->metadata()->num_row_groups()) {
+    // No more row groups.
+    return ClaimedRange{_rowGroup, 0, 0};
   }
 
-  return ClaimedRange{
-      .start = start,
-      .size = std::min(CHUNK_SIZE, _tableSize - start),
-  };
+  auto rowGroup = _reader->RowGroup(_rowGroup);
+  auto leftInGroup = rowGroup->metadata()->num_rows() - _skip;
+  auto size = std::min(leftInGroup, CHUNK_SIZE);
+
+  ClaimedRange range{_rowGroup, _skip, size};
+
+  // Update for next read
+  _skip += size;
+  if (_skip == rowGroup->metadata()->num_rows()) {
+    // Exhausted the current group.
+    _rowGroup++;
+    _skip = 0;
+  }
+
+  return range;
 }
 
 } // namespace columnar::runtime

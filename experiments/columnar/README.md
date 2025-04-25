@@ -143,7 +143,7 @@ Procedure:
 ```bash
 cmake --build experiments/columnar/build
 
-experiments/columnar/build/translate --import-sql experiments/columnar/test/sql/read.sql > /tmp/bug.mlir
+experiments/columnar/build/translate --data /host-home-folder/Downloads/tpch-sf1 --import-sql experiments/columnar/test/sql/read.sql > /tmp/bug.mlir
 
 experiments/columnar/build/columnar-opt /tmp/bug.mlir \
     --push-down-predicates \

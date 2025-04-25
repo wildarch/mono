@@ -1,22 +1,28 @@
 #pragma once
 
-#include <atomic>
+#include <memory>
 
-#include "llvm/Support/Error.h"
+#include <mutex>
+#include <parquet/file_reader.h>
 
 namespace columnar::runtime {
 
 class TableScanner {
 private:
-  std::size_t _tableSize;
-  std::atomic_size_t _nextStart = 0;
+  std::shared_ptr<parquet::ParquetFileReader> _reader;
+
+  std::mutex _mutex;
+  std::int32_t _rowGroup = 0;
+  std::int32_t _skip = 0;
 
 public:
-  llvm::Error open(llvm::Twine path);
+  // NOTE: Throws if we fail to open the path.
+  void open(const std::string &path);
 
   struct ClaimedRange {
-    std::size_t start;
-    std::size_t size;
+    std::int32_t rowGroup;
+    std::int32_t skip;
+    std::int64_t size;
   };
 
   ClaimedRange claimChunk();

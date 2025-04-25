@@ -104,10 +104,13 @@ ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
 
   // Claim a chunk of rows to read
   auto claimOp = builder.create<RuntimeCallOp>(
-      getLoc(), mlir::TypeRange{builder.getIndexType(), builder.getIndexType()},
+      getLoc(),
+      mlir::TypeRange{builder.getI32Type(), builder.getI32Type(),
+                      builder.getI64Type()},
       builder.getStringAttr("col_table_scanner_claim_chunk"), scanner);
-  auto start = claimOp->getResult(0);
-  auto size = claimOp->getResult(1);
+  auto rowGroup = claimOp->getResult(0);
+  auto skip = claimOp->getResult(1);
+  auto size = claimOp->getResult(2);
 
   // If the chunk has size > 0, there may be more to read.
   auto zeroOp = builder.create<mlir::arith::ConstantOp>(
@@ -127,7 +130,7 @@ ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
     }
 
     auto readOp = builder.create<TableColumnReadOp>(getLoc(), tensorType, col,
-                                                    start, size);
+                                                    rowGroup, skip, size);
     results.push_back(readOp);
   }
 
