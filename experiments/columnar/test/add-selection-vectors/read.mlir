@@ -1,7 +1,8 @@
 // RUN: columnar-opt --add-selection-vectors %s | FileCheck %s
 
-#table_nation = #columnar.table<"nation" path="nation">
-#column_nation_n_nationkey = #columnar.table_col<#table_nation "n_nationkey" : i64>
+#table_nation = #columnar.table<"nation" path="experiments/columnar/test/sql/data/nation.parquet">
+#column_nation_n_nationkey = #columnar.table_col<#table_nation 0 "n_nationkey" : si32[i32]>
+
 columnar.query {
   // CHECK: %[[#SEL:]] = columnar.sel.table #table_nation
   // CHECK: %[[#READ:]] = columnar.read_column

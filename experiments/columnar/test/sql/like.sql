@@ -1,4 +1,4 @@
--- RUN: translate --import-sql %s | FileCheck %s
+-- RUN: translate --data=%S/data --import-sql %s | FileCheck %s
 
 -- CHECK-LABEL: columnar.query {
 -- CHECK: %0 = columnar.constant #columnar<str "Hello, World!">

@@ -1,0 +1,13 @@
+-- duckdb -init experiments/columnar/test/sql/data/gen.sql.notest -no-stdin
+CALL dbgen(sf = 0);
+
+DELETE FROM customer;
+DELETE FROM lineitem;
+DELETE FROM nation;
+DELETE FROM orders;
+DELETE FROM part;
+DELETE FROM partsupp;
+DELETE FROM region;
+DELETE FROM supplier;
+
+EXPORT DATABASE 'experiments/columnar/test/sql/data' (FORMAT PARQUET);

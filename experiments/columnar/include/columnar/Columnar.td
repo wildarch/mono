@@ -62,6 +62,10 @@ def String : Columnar_Type<"String", "str"> {
     let summary = "Variable-length string";
 }
 
+def ByteArray : Columnar_Type<"ByteArray", "byte_array"> {
+    let summary = "Variable-length byte array";
+}
+
 def Decimal : Columnar_Type<"Decimal", "dec"> {
     let summary = "Represents values between -9,999,999,999.99 and +9,999,999,999.99 in increments of 0.01";
 }
@@ -192,11 +196,13 @@ def Table : Columnar_Attr<"Table", "table"> {
 def TableColumn : Columnar_Attr<"TableColumn", "table_col"> {
     let parameters = (ins
         "TableAttr":$table,
+        "int":$idx,
         StringRefParameter<>:$name,
-        "mlir::Type":$type);
+        "mlir::Type":$logicalType,
+        "mlir::Type":$physicalType);
 
     let assemblyFormat = [{
-        `<` $table $name `:` $type `>`
+        `<` $table $idx $name `:` $logicalType `[` $physicalType `]` `>`
     }];
 }
 

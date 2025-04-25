@@ -1,8 +1,8 @@
 // RUN: columnar-opt --push-down-predicates %s | FileCheck %s
 !col_si64 = !columnar.col<si64>
 
-#table_A = #columnar.table<"A" path="/tmp/A.tab">
-#column_A_a = #columnar.table_col<#table_A "a" : si64>
+#table_A = #columnar.table<"A" path="/tmp/A.parquet">
+#column_A_a = #columnar.table_col<#table_A 0 "a" : si64[i64]>
 
 // CHECK-LABEL: columnar.query {
 columnar.query {

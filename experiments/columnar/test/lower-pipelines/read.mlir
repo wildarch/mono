@@ -1,10 +1,11 @@
 // RUN: columnar-opt --lower-pipelines %s | FileCheck %s
-#table_mytable = #columnar.table<"mytable" path="/home/daan/Downloads/tpch-sf1/nation.tab">
-#column_mytable_l_value = #columnar.table_col<#table_mytable "n_nationkey" : i32>
+
+#table_nation = #columnar.table<"nation" path="experiments/columnar/test/sql/data/nation.parquet">
+#column_nation_n_nationkey = #columnar.table_col<#table_nation 0 "n_nationkey" : si32[i32]>
 
 // CHECK: columnar.pipeline_low
 // CHECK-LABEL: global_open {
-// CHECK: %[[#NATION_PATH:]] = columnar.constant_string "/home/daan/Downloads/tpch-sf1/nation.tab"
+// CHECK: %[[#NATION_PATH:]] = columnar.constant_string "experiments/columnar/test/sql/data/nation.parquet"
 // CHECK: %[[#SCAN_OPEN:]] = columnar.runtime_call "col_table_scanner_open"(%[[#NATION_PATH]]) : (!columnar.str_lit) -> !columnar.scanner_handle
 // CHECK: %[[#NATIONKEY_PATH:]] = columnar.constant_string "n_nationkey"
 // CHECK: %[[#COL_OPEN:]] = columnar.runtime_call "col_table_column_open"(%[[#NATIONKEY_PATH]]) : (!columnar.str_lit) -> !columnar.column_handle
@@ -31,6 +32,6 @@
 // CHECK: columnar.pipeline_low.yield %[[#MORE]]
 
 columnar.pipeline {
-  %sel, %col = columnar.read_table #table_mytable [#column_mytable_l_value] : !columnar.col<i32>
+  %sel, %col = columnar.read_table #table_nation [#column_nation_n_nationkey] : !columnar.col<i32>
   columnar.query.output %col : !columnar.col<i32> ["n_nationkey"] sel=%sel
 }

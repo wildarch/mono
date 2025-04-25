@@ -1,4 +1,4 @@
--- RUN: translate --import-sql %s | FileCheck %s
+-- RUN: translate --data=%S/data --import-sql %s | FileCheck %s
 
 -- CHECK-LABEL: columnar.query {
 -- CHECK: %0 = columnar.read_column #column_nation_n_nationkey
@@ -28,7 +28,7 @@ FROM Nation, Region;
 -- CHECK: %11 = columnar.read_column #column_region_r_name
 -- CHECK: %12 = columnar.read_column #column_region_r_comment
 -- CHECK: %13:12 = columnar.join (%9#0, %9#1, %9#2, %9#3, %9#4, %9#5, %9#6, %9#7, %9#8) (%10, %11, %12)
--- CHECK: columnar.query.output %13#1, %13#8, %13#10 
+-- CHECK: columnar.query.output %13#1, %13#8, %13#10
 -- CHECK-SAME: ["n_name", "ps_comment", "r_name"]
 SELECT n_name, ps_comment, r_name
 FROM Nation, PartSupp, Region;

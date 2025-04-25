@@ -2,9 +2,9 @@
 !col_si64 = !columnar.col<si64>
 !col_i1 = !columnar.col<i1>
 
-#table_A = #columnar.table<"A" path="/tmp/A.tab">
-#column_A_a = #columnar.table_col<#table_A "a" : !columnar.dec>
-#column_A_b = #columnar.table_col<#table_A "b" : !columnar.dec>
+#table_A = #columnar.table<"A" path="/tmp/A.parquet">
+#column_A_a = #columnar.table_col<#table_A 0 "a" : si64[i64]>
+#column_A_b = #columnar.table_col<#table_A 1 "b" : si64[i64]>
 
 // Not part of predicate
 // CHECK-LABEL: columnar.query {

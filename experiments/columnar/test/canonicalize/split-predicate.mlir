@@ -1,14 +1,14 @@
 // RUN: columnar-opt --canonicalize %s | FileCheck %s
 
-#table_nation = #columnar.table<"nation" path="/tmp/nation.tab">
-#table_region = #columnar.table<"region" path="/tmp/region.tab">
-#column_nation_n_comment = #columnar.table_col<#table_nation "n_comment" : !columnar.str>
-#column_nation_n_name = #columnar.table_col<#table_nation "n_name" : !columnar.str>
-#column_nation_n_nationkey = #columnar.table_col<#table_nation "n_nationkey" : i64>
-#column_nation_n_regionkey = #columnar.table_col<#table_nation "n_regionkey" : i64>
-#column_region_r_comment = #columnar.table_col<#table_region "r_comment" : !columnar.str>
-#column_region_r_name = #columnar.table_col<#table_region "r_name" : !columnar.str>
-#column_region_r_regionkey = #columnar.table_col<#table_region "r_regionkey" : i64>
+#table_nation = #columnar.table<"nation" path="experiments/columnar/test/sql/data/nation.parquet">
+#table_region = #columnar.table<"region" path="experiments/columnar/test/sql/data/region.parquet">
+#column_nation_n_comment = #columnar.table_col<#table_nation 3 "n_comment" : !columnar.str[!columnar.byte_array]>
+#column_nation_n_name = #columnar.table_col<#table_nation 1 "n_name" : !columnar.str[!columnar.byte_array]>
+#column_nation_n_nationkey = #columnar.table_col<#table_nation 0 "n_nationkey" : si32[i32]>
+#column_nation_n_regionkey = #columnar.table_col<#table_nation 2 "n_regionkey" : si32[i32]>
+#column_region_r_comment = #columnar.table_col<#table_region 2 "r_comment" : !columnar.str[!columnar.byte_array]>
+#column_region_r_name = #columnar.table_col<#table_region 1 "r_name" : !columnar.str[!columnar.byte_array]>
+#column_region_r_regionkey = #columnar.table_col<#table_region 0 "r_regionkey" : si32[i32]>
 
 columnar.query {
   %0 = columnar.read_column #column_nation_n_nationkey : <i64>

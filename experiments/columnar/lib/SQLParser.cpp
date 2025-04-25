@@ -116,7 +116,7 @@ void SQLParser::parseFromRelation(const pg_query::RangeVar &rel) {
   for (auto col : columns) {
     auto readOp = _builder.create<columnar::ReadColumnOp>(
         loc(rel.location()),
-        _builder.getType<columnar::ColumnType>(col.getType()), col);
+        _builder.getType<columnar::ColumnType>(col.getLogicalType()), col);
     columnReads.push_back(readOp);
     // TODO: handle collisions
     columnNames.push_back(_builder.getStringAttr(readOp.getColumn().getName()));
