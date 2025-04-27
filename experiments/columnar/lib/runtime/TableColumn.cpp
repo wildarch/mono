@@ -18,7 +18,11 @@ void TableColumn::close() { _reader->Close(); }
 
 void TableColumn::read(int rowGroup, int skip, std::int64_t size,
                        std::int32_t *buffer) {
-  // TODO
+  // TODO: avoid such reads in IR generation.
+  if (size == 0) {
+    return;
+  }
+
   auto groupReader = _reader->RowGroup(rowGroup);
   auto colReader = groupReader->Column(_idx);
 

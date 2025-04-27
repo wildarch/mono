@@ -1,3 +1,6 @@
+#include <llvm/ADT/STLExtras.h>
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/Support/FormatVariadic.h>
 #include <mlir/Conversion/ArithToLLVM/ArithToLLVM.h>
 #include <mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h>
@@ -9,6 +12,9 @@
 #include <mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h>
 #include <mlir/Dialect/LLVMIR/FunctionCallUtils.h>
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
+#include <mlir/IR/BuiltinTypes.h>
+#include <mlir/IR/PatternMatch.h>
+#include <mlir/Transforms/DialectConversion.h>
 
 #include "columnar/Columnar.h"
 
@@ -54,6 +60,15 @@ class ConstantStringOpLowering
                   mlir::ConversionPatternRewriter &rewriter) const override;
 };
 
+class runtimeCallOpLowering
+    : public mlir::ConvertOpToLLVMPattern<RuntimeCallOp> {
+  using mlir::ConvertOpToLLVMPattern<RuntimeCallOp>::ConvertOpToLLVMPattern;
+
+  mlir::LogicalResult
+  matchAndRewrite(RuntimeCallOp op, OpAdaptor adaptor,
+                  mlir::ConversionPatternRewriter &rewriter) const override;
+};
+
 } // namespace
 
 static mlir::Value getOrCreateGlobalString(mlir::Location loc,
@@ -78,8 +93,8 @@ static mlir::Value getOrCreateGlobalString(mlir::Location loc,
 
   // Get the pointer to the first character in the global string.
   auto globalPtr = builder.create<mlir::LLVM::AddressOfOp>(loc, global);
-  auto cst0 = builder.create<mlir::LLVM::ConstantOp>(loc, builder.getI64Type(),
-                                                     builder.getIndexAttr(0));
+  auto cst0 = builder.create<mlir::LLVM::ConstantOp>(
+      loc, builder.getI64Type(), builder.getI64IntegerAttr(0));
   return builder.create<mlir::LLVM::GEPOp>(
       loc, mlir::LLVM::LLVMPointerType::get(builder.getContext()),
       global.getType(), globalPtr, llvm::ArrayRef<mlir::Value>({cst0, cst0}));
@@ -155,13 +170,37 @@ mlir::LogicalResult ConstantStringOpLowering::matchAndRewrite(
   return mlir::success();
 }
 
-static mlir::LogicalResult findRuntimeCallsIn(
-    mlir::Operation *op,
-    llvm::DenseMap<mlir::StringAttr, mlir::FunctionType> &called) {
+static mlir::FunctionType
+runtimeCallFunctionType(RuntimeCallOp op,
+                        const mlir::TypeConverter typeConverter) {
+  llvm::SmallVector<mlir::Type> inputs;
+  if (mlir::failed(
+          typeConverter.convertTypes(op.getInputs().getTypes(), inputs))) {
+    return nullptr;
+  }
+
+  llvm::SmallVector<mlir::Type> results;
+  if (op.getNumResults() > 1) {
+    // Pass as out pointers.
+    auto ptrType = mlir::LLVM::LLVMPointerType::get(op.getContext());
+    inputs.append(op.getNumResults(), ptrType);
+  } else {
+    if (mlir::failed(
+            typeConverter.convertTypes(op.getResultTypes(), results))) {
+      return nullptr;
+    }
+  }
+
+  return mlir::FunctionType::get(op.getContext(), inputs, results);
+}
+
+static mlir::LogicalResult
+findRuntimeCallsIn(mlir::Operation *op,
+                   llvm::DenseMap<mlir::StringAttr, mlir::FunctionType> &called,
+                   const mlir::TypeConverter &typeConverter) {
   bool hadError = false;
   op->walk([&](RuntimeCallOp op) {
-    auto type = mlir::FunctionType::get(
-        op->getContext(), op.getInputs().getTypes(), op->getResultTypes());
+    auto type = runtimeCallFunctionType(op, typeConverter);
     auto exist = called.lookup(op.getFuncAttr());
     if (!exist) {
       called[op.getFuncAttr()] = type;
@@ -221,46 +260,49 @@ static void pipelineMakeRef(PipelineLowOp op, std::size_t idx,
                                              globalCloseSym);
 }
 
-void LowerToLLVM::runOnOperation() {
-  // Find called runtime functions
-  llvm::DenseMap<mlir::StringAttr, mlir::FunctionType> called;
-  if (mlir::failed(findRuntimeCallsIn(getOperation(), called))) {
-    return signalPassFailure();
+mlir::LogicalResult runtimeCallOpLowering::matchAndRewrite(
+    RuntimeCallOp op, OpAdaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  llvm::SmallVector<mlir::Type> resultTypes;
+  if (mlir::failed(
+          typeConverter->convertTypes(op.getResultTypes(), resultTypes))) {
+    return mlir::failure();
   }
 
-  // Register as external functions
-  mlir::OpBuilder builder(&getContext());
-  builder.setInsertionPointToStart(getOperation().getBody());
-  auto funcPrivateAttr = builder.getStringAttr("private");
-  for (auto [name, type] : called) {
-    builder.create<mlir::func::FuncOp>(
-        builder.getUnknownLoc(), name, type, funcPrivateAttr,
-        /*arg_attrs=*/nullptr, /*res_attrs*/ nullptr);
-  }
-
-  // Replace with function calls
-  mlir::IRRewriter rewriter(&getContext());
-  llvm::SmallVector<RuntimeCallOp> callOps;
-  getOperation()->walk([&](RuntimeCallOp op) { callOps.push_back(op); });
-  for (auto op : callOps) {
-    rewriter.setInsertionPoint(op);
+  if (resultTypes.size() <= 1) {
     rewriter.replaceOpWithNewOp<mlir::func::CallOp>(
-        op, op.getFuncAttr(), op.getResultTypes(), op.getInputs());
+        op, op.getFuncAttr(), resultTypes, adaptor.getInputs());
+    return mlir::success();
   }
 
-  // Replace pipeline blocks with references to functions.
-  llvm::SmallVector<PipelineLowOp> pipelines(
-      getOperation().getOps<PipelineLowOp>());
-  for (auto [i, op] : llvm::enumerate(pipelines)) {
-    rewriter.setInsertionPoint(op);
-    pipelineMakeRef(op, i, rewriter);
+  // Allocate room on the stack for the results.
+  auto cst1 = rewriter.create<mlir::LLVM::ConstantOp>(
+      op.getLoc(), rewriter.getI64Type(), rewriter.getI64IntegerAttr(0));
+  auto ptrType = rewriter.getType<mlir::LLVM::LLVMPointerType>();
+  llvm::SmallVector<mlir::Value> outAllocs;
+  for (auto type : resultTypes) {
+    outAllocs.emplace_back(rewriter.create<mlir::LLVM::AllocaOp>(
+        op.getLoc(), ptrType, type, cst1));
   }
 
-  // TODO: Invoke LLVM lowering to lower the functions.
-  mlir::LLVMConversionTarget target(getContext());
-  target.addLegalOp<mlir::ModuleOp>();
-  target.addLegalOp<PipelineRefOp>();
+  // Make the call
+  llvm::SmallVector<mlir::Value> inputs(adaptor.getInputs());
+  inputs.append(outAllocs);
+  rewriter.create<mlir::func::CallOp>(op.getLoc(), op.getFuncAttr(),
+                                      mlir::TypeRange{}, inputs);
 
+  // Load the out values
+  llvm::SmallVector<mlir::Value> outValues;
+  for (auto [type, ptrVal] : llvm::zip_equal(resultTypes, outAllocs)) {
+    outValues.emplace_back(
+        rewriter.create<mlir::LLVM::LoadOp>(op.getLoc(), type, ptrVal));
+  }
+
+  rewriter.replaceOp(op, outValues);
+  return mlir::success();
+}
+
+void LowerToLLVM::runOnOperation() {
   mlir::LLVMTypeConverter typeConverter(&getContext());
   typeConverter.addConversion([](PointerType t) {
     return mlir::LLVM::LLVMPointerType::get(t.getContext());
@@ -289,6 +331,36 @@ void LowerToLLVM::runOnOperation() {
     return mlir::LLVM::LLVMPointerType::get(t.getContext());
   });
 
+  // Find called runtime functions
+  llvm::DenseMap<mlir::StringAttr, mlir::FunctionType> called;
+  if (mlir::failed(findRuntimeCallsIn(getOperation(), called, typeConverter))) {
+    return signalPassFailure();
+  }
+
+  // Register as external functions
+  mlir::OpBuilder builder(&getContext());
+  builder.setInsertionPointToStart(getOperation().getBody());
+  auto funcPrivateAttr = builder.getStringAttr("private");
+  for (auto [name, type] : called) {
+    builder.create<mlir::func::FuncOp>(
+        builder.getUnknownLoc(), name, type, funcPrivateAttr,
+        /*arg_attrs=*/nullptr, /*res_attrs*/ nullptr);
+  }
+
+  // Replace pipeline blocks with references to functions.
+  mlir::IRRewriter rewriter(&getContext());
+  llvm::SmallVector<PipelineLowOp> pipelines(
+      getOperation().getOps<PipelineLowOp>());
+  for (auto [i, op] : llvm::enumerate(pipelines)) {
+    rewriter.setInsertionPoint(op);
+    pipelineMakeRef(op, i, rewriter);
+  }
+
+  // TODO: Invoke LLVM lowering to lower the functions.
+  mlir::LLVMConversionTarget target(getContext());
+  target.addLegalOp<mlir::ModuleOp>();
+  target.addLegalOp<PipelineRefOp>();
+
   mlir::RewritePatternSet patterns(&getContext());
   mlir::populateSCFToControlFlowConversionPatterns(patterns);
 
@@ -298,7 +370,7 @@ void LowerToLLVM::runOnOperation() {
   mlir::cf::populateControlFlowToLLVMConversionPatterns(typeConverter,
                                                         patterns);
   patterns.add<AllocStructOpLowering, GetStructElementOpLowering,
-               ConstantStringOpLowering>(typeConverter);
+               ConstantStringOpLowering, runtimeCallOpLowering>(typeConverter);
 
   if (failed(
           applyFullConversion(getOperation(), target, std::move(patterns)))) {

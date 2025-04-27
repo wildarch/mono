@@ -76,12 +76,13 @@ ReadTableOp::lowerGlobalOpen(mlir::OpBuilder &builder,
 
   // Open columns
   for (auto col : getColumnsToRead()) {
-    // HACK: name is not path
-    auto colPath = builder.create<ConstantStringOp>(getLoc(), col.getName());
+    auto colIdx = builder.create<mlir::arith::ConstantOp>(
+        getLoc(), builder.getI32Type(),
+        builder.getI32IntegerAttr(col.getIdx()));
     auto columnOp = builder.create<RuntimeCallOp>(
         getLoc(), builder.getType<ColumnHandleType>(),
         builder.getStringAttr("col_table_column_open"),
-        mlir::ValueRange{colPath});
+        mlir::ValueRange{tablePath, colIdx});
     newGlobals.push_back(columnOp->getResult(0));
   }
 
@@ -106,7 +107,7 @@ ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
   auto claimOp = builder.create<RuntimeCallOp>(
       getLoc(),
       mlir::TypeRange{builder.getI32Type(), builder.getI32Type(),
-                      builder.getI64Type()},
+                      builder.getIndexType()},
       builder.getStringAttr("col_table_scanner_claim_chunk"), scanner);
   auto rowGroup = claimOp->getResult(0);
   auto skip = claimOp->getResult(1);

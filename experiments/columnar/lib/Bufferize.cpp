@@ -33,7 +33,8 @@ mlir::LogicalResult TableColumnReadOp::bufferize(
   // Call the runtime function.
   rewriter.create<RuntimeCallOp>(
       getLoc(), mlir::TypeRange{}, rewriter.getStringAttr(*func),
-      mlir::ValueRange{getHandle(), getStart(), getSize(), buffer});
+      mlir::ValueRange{getHandle(), getRowGroup(), getSkip(), getSize(),
+                       buffer});
   mlir::bufferization::replaceOpWithBufferizedValues(rewriter, *this,
                                                      mlir::ValueRange{buffer});
   return mlir::success();

@@ -1,5 +1,7 @@
 #include <cstdint>
 
+#include <llvm/Support/raw_ostream.h>
+
 #include "columnar/Runtime.h"
 #include "columnar/runtime/Print.h"
 #include "columnar/runtime/TableColumn.h"
@@ -56,16 +58,17 @@ TableScanner *col_table_scanner_open(const char *path) {
   return scanner;
 }
 
-// NOTE: C repr instead of C++ (for interop).
-struct ClaimedRange {
-  std::int32_t rowGroup;
-  std::int32_t skip;
-  std::int64_t size;
-};
-
-ClaimedRange col_table_scanner_claim_chunk(TableScanner *scanner) {
+void col_table_scanner_claim_chunk(TableScanner *scanner,
+                                   std::int32_t *rowGroup, std::int32_t *skip,
+                                   std::size_t *size) {
   auto claim = scanner->claimChunk();
-  return {claim.rowGroup, claim.skip, claim.size};
+  *rowGroup = claim.rowGroup;
+  *skip = claim.skip;
+  *size = claim.size;
+  // llvm::errs() << "col_table_scanner_claim_chunk" << "\n";
+  // llvm::errs() << "rowGroup: " << *rowGroup << "\n";
+  // llvm::errs() << "skip: " << *skip << "\n";
+  // llvm::errs() << "size: " << *size << "\n";
 }
 
 TableColumn *col_table_column_open(const char *path, std::int32_t idx) {
@@ -80,6 +83,8 @@ void col_table_column_read_int32(TableColumn *column, std::int32_t rowGroup,
                                  std::int32_t skip, std::int64_t size,
                                  MEMREF_PARAM(dest)) {
   MEMREF_VAR(dest);
+  // llvm::errs() << "col_table_column_read_int32(<column>, " << rowGroup
+  //    << ", " << skip << ", " << size << ", <dest>)\n";
   column->read(rowGroup, skip, size, dest.asPointerMut<std::int32_t>());
 }
 
@@ -100,7 +105,10 @@ void col_print_chunk_append_int32(PrintChunk *chunk, MEMREF_PARAM(col),
   MEMREF_VAR(sel);
   chunk->append(col.asArrayRef<std::int32_t>(), sel.asArrayRef<std::size_t>());
 }
-}
+
+void col_debug_i32(std::int32_t v) { llvm::errs() << "DEBUG: " << v << "\n"; }
+void col_debug_i64(std::int64_t v) { llvm::errs() << "DEBUG: " << v << "\n"; }
+} // extern "C"
 
 template <typename T>
 static void registerSymbol(llvm::orc::SymbolMap &map,
@@ -129,6 +137,8 @@ llvm::orc::SymbolMap registerRuntimeSymbols(llvm::orc::MangleAndInterner mai) {
   REGISTER(col_print_write);
   REGISTER(col_print_chunk_alloc);
   REGISTER(col_print_chunk_append_int32);
+  REGISTER(col_debug_i32);
+  REGISTER(col_debug_i64);
 
 #undef REGISTER
 

@@ -1,4 +1,5 @@
 #include <mutex>
+
 #include <parquet/file_reader.h>
 
 #include "columnar/runtime/TableScanner.h"

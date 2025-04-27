@@ -794,7 +794,7 @@ def TableColumnReadOp : Columnar_Op<"table.column.read", [
         ColumnHandle:$handle,
         I32:$rowGroup,
         I32:$skip,
-        I64:$size);
+        Index:$size);
 
     let results = (outs TensorCol:$result);
 
