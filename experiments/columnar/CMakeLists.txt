@@ -87,14 +87,3 @@ target_link_libraries(execute
     columnar
     MLIRExecutionEngine
 )
-
-add_executable(
-    parquet
-    parquet.cpp
-)
-target_compile_features(parquet PRIVATE cxx_std_17)
-target_link_libraries(parquet
-    PRIVATE
-    columnar
-    Parquet::parquet_shared
-)
