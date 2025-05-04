@@ -178,6 +178,15 @@ A claimed range now consists of:
 - The size of the chunk
 
 ## Hash Joins
+1. Tuple collection: call `addTuple` for all tuples in the input.
+   Does not require synchronization between threads.
+2. Merge partitions (**Global, main thread**): Move tuple buffers between
+   threads so that all data for one partition is assigned to a single thread.
+3. Allocate the final tuple storage: Dependending on the number of tuples
+   collected in the previous step, we allocated memory for the directory and the
+   tuple storage.
+4. Post processing: write the data for all partitions out to the final storage.
+
 The approach has three phases:
 1. Buffer (packed and hashed) rows. We use per-thread buffers to avoid locking
    and partition rows based on their hash.
@@ -195,6 +204,20 @@ The approach has three phases:
 - Instead of a traditional chained table, we adopt the *unchained* hash table
   design. Tuples are stored in a contiguous array ordered by their hash prefix.
   The directory records the start of the range per hash prefix.
+
+We need the following specialized low-level MLIR ops:
+- CRC32 `(key: i32, seed: i32) -> i32`
+- `VecPushOp` and others, equivalent to `std::vector`
+- `CountLeadingZeroesOp`: Already in `LLVM` and `math` dialects!
+
+The CRC32 op can be created in LLVM IR as:
+
+```mlir
+llvm.func @crc32(%arg0: i32, %arg1: i32) -> i32 {
+  %0 = llvm.call_intrinsic "llvm.x86.sse42.crc32.32.32"(%arg0, %arg1) : (i32, i32) -> i32
+  llvm.return %0 : i32
+}
+```
 
 ## References
 - https://voltrondata.com/blog/what-is-substrait-high-level-primer
