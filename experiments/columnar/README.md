@@ -177,7 +177,30 @@ A claimed range now consists of:
 - Offset (number of values to skip within the row group `std::int64_t`)
 - The size of the chunk
 
+## Hash Joins
+The approach has three phases:
+1. Buffer (packed and hashed) rows. We use per-thread buffers to avoid locking
+   and partition rows based on their hash.
+2. Insert per-thread buffers into a shared hash table.
+3. Probe the table
+
+(2) is the most interesting bit here.
+- We use a chained-style design rather than open
+  addressing: The hash table contains pointers to the list of tuples per hash.
+- Since the upper 16 bits of 64-bit pointers are unused, we can use them to store a bloom filter.
+- The hash function can be constructed from CRC hardware instructions for best
+  performance.
+- To find the sizes of the per-hash lists, we can keep a counter during the
+  initial buffering phase.
+- Instead of a traditional chained table, we adopt the *unchained* hash table
+  design. Tuples are stored in a contiguous array ordered by their hash prefix.
+  The directory records the start of the range per hash prefix.
+
 ## References
 - https://voltrondata.com/blog/what-is-substrait-high-level-primer
 - https://15721.courses.cs.cmu.edu/spring2018/papers/03-compilation/shaikhha-sigmod2016.pdf
 - https://xuanwo.io/2024/02-what-i-talk-about-when-i-talk-about-query-optimizer-part-1/
+
+On implemeting hash tables/joins:
+- https://15721.courses.cs.cmu.edu/spring2016/papers/p743-leis.pdf
+- https://db.in.tum.de/~birler/papers/hashtable.pdf
