@@ -87,3 +87,10 @@ target_link_libraries(execute
     columnar
     MLIRExecutionEngine
 )
+
+add_executable(
+    hash_test
+    hash_test.cpp
+)
+target_compile_features(hash_test PRIVATE cxx_std_17)
+target_compile_options(hash_test PRIVATE -mcrc32)
