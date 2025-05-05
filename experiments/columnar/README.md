@@ -178,6 +178,7 @@ A claimed range now consists of:
 - The size of the chunk
 
 ## Hash Joins
+The build has 4 phases:
 1. Tuple collection: call `addTuple` for all tuples in the input.
    Does not require synchronization between threads.
 2. Merge partitions (**Global, main thread**): Move tuple buffers between
@@ -186,12 +187,6 @@ A claimed range now consists of:
    collected in the previous step, we allocated memory for the directory and the
    tuple storage.
 4. Post processing: write the data for all partitions out to the final storage.
-
-The approach has three phases:
-1. Buffer (packed and hashed) rows. We use per-thread buffers to avoid locking
-   and partition rows based on their hash.
-2. Insert per-thread buffers into a shared hash table.
-3. Probe the table
 
 (2) is the most interesting bit here.
 - We use a chained-style design rather than open
@@ -219,11 +214,37 @@ llvm.func @crc32(%arg0: i32, %arg1: i32) -> i32 {
 }
 ```
 
+MLIR Ops:
+```mlir
+#table_region = #columnar.table<"region" path="experiments/columnar/test/sql/data/region.parquet">
+#column_region_r_name = #columnar.table_col<#table_region 1 "r_name" : !columnar.str[!columnar.byte_array]>
+#column_region_r_regionkey = #columnar.table_col<#table_region 0 "r_regionkey" : si32[i32]>
+
+!buf = !columnar.tuple_buffer<i64, si32, !columnar.str>
+!ht = !columnar.hash_table<(si32) -> (!columnar.str)>
+columnar.query {
+  %0 = columnar.read_column #column_region_r_regionkey : <si32>
+  %1 = columnar.read_column #column_region_r_name : <!columnar.str>
+
+  %2 = columnar.global !buf
+  columnar.hj.collect
+    keys=[%0] : !columnar.col<si32>
+    values=[%1] : !columnar.col<!columnar.str>
+    -> %2 : !buf
+
+  %3 = columnar.global !ht
+  columnar.hj.build %2 : !buf -> %3 : !ht
+
+  columnar.query.output %0, %1 : !columnar.col<si32>, !columnar.col<!columnar.str> ["r_regionkey", "r_name"]
+}
+
+```
+
 ## References
 - https://voltrondata.com/blog/what-is-substrait-high-level-primer
 - https://15721.courses.cs.cmu.edu/spring2018/papers/03-compilation/shaikhha-sigmod2016.pdf
 - https://xuanwo.io/2024/02-what-i-talk-about-when-i-talk-about-query-optimizer-part-1/
 
-On implemeting hash tables/joins:
+On implementing hash tables/joins:
 - https://15721.courses.cs.cmu.edu/spring2016/papers/p743-leis.pdf
 - https://db.in.tum.de/~birler/papers/hashtable.pdf

@@ -131,6 +131,26 @@ def StringLiteral : Columnar_Type<"StringLiteral", "str_lit"> {
     let summary = "String literal";
 }
 
+def TupleBuffer : Columnar_Type<"TupleBuffer", "tuple_buffer"> {
+    let summary = "Row-oriented buffer for tuple data";
+
+    let parameters = (ins ArrayRefParameter<"mlir::Type">:$types);
+
+    let assemblyFormat = [{ `<` $types `>` }];
+}
+
+def HashTable : Columnar_Type<"HashTable", "hash_table"> {
+    let summary = "A hash table";
+
+    let parameters = (ins
+        ArrayRefParameter<"mlir::Type">:$keyTypes,
+        ArrayRefParameter<"mlir::Type">:$valueTypes);
+
+    let assemblyFormat = [{
+        `<` `(` $keyTypes `)` `->` `(` $valueTypes `)` `>`
+    }];
+}
+
 // Attributes
 def StringArray : ArrayOfAttr<
         Columnar_Dialect,
@@ -665,6 +685,51 @@ def SubQueryOp : Columnar_Op<"sub_query", [Pure, IsolatedFromAbove]> {
     let hasCanonicalizer = 1;
 }
 
+def GlobalState : AnyTypeOf<[TupleBuffer, HashTable]>;
+
+def GlobalOp : Columnar_Op<"global", [Pure]> {
+    let summary = "Declare shared state accessible from multiple operators";
+
+    let results = (outs GlobalState:$result);
+
+    let assemblyFormat = [{
+        type($result) attr-dict
+    }];
+}
+
+// TODO categorize
+def HashJoinCollectOp : Columnar_Op<"hj.collect", [AttrSizedOperandSegments]> {
+    let summary = "Writes tuples into a buffer";
+    // TODO: selection vectors
+    let arguments = (ins
+        Variadic<Column>:$keys,
+        Variadic<Column>:$values,
+        TupleBuffer:$buffer);
+
+    let assemblyFormat = [{
+        `keys` `` `=` `` `[` $keys `]` `:` type($keys)
+        `values` `` `=` `` `[` $values `]` `:` type($values)
+        `->` $buffer `:` type($buffer)
+        attr-dict
+    }];
+
+    // TODO: verify types
+    // TODO: verify buffer has hash field
+}
+
+def HashJoinBuildOp : Columnar_Op<"hj.build", [Pure]> {
+    let summary = "Write entries from a tuple buffer into a hash table";
+
+    let arguments = (ins
+        TupleBuffer:$buffer,
+        HashTable:$table);
+
+    let assemblyFormat = [{
+        $buffer `:` type($buffer)
+        `->` $table `:` type($table) attr-dict
+    }];
+}
+
 // ============================================================================
 // ======================== EXPLICIT SELECTION VECTORS ========================
 // ============================================================================
@@ -724,7 +789,7 @@ def SelTableOp : Columnar_Op<"sel.table", [
 }
 
 // ============================================================================
-// ================================ TODO OPS ==================================
+// =========================== MAKE PIPELINES OPS =============================
 // ============================================================================
 def PipelineOp : Columnar_Op<"pipeline", [NoTerminator, IsolatedFromAbove]> {
     let regions = (region SizedRegion<1>:$body);
@@ -734,6 +799,9 @@ def PipelineOp : Columnar_Op<"pipeline", [NoTerminator, IsolatedFromAbove]> {
     }];
 }
 
+// ============================================================================
+// ========================== GROUP TABLE READS OPS ===========================
+// ============================================================================
 def ReadTableOp : Columnar_Op<"read_table", [
         Pure,
         DeclareOpInterfaceMethods<
