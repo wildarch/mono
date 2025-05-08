@@ -353,6 +353,18 @@ mlir::OpFoldResult CastOp::fold(FoldAdaptor adaptor) {
   return nullptr;
 }
 
+mlir::LogicalResult HashJoinProbeOp::inferReturnTypes(
+    mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
+    Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  auto tableType = llvm::cast<HashTableType>(adaptor.getTable().getType());
+  for (auto type : tableType.getValueTypes()) {
+    inferredReturnTypes.push_back(ColumnType::get(type));
+  }
+  // Selection vector
+  inferredReturnTypes.push_back(ColumnType::get(SelectType::get(ctx)));
+  return mlir::success();
+}
+
 mlir::LogicalResult SelAddOp::inferReturnTypes(
     mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
     Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {

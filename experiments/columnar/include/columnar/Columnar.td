@@ -730,6 +730,23 @@ def HashJoinBuildOp : Columnar_Op<"hj.build", [Pure]> {
     }];
 }
 
+def HashJoinProbeOp : Columnar_Op<"hj.probe", [Pure, InferTypeOpAdaptor]> {
+    let arguments = (ins
+        Variadic<Column>:$keys,
+        HashTable:$table);
+
+    let results = (outs
+        Variadic<Column>:$tableValues,
+        ColumnOf<Select>);
+
+    // TODO: Infer types
+    let assemblyFormat = [{
+        $keys `:` type($keys)
+        `probe` $table `:` type($table)
+        attr-dict
+    }];
+}
+
 // ============================================================================
 // ======================== EXPLICIT SELECTION VECTORS ========================
 // ============================================================================
@@ -791,7 +808,7 @@ def SelTableOp : Columnar_Op<"sel.table", [
 // ============================================================================
 // =========================== MAKE PIPELINES OPS =============================
 // ============================================================================
-def PipelineOp : Columnar_Op<"pipeline", [NoTerminator, IsolatedFromAbove]> {
+def PipelineOp : Columnar_Op<"pipeline", [NoTerminator]> {
     let regions = (region SizedRegion<1>:$body);
 
     let assemblyFormat = [{
