@@ -5,6 +5,7 @@ include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/BuiltinAttributeInterfaces.td"
+include "mlir/IR/BuiltinTypeInterfaces.td"
 include "mlir/IR/DialectBase.td"
 include "mlir/IR/EnumAttr.td"
 include "mlir/IR/OpBase.td"
@@ -62,7 +63,8 @@ def String : Columnar_Type<"String", "str"> {
     let summary = "Variable-length string";
 }
 
-def ByteArray : Columnar_Type<"ByteArray", "byte_array"> {
+def ByteArray : Columnar_Type<"ByteArray", "byte_array", [
+        MemRefElementTypeInterface]> {
     let summary = "Variable-length byte array";
 }
 
@@ -316,12 +318,7 @@ def LowerPipelineOpInterface : OpInterface<"LowerPipelineOpInterface"> {
       "Lower the body",
       "mlir::LogicalResult",
       "lowerBody",
-      (ins
-        "mlir::OpBuilder&":$builder,
-        "mlir::ValueRange":$globals,
-        "mlir::ValueRange":$operands,
-        "llvm::SmallVectorImpl<mlir::Value>&":$results,
-        "llvm::SmallVectorImpl<mlir::Value>&":$haveMore)
+      (ins "LowerBodyCtx&":$ctx, "mlir::OpBuilder&":$builder)
     >,
   ];
 }
@@ -983,7 +980,7 @@ def MakePipelines: Pass<"make-pipelines", "mlir::ModuleOp"> {
     let summary = "Groups and splits operators into pipelines";
 }
 
-def GroupTableReads: Pass<"group-table-reads", "::columnar::PipelineOp"> {
+def GroupTableReads: Pass<"group-table-reads", "mlir::ModuleOp"> {
     let summary = "Groups column read ops into a single table read op";
 }
 

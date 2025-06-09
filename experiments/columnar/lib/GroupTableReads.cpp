@@ -1,3 +1,5 @@
+#include <mlir/IR/PatternMatch.h>
+
 #include "columnar/Columnar.h"
 
 namespace columnar {
@@ -16,12 +18,12 @@ public:
 
 } // namespace
 
-void GroupTableReads::runOnOperation() {
+static void runOnPipeline(PipelineOp pipe, mlir::IRRewriter &rewriter) {
   llvm::SmallVector<ReadColumnOp> readColumnOps;
-  getOperation()->walk([&](ReadColumnOp op) { readColumnOps.push_back(op); });
+  pipe->walk([&](ReadColumnOp op) { readColumnOps.push_back(op); });
 
   llvm::SmallVector<SelTableOp> selTableOps;
-  getOperation()->walk([&](SelTableOp op) { selTableOps.push_back(op); });
+  pipe->walk([&](SelTableOp op) { selTableOps.push_back(op); });
   if (selTableOps.size() != 1) {
     return;
   }
@@ -37,8 +39,7 @@ void GroupTableReads::runOnOperation() {
     columns.push_back(op.getColumn());
   }
 
-  mlir::IRRewriter rewriter(&getContext());
-  rewriter.setInsertionPointToStart(&getOperation().getBody().front());
+  rewriter.setInsertionPointToStart(&pipe.getBody().front());
   auto readTableOp = rewriter.create<ReadTableOp>(
       selTableOp.getLoc(), columnTypes, selTableOp.getTable(), columns);
   // Replace single column read ops and selection vector.
@@ -47,6 +48,11 @@ void GroupTableReads::runOnOperation() {
        llvm::zip_equal(readColumnOps, readTableOp.getCol())) {
     rewriter.replaceOp(op, replacement);
   }
+}
+
+void GroupTableReads::runOnOperation() {
+  mlir::IRRewriter rewriter(&getContext());
+  getOperation()->walk([&](PipelineOp op) { runOnPipeline(op, rewriter); });
 }
 
 } // namespace columnar

@@ -1,5 +1,8 @@
 #include <cassert>
-
+#include <cstdlib>
+#include <cstring>
+#include <llvm/ADT/STLExtras.h>
+#include <llvm/ADT/SmallVector.h>
 #include <parquet/column_reader.h>
 #include <parquet/file_reader.h>
 #include <parquet/types.h>
@@ -34,6 +37,38 @@ void TableColumn::read(int rowGroup, int skip, std::int64_t size,
   std::int64_t valuesRead;
   i32Reader->ReadBatch(size, nullptr, nullptr, buffer, &valuesRead);
   assert(valuesRead == size);
+}
+
+void TableColumn::read(int rowGroup, int skip, std::int64_t size,
+                       char **buffer) {
+  // TODO: avoid such reads in IR generation.
+  if (size == 0) {
+    return;
+  }
+
+  auto groupReader = _reader->RowGroup(rowGroup);
+  auto colReader = groupReader->Column(_idx);
+
+  assert(colReader->type() == parquet::Type::BYTE_ARRAY);
+  auto *baReader = static_cast<parquet::ByteArrayReader *>(colReader.get());
+
+  baReader->Skip(skip);
+
+  // TODO: Avoid allocating a buffer here.
+  llvm::SmallVector<parquet::ByteArray, 1024> tmp(size);
+
+  std::int64_t valuesRead;
+  baReader->ReadBatch(size, nullptr, nullptr, tmp.data(), &valuesRead);
+  assert(valuesRead == size);
+
+  // Convert to the format we use internally.
+  for (auto [i, src] : llvm::enumerate(tmp)) {
+    char *&trg = buffer[i];
+    // NOTE: Space for null terminator.
+    trg = (char *)std::malloc(src.len + 1);
+    std::memcpy(trg, src.ptr, src.len);
+    trg[src.len] = '\0';
+  }
 }
 
 } // namespace columnar::runtime

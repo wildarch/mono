@@ -1,16 +1,19 @@
 #pragma once
 
+#include <llvm/ADT/SmallVector.h>
 #include <mlir/Bytecode/BytecodeOpInterface.h>
 #include <mlir/Dialect/Bufferization/IR/Bufferization.h>
 #include <mlir/Dialect/ControlFlow/IR/ControlFlow.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
-#include <mlir/Interfaces/InferTypeOpInterface.h>
-#include <mlir/Interfaces/SideEffectInterfaces.h>
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/OpDefinition.h>
 #include <mlir/IR/Region.h>
+#include <mlir/IR/ValueRange.h>
+#include <mlir/Interfaces/InferTypeOpInterface.h>
+#include <mlir/Interfaces/SideEffectInterfaces.h>
 #include <mlir/Pass/Pass.h>
+#include <mlir/Transforms/DialectConversion.h>
 
 #include "columnar/Dialect.h.inc"
 
@@ -39,6 +42,14 @@ class Source : public mlir::OpTrait::TraitBase<ConcreteType, Source> {};
 
 template <typename ConcreteType>
 class Sink : public mlir::OpTrait::TraitBase<ConcreteType, Sink> {};
+
+struct LowerBodyCtx {
+  const mlir::TypeConverter &typeConverter;
+  mlir::ValueRange globals;
+  mlir::ValueRange operands;
+  llvm::SmallVector<mlir::Value> results;
+  llvm::SmallVector<mlir::Value> haveMore;
+};
 
 #include "columnar/Interfaces.h.inc"
 

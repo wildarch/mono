@@ -1,6 +1,8 @@
 #include <mlir/Dialect/Arith/IR/Arith.h>
 #include <mlir/Dialect/MemRef/IR/MemRef.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
+#include <mlir/IR/BuiltinTypeInterfaces.h>
+#include <mlir/IR/BuiltinTypes.h>
 #include <mlir/Transforms/DialectConversion.h>
 
 #include "columnar/Columnar.h"
@@ -19,28 +21,32 @@ public:
   void runOnOperation() final;
 };
 
+class ColumnTypeConverter : public mlir::TypeConverter {
+public:
+  ColumnTypeConverter();
+};
+
 } // namespace
 
-// TODO: Use a proper type converter instead.
-static mlir::Type convertElementType(mlir::Type t) {
-  if (llvm::isa<SelectType>(t)) {
-    return mlir::IndexType::get(t.getContext());
-  } else if (llvm::isa<mlir::FloatType>(t)) {
-    return t;
-  } else if (llvm::isa<mlir::IntegerType>(t)) {
-    return t;
-  }
+// Marks all instances of this type as valid without any conversion.
+template <typename T> static mlir::Type markTypeAllowed(T t) { return t; }
 
-  mlir::emitError(mlir::UnknownLoc::get(t.getContext()),
-                  "cannot convert element type: ")
-      << t;
-  return nullptr;
-}
+ColumnTypeConverter::ColumnTypeConverter() {
+  addConversion(markTypeAllowed<mlir::FloatType>);
+  addConversion(markTypeAllowed<mlir::IntegerType>);
+  addConversion(
+      [](SelectType t) { return mlir::IndexType::get(t.getContext()); });
+  addConversion([this](ColumnType t) {
+    mlir::Type elementType = convertType(t.getElementType());
+    if (!elementType) {
+      return mlir::RankedTensorType();
+    }
 
-static mlir::RankedTensorType convertType(ColumnType t) {
-  return mlir::RankedTensorType::get(
-      llvm::ArrayRef<std::int64_t>{mlir::ShapedType::kDynamic},
-      convertElementType(t.getElementType()));
+    return mlir::RankedTensorType::get(
+        llvm::ArrayRef<std::int64_t>{mlir::ShapedType::kDynamic}, elementType);
+  });
+  addConversion(
+      [](StringType t) { return ByteArrayType::get(t.getContext()); });
 }
 
 static mlir::RankedTensorType getSelectionVectorType(mlir::OpBuilder &builder) {
@@ -95,13 +101,10 @@ mlir::LogicalResult ReadTableOp::lowerGlobalClose(mlir::OpBuilder &builder,
   return mlir::success();
 }
 
-mlir::LogicalResult
-ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
-                       mlir::ValueRange operands,
-                       llvm::SmallVectorImpl<mlir::Value> &results,
-                       llvm::SmallVectorImpl<mlir::Value> &haveMore) {
-  auto scanner = globals[0];
-  auto columns = globals.drop_front();
+mlir::LogicalResult ReadTableOp::lowerBody(LowerBodyCtx &ctx,
+                                           mlir::OpBuilder &builder) {
+  auto scanner = ctx.globals[0];
+  auto columns = ctx.globals.drop_front();
 
   // Claim a chunk of rows to read
   auto claimOp = builder.create<RuntimeCallOp>(
@@ -118,21 +121,21 @@ ReadTableOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
       getLoc(), builder.getIndexType(), builder.getIndexAttr(0));
   auto haveRowsOp = builder.create<mlir::arith::CmpIOp>(
       getLoc(), mlir::arith::CmpIPredicate::ugt, size, zeroOp);
-  haveMore.push_back(haveRowsOp);
+  ctx.haveMore.push_back(haveRowsOp);
 
   auto selOp = buildIotaSelectionVector(builder, getLoc(), size);
-  results.push_back(selOp);
+  ctx.results.push_back(selOp);
 
   // Read the columns
   for (auto [col, type] : llvm::zip_equal(columns, getCol().getTypes())) {
-    auto tensorType = convertType(llvm::cast<ColumnType>(type));
+    mlir::Type tensorType = ctx.typeConverter.convertType(type);
     if (!tensorType) {
-      return mlir::failure();
+      return emitError("cannot convert column type: ") << type;
     }
 
     auto readOp = builder.create<TableColumnReadOp>(getLoc(), tensorType, col,
                                                     rowGroup, skip, size);
-    results.push_back(readOp);
+    ctx.results.push_back(readOp);
   }
 
   return mlir::success();
@@ -155,18 +158,15 @@ mlir::LogicalResult QueryOutputOp::lowerGlobalClose(mlir::OpBuilder &builder,
   return mlir::success();
 }
 
-mlir::LogicalResult
-QueryOutputOp::lowerBody(mlir::OpBuilder &builder, mlir::ValueRange globals,
-                         mlir::ValueRange operands,
-                         llvm::SmallVectorImpl<mlir::Value> &results,
-                         llvm::SmallVectorImpl<mlir::Value> &haveMore) {
-  Adaptor adaptor(operands, *this);
+mlir::LogicalResult QueryOutputOp::lowerBody(LowerBodyCtx &ctx,
+                                             mlir::OpBuilder &builder) {
+  Adaptor adaptor(ctx.operands, *this);
   auto sel = adaptor.getSel();
   if (!sel) {
     return mlir::failure();
   }
 
-  auto handle = globals[0];
+  auto handle = ctx.globals[0];
 
   // New chunk
   auto nrows = builder.create<mlir::tensor::DimOp>(getLoc(), sel, 0);
@@ -196,7 +196,8 @@ static void unpackStructPointer(mlir::Value v, mlir::OpBuilder &builder,
   }
 }
 
-static mlir::LogicalResult lowerPipeline(mlir::IRRewriter &rewriter,
+static mlir::LogicalResult lowerPipeline(mlir::TypeConverter &typeConverter,
+                                         mlir::IRRewriter &rewriter,
                                          PipelineOp pipelineOp) {
   auto lowerOp = rewriter.create<PipelineLowOp>(pipelineOp->getLoc());
 
@@ -294,14 +295,16 @@ static mlir::LogicalResult lowerPipeline(mlir::IRRewriter &rewriter,
         operands.push_back(mapping.lookup(oper));
       }
 
-      llvm::SmallVector<mlir::Value> results;
-      if (mlir::failed(
-              op.lowerBody(rewriter, globals, operands, results, haveMore))) {
+      LowerBodyCtx ctx{typeConverter, globals, operands};
+      if (mlir::failed(op.lowerBody(ctx, rewriter))) {
         return mlir::failure();
       }
 
       // Map results
-      mapping.map(op->getResults(), results);
+      mapping.map(op->getResults(), ctx.results);
+
+      // Merge haveMore
+      haveMore.append(ctx.haveMore);
     }
 
     if (haveMore.empty()) {
@@ -324,6 +327,8 @@ static mlir::LogicalResult lowerPipeline(mlir::IRRewriter &rewriter,
 }
 
 void LowerPipelines::runOnOperation() {
+  ColumnTypeConverter typeConverter;
+
   llvm::SmallVector<PipelineOp> pipelineOps(
       getOperation().getOps<PipelineOp>());
   mlir::IRRewriter rewriter(getOperation());
@@ -331,7 +336,7 @@ void LowerPipelines::runOnOperation() {
 
   bool hadFailure = false;
   for (auto op : pipelineOps) {
-    if (mlir::failed(lowerPipeline(rewriter, op))) {
+    if (mlir::failed(lowerPipeline(typeConverter, rewriter, op))) {
       hadFailure = true;
     }
   }

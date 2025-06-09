@@ -16,6 +16,7 @@ public:
   void close();
 
   void read(int rowGroup, int skip, std::int64_t size, std::int32_t *buffer);
+  void read(int rowGroup, int skip, std::int64_t size, char **buffer);
 };
 
 } // namespace columnar::runtime

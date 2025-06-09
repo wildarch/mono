@@ -10,6 +10,8 @@ static std::optional<llvm::Twine> columnReadFuncForType(mlir::TensorType type) {
   auto elemType = type.getElementType();
   if (elemType.isInteger(32)) {
     return "col_table_column_read_int32";
+  } else if (llvm::isa<ByteArrayType>(elemType)) {
+    return "col_table_column_read_byte_array";
   }
 
   return std::nullopt;
@@ -20,7 +22,7 @@ mlir::LogicalResult TableColumnReadOp::bufferize(
     const mlir::bufferization::BufferizationOptions &opts) {
   auto func = columnReadFuncForType(getType());
   if (!func) {
-    return emitOpError("unsupported type") << getType();
+    return emitOpError("unsupported type ") << getType();
   }
 
   // Allocate an output buffer.
@@ -60,6 +62,8 @@ chunkAppendFuncForType(mlir::TensorType type) {
   auto elemType = type.getElementType();
   if (elemType.isInteger(32)) {
     return "col_print_chunk_append_int32";
+  } else if (llvm::isa<ByteArrayType>(elemType)) {
+    return "col_print_chunk_append_string";
   }
 
   return std::nullopt;
@@ -70,7 +74,7 @@ mlir::LogicalResult PrintChunkAppendOp::bufferize(
     const mlir::bufferization::BufferizationOptions &opts) {
   auto func = chunkAppendFuncForType(getCol().getType());
   if (!func) {
-    return emitOpError("unsupported type") << getCol().getType();
+    return emitOpError("unsupported type ") << getCol().getType();
   }
 
   // Get buffers for column and selection vector.

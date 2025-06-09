@@ -60,7 +60,7 @@ class ConstantStringOpLowering
                   mlir::ConversionPatternRewriter &rewriter) const override;
 };
 
-class runtimeCallOpLowering
+class RuntimeCallOpLowering
     : public mlir::ConvertOpToLLVMPattern<RuntimeCallOp> {
   using mlir::ConvertOpToLLVMPattern<RuntimeCallOp>::ConvertOpToLLVMPattern;
 
@@ -176,6 +176,7 @@ runtimeCallFunctionType(RuntimeCallOp op,
   llvm::SmallVector<mlir::Type> inputs;
   if (mlir::failed(
           typeConverter.convertTypes(op.getInputs().getTypes(), inputs))) {
+    op->emitOpError("cannot convert input types");
     return nullptr;
   }
 
@@ -187,6 +188,7 @@ runtimeCallFunctionType(RuntimeCallOp op,
   } else {
     if (mlir::failed(
             typeConverter.convertTypes(op.getResultTypes(), results))) {
+      op->emitOpError("cannot convert result types");
       return nullptr;
     }
   }
@@ -201,6 +203,10 @@ findRuntimeCallsIn(mlir::Operation *op,
   bool hadError = false;
   op->walk([&](RuntimeCallOp op) {
     auto type = runtimeCallFunctionType(op, typeConverter);
+    if (!type) {
+      hadError = true;
+    }
+
     auto exist = called.lookup(op.getFuncAttr());
     if (!exist) {
       called[op.getFuncAttr()] = type;
@@ -260,7 +266,7 @@ static void pipelineMakeRef(PipelineLowOp op, std::size_t idx,
                                              globalCloseSym);
 }
 
-mlir::LogicalResult runtimeCallOpLowering::matchAndRewrite(
+mlir::LogicalResult RuntimeCallOpLowering::matchAndRewrite(
     RuntimeCallOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
   llvm::SmallVector<mlir::Type> resultTypes;
@@ -330,6 +336,9 @@ void LowerToLLVM::runOnOperation() {
   typeConverter.addConversion([](StringLiteralType t) -> mlir::Type {
     return mlir::LLVM::LLVMPointerType::get(t.getContext());
   });
+  typeConverter.addConversion([](ByteArrayType t) {
+    return mlir::LLVM::LLVMPointerType::get(t.getContext());
+  });
 
   // Find called runtime functions
   llvm::DenseMap<mlir::StringAttr, mlir::FunctionType> called;
@@ -370,7 +379,7 @@ void LowerToLLVM::runOnOperation() {
   mlir::cf::populateControlFlowToLLVMConversionPatterns(typeConverter,
                                                         patterns);
   patterns.add<AllocStructOpLowering, GetStructElementOpLowering,
-               ConstantStringOpLowering, runtimeCallOpLowering>(typeConverter);
+               ConstantStringOpLowering, RuntimeCallOpLowering>(typeConverter);
 
   if (failed(
           applyFullConversion(getOperation(), target, std::move(patterns)))) {
