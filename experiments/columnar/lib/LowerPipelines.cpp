@@ -133,8 +133,8 @@ mlir::LogicalResult ReadTableOp::lowerBody(LowerBodyCtx &ctx,
       return emitError("cannot convert column type: ") << type;
     }
 
-    auto readOp = builder.create<TableColumnReadOp>(getLoc(), tensorType, col,
-                                                    rowGroup, skip, size);
+    auto readOp = builder.create<TableColumnReadOp>(
+        getLoc(), tensorType, ctx.pipelineCtx, col, rowGroup, skip, size);
     ctx.results.push_back(readOp);
   }
 
@@ -217,6 +217,10 @@ static mlir::LogicalResult lowerPipeline(mlir::TypeConverter &typeConverter,
     toLower.push_back(iface);
   }
 
+  // Pipeline context available in the body.
+  bodyBlock.addArgument(rewriter.getType<PipelineContextType>(),
+                        pipelineOp.getLoc());
+
   // Number of globals opened per op
   llvm::SmallVector<unsigned int> globalsPerOp;
 
@@ -282,7 +286,7 @@ static mlir::LogicalResult lowerPipeline(mlir::TypeConverter &typeConverter,
     llvm::SmallVector<mlir::Value> haveMore;
 
     llvm::SmallVector<mlir::Value> globalArgs;
-    unpackStructPointer(bodyBlock.getArgument(0), rewriter, globalArgs);
+    unpackStructPointer(bodyBlock.getArgument(1), rewriter, globalArgs);
     auto args = llvm::ArrayRef<mlir::Value>(globalArgs);
 
     for (auto [op, numGlobals] : llvm::zip_equal(toLower, globalsPerOp)) {
@@ -295,7 +299,8 @@ static mlir::LogicalResult lowerPipeline(mlir::TypeConverter &typeConverter,
         operands.push_back(mapping.lookup(oper));
       }
 
-      LowerBodyCtx ctx{typeConverter, globals, operands};
+      LowerBodyCtx ctx{typeConverter, bodyBlock.getArgument(0), globals,
+                       operands};
       if (mlir::failed(op.lowerBody(ctx, rewriter))) {
         return mlir::failure();
       }

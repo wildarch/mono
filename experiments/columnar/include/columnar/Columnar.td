@@ -96,6 +96,10 @@ def PrintHandle : Columnar_Type<"PrintHandle", "print_handle"> {
     let summary = "Print handle";
 }
 
+def PipelineContext : Columnar_Type<"PipelineContext", "pipe_ctx"> {
+    let summary = "Pipeline context handle";
+}
+
 def Struct : Columnar_Type<"Struct", "struct"> {
     let summary = "Compound type analogous to a C struct";
 
@@ -873,6 +877,7 @@ def TableColumnReadOp : Columnar_Op<"table.column.read", [
     let summary = "Reads a column chunk as a tensor";
 
     let arguments = (ins
+        PipelineContext:$ctx,
         ColumnHandle:$handle,
         I32:$rowGroup,
         I32:$skip,
@@ -881,7 +886,12 @@ def TableColumnReadOp : Columnar_Op<"table.column.read", [
     let results = (outs TensorCol:$result);
 
     let assemblyFormat = [{
-        $handle `:` type($result) $rowGroup $skip $size attr-dict
+        $handle `:` type($result)
+        `row_group` `` `=` `` $rowGroup
+        `skip` `` `=` `` $skip
+        `size` `` `=` `` $size
+        `ctx` `` `=` `` $ctx
+        attr-dict
     }];
 }
 

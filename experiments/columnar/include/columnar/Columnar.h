@@ -9,6 +9,7 @@
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/OpDefinition.h>
 #include <mlir/IR/Region.h>
+#include <mlir/IR/Value.h>
 #include <mlir/IR/ValueRange.h>
 #include <mlir/Interfaces/InferTypeOpInterface.h>
 #include <mlir/Interfaces/SideEffectInterfaces.h>
@@ -45,6 +46,7 @@ class Sink : public mlir::OpTrait::TraitBase<ConcreteType, Sink> {};
 
 struct LowerBodyCtx {
   const mlir::TypeConverter &typeConverter;
+  mlir::Value pipelineCtx;
   mlir::ValueRange globals;
   mlir::ValueRange operands;
   llvm::SmallVector<mlir::Value> results;

@@ -14,6 +14,7 @@
 #include <mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h>
 #include <mlir/Target/LLVMIR/Export.h>
 
+#include "columnar/runtime/PipelineContext.h"
 #include <columnar/Columnar.h>
 #include <columnar/Runtime.h>
 
@@ -83,7 +84,7 @@ static int runJit(mlir::ModuleOp module) {
   // Run pipelines to completion
   for (auto pipe : pipelines) {
     using GlobalOpenFunc = void *();
-    using BodyFunc = bool(void *);
+    using BodyFunc = bool(columnar::runtime::PipelineContext *, void *);
     using GlobalCloseFunc = void(void *);
 
     // Initialize global state.
@@ -108,9 +109,10 @@ static int runJit(mlir::ModuleOp module) {
     }
 
     auto *bodyFunc = ((BodyFunc *)maybeBodyFunc.get());
+    columnar::runtime::PipelineContext pipelineCtx;
     bool haveMore = true;
     while (haveMore) {
-      haveMore = bodyFunc(globalState);
+      haveMore = bodyFunc(&pipelineCtx, globalState);
     }
 
     // Free global state.

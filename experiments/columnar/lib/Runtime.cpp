@@ -3,6 +3,7 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include "columnar/Runtime.h"
+#include "columnar/runtime/PipelineContext.h"
 #include "columnar/runtime/Print.h"
 #include "columnar/runtime/TableColumn.h"
 #include "columnar/runtime/TableScanner.h"
@@ -76,9 +77,10 @@ void col_table_column_read_int32(TableColumn *column, std::int32_t rowGroup,
 
 void col_table_column_read_byte_array(TableColumn *column,
                                       std::int32_t rowGroup, std::int32_t skip,
-                                      std::int64_t size, MEMREF_PARAM(dest)) {
+                                      std::int64_t size, MEMREF_PARAM(dest),
+                                      PipelineContext *ctx) {
   MEMREF_VAR(dest);
-  column->read(rowGroup, skip, size, dest.asPointerMut<char *>());
+  column->read(*ctx, rowGroup, skip, size, dest.asPointerMut<char *>());
 }
 
 Printer *col_print_open() { return new Printer(); }

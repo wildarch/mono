@@ -325,6 +325,9 @@ void LowerToLLVM::runOnOperation() {
   typeConverter.addConversion([](PrintHandleType t) {
     return mlir::LLVM::LLVMPointerType::get(t.getContext());
   });
+  typeConverter.addConversion([](PipelineContextType t) {
+    return mlir::LLVM::LLVMPointerType::get(t.getContext());
+  });
   typeConverter.addConversion([&](StructType t) -> mlir::Type {
     llvm::SmallVector<mlir::Type> types;
     if (mlir::failed(typeConverter.convertTypes(t.getFieldTypes(), types))) {

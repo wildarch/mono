@@ -1,3 +1,5 @@
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/Support/Casting.h>
 #include <mlir/Dialect/MemRef/IR/MemRef.h>
 
 #include "columnar/Columnar.h"
@@ -17,6 +19,10 @@ static std::optional<llvm::Twine> columnReadFuncForType(mlir::TensorType type) {
   return std::nullopt;
 }
 
+static bool isVariableLength(mlir::Type t) {
+  return llvm::isa<ByteArrayType>(t);
+}
+
 mlir::LogicalResult TableColumnReadOp::bufferize(
     mlir::RewriterBase &rewriter,
     const mlir::bufferization::BufferizationOptions &opts) {
@@ -32,11 +38,17 @@ mlir::LogicalResult TableColumnReadOp::bufferize(
   auto buffer =
       rewriter.create<mlir::memref::AllocOp>(getLoc(), memrefType, getSize());
 
+  llvm::SmallVector<mlir::Value> callArgs{getHandle(), getRowGroup(), getSkip(),
+                                          getSize(), buffer};
+  if (isVariableLength(getType().getElementType())) {
+    // Reading values of variable size, requiring heap allocation.
+    // We add the context for access to the allocator.
+    callArgs.push_back(getCtx());
+  }
+
   // Call the runtime function.
-  rewriter.create<RuntimeCallOp>(
-      getLoc(), mlir::TypeRange{}, rewriter.getStringAttr(*func),
-      mlir::ValueRange{getHandle(), getRowGroup(), getSkip(), getSize(),
-                       buffer});
+  rewriter.create<RuntimeCallOp>(getLoc(), mlir::TypeRange{},
+                                 rewriter.getStringAttr(*func), callArgs);
   mlir::bufferization::replaceOpWithBufferizedValues(rewriter, *this,
                                                      mlir::ValueRange{buffer});
   return mlir::success();

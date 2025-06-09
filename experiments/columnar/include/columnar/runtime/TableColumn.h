@@ -2,6 +2,8 @@
 
 #include <parquet/file_reader.h>
 
+#include "columnar/runtime/PipelineContext.h"
+
 namespace columnar::runtime {
 
 class TableColumn {
@@ -16,7 +18,8 @@ public:
   void close();
 
   void read(int rowGroup, int skip, std::int64_t size, std::int32_t *buffer);
-  void read(int rowGroup, int skip, std::int64_t size, char **buffer);
+  void read(PipelineContext &ctx, int rowGroup, int skip, std::int64_t size,
+            char **buffer);
 };
 
 } // namespace columnar::runtime
