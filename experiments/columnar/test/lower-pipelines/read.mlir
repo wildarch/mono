@@ -14,15 +14,19 @@
 // CHECK: columnar.pipeline_low.yield %[[#GLOBALS]]
 //
 // CHECK-LABEL: body {
-// CHECK: %[[#SCAN:]] = columnar.struct.get 0 %arg0
-// CHECK: %[[#COL:]] = columnar.struct.get 1 %arg0
-// CHECK: %[[#PRINT:]] = columnar.struct.get 2 %arg0
+// CHECK: %[[#SCAN:]] = columnar.struct.get 0 %arg1
+// CHECK: %[[#COL:]] = columnar.struct.get 1 %arg1
+// CHECK: %[[#PRINT:]] = columnar.struct.get 2 %arg1
 // CHECK: %[[#CLAIM:]]:3 = columnar.runtime_call "col_table_scanner_claim_chunk"(%[[#SCAN]])
 // CHECK: %c0 = arith.constant 0 : index
 // CHECK: %[[#MORE:]] = arith.cmpi ugt, %[[#CLAIM]]#2, %c0
 // CHECK: %generated = tensor.generate %[[#CLAIM]]#2 {
-// CHECK:   tensor.yield %arg1
-// CHECK: %[[#READ:]] = columnar.table.column.read %[[#COL]] : tensor<?xi32> %[[#CLAIM]]#0 %[[#CLAIM]]#1 %[[#CLAIM]]#2
+// CHECK:   tensor.yield %arg2
+// CHECK: %[[#READ:]] = columnar.table.column.read %[[#COL]] : tensor<?xi32>
+// CHECK-SAME: row_group=%[[#CLAIM]]#0
+// CHECK-SAME: skip=%[[#CLAIM]]#1
+// CHECK-SAME: size=%[[#CLAIM]]#2
+// CHECK-SAME: ctx=%arg0
 // CHECK: %c0_0 = arith.constant 0 : index
 // CHECK: %dim = tensor.dim %generated, %c0_0 : tensor<?xindex>
 // CHECK: %[[#CHUNK:]] = columnar.runtime_call "col_print_chunk_alloc"(%dim) : (index) -> !columnar.print_chunk

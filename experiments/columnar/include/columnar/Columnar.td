@@ -145,6 +145,18 @@ def TupleBuffer : Columnar_Type<"TupleBuffer", "tuple_buffer"> {
     let assemblyFormat = [{ `<` $types `>` }];
 }
 
+def TupleBufferLocal : Columnar_Type<"TupleBufferLocal", "tuple_buffer.local"> {
+    let summary = "Thread-local tuple buffer";
+
+    let parameters = (ins
+        ArrayRefParameter<"mlir::Type">:$types,
+        "std::uint64_t":$numPartitions);
+
+    let assemblyFormat = [{
+        `<` $types  `parts` `` `=` `` $numPartitions `>`
+    }];
+}
+
 def HashTable : Columnar_Type<"HashTable", "hash_table"> {
     let summary = "A hash table";
 
@@ -293,6 +305,7 @@ def Sink : NativeOpTrait<"Sink"> {
 
 def LowerPipelineOpInterface : OpInterface<"LowerPipelineOpInterface"> {
   let methods = [
+    // Global state
     InterfaceMethod<
       "Initialize global state",
       "mlir::LogicalResult",
@@ -315,6 +328,34 @@ def LowerPipelineOpInterface : OpInterface<"LowerPipelineOpInterface"> {
         /*methodBody=*/[{}],
         /*defaultImplementation=*/[{
             assert (globals.empty() && "leaking globals");
+            return mlir::success();
+        }]
+    >,
+    // Local state
+    InterfaceMethod<
+      "Initialize local state",
+      "mlir::LogicalResult",
+      "lowerLocalOpen",
+      (ins
+        "mlir::OpBuilder&":$builder,
+        "mlir::ValueRange":$globals,
+        "llvm::SmallVectorImpl<mlir::Value>&":$newLocals),
+        /*methodBody=*/[{}],
+        /*defaultImplementation=*/[{
+            return mlir::success();
+        }]
+    >,
+    InterfaceMethod<
+      "Free local state",
+      "mlir::LogicalResult",
+      "lowerLocalClose",
+      (ins
+        "mlir::OpBuilder&":$builder,
+        "mlir::ValueRange":$globals,
+        "mlir::ValueRange":$locals),
+        /*methodBody=*/[{}],
+        /*defaultImplementation=*/[{
+            assert (locals.empty() && "leaking locals");
             return mlir::success();
         }]
     >,
@@ -699,17 +740,25 @@ def GlobalOp : Columnar_Op<"global", [Pure]> {
 }
 
 // TODO categorize
-def HashJoinCollectOp : Columnar_Op<"hj.collect", [AttrSizedOperandSegments]> {
+def HashJoinCollectOp : Columnar_Op<"hj.collect", [
+        AttrSizedOperandSegments,
+        DeclareOpInterfaceMethods<
+            LowerPipelineOpInterface,
+            ["lowerLocalOpen", "lowerLocalClose"]>]> {
     let summary = "Writes tuples into a buffer";
     // TODO: selection vectors
     let arguments = (ins
         Variadic<Column>:$keys,
+        Variadic<ColumnOf<Select>>:$keySel,
         Variadic<Column>:$values,
+        Variadic<ColumnOf<Select>>:$valueSel,
         TupleBuffer:$buffer);
 
     let assemblyFormat = [{
         `keys` `` `=` `` `[` $keys `]` `:` type($keys)
+        `key_sel` `` `=` `` `[` $keySel `]`
         `values` `` `=` `` `[` $values `]` `:` type($values)
+        `value_sel` `` `=` `` `[` $valueSel `]`
         `->` $buffer `:` type($buffer)
         attr-dict
     }];
@@ -842,19 +891,27 @@ def ReadTableOp : Columnar_Op<"read_table", [
 
 def TensorCol : 1DTensorOf<[AnyType]>;
 
+class TensorColOf<Type elType> :
+    1DTensorOf<[elType]>,
+    SameBuildabilityAs<
+        elType,
+        "::mlir::RankedTensorType::get({::mlir::ShapedType::kDynamic}, "
+        "$_builder.get" # elType # "Type())"> {
+}
+
 def PipelineLowOp : Columnar_Op<"pipeline_low", [IsolatedFromAbove]> {
     let regions = (region
         MaxSizedRegion<1>:$globalOpen,
-        MaxSizedRegion<1>:$open,
+        MaxSizedRegion<1>:$localOpen,
         SizedRegion<1>:$body,
-        MaxSizedRegion<1>:$close,
+        MaxSizedRegion<1>:$localClose,
         MaxSizedRegion<1>:$globalClose);
 
     let assemblyFormat = [{
         (`global_open` $globalOpen^)?
-        (`open` $open^)?
+        (`local_open` $localOpen^)?
         `body` $body
-        (`close` $close^)?
+        (`local_close` $localClose^)?
         (`global_close` $globalClose^)?
         attr-dict
     }];
@@ -867,6 +924,16 @@ def PipelineLowYieldOp : Columnar_Op<"pipeline_low.yield", [
 
     let assemblyFormat = [{
         ($values^ `:` type($values))? attr-dict
+    }];
+}
+
+def RuntimeCallOp : Columnar_Op<"runtime_call"> {
+    let arguments = (ins StrAttr:$func, Variadic<AnyType>:$inputs);
+
+    let results = (outs Variadic<AnyType>:$results);
+
+    let assemblyFormat = [{
+        $func `(` $inputs `)` attr-dict `:` functional-type($inputs, $results)
     }];
 }
 
@@ -906,23 +973,64 @@ def PrintChunkAppendOp : Columnar_Op<"print.chunk.append", [
     let arguments = (ins
         PrintChunk:$chunk,
         TensorCol:$col,
-        1DTensorOf<[Index]>:$sel);
+        TensorColOf<Index>:$sel);
 
     let assemblyFormat = [{
         $chunk
         $col `:` type($col)
-        `sel` `` `=` `` $sel `:` type($sel)
+        `sel` `` `=` `` $sel
         attr-dict
     }];
 }
 
-def RuntimeCallOp : Columnar_Op<"runtime_call"> {
-    let arguments = (ins StrAttr:$func, Variadic<AnyType>:$inputs);
+def HashOp : Columnar_Op<"hash", [Pure, AllTypesMatch<["base", "result"]>]> {
+    let arguments = (ins
+        TensorColOf<I64>:$base,
+        TensorColOf<Index>:$sel,
+        TensorCol:$value);
 
-    let results = (outs Variadic<AnyType>:$results);
+    let results = (outs TensorColOf<I64>:$result);
 
     let assemblyFormat = [{
-        $func `(` $inputs `)` attr-dict `:` functional-type($inputs, $results)
+        $base `,` $value `[` $sel `]` `:` type($value)
+        `->` type($result)
+        attr-dict
+    }];
+}
+
+def TupleBufferInsertOp : Columnar_Op<"tuple_buffer.insert"> {
+    let summary = "Insert tuples into a tuple buffer";
+
+    let description = [{
+        Reserves memory locations in the buffer for the elements.
+        The returned values are indices to the allocated memory locations.
+        This op does not write any tuple data to the allocated memory beyond the
+        leading hash value.
+    }];
+
+    let arguments = (ins
+        TupleBufferLocal:$buffer,
+        TensorColOf<I64>:$hashes);
+
+    let assemblyFormat = [{
+        $buffer `,` $hashes `:` type($buffer) attr-dict
+    }];
+
+    let results = (outs TensorColOf<Index>:$result);
+}
+
+def ScatterOp : Columnar_Op<"scatter"> {
+    let arguments = (ins
+        TensorColOf<Index>:$sel,
+        TensorCol:$value,
+        TensorColOf<Index>:$dest,
+        Index:$offset);
+
+    let results = (outs Index:$nextOffset);
+
+    let assemblyFormat = [{
+        $value `[` $sel `]` `->` $dest `[` $offset `]` `:` type($value)
+        attr-dict
     }];
 }
 

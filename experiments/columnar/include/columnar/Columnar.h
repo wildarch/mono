@@ -48,6 +48,7 @@ struct LowerBodyCtx {
   const mlir::TypeConverter &typeConverter;
   mlir::Value pipelineCtx;
   mlir::ValueRange globals;
+  mlir::ValueRange locals;
   mlir::ValueRange operands;
   llvm::SmallVector<mlir::Value> results;
   llvm::SmallVector<mlir::Value> haveMore;

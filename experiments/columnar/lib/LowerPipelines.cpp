@@ -3,6 +3,7 @@
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include <mlir/IR/BuiltinTypeInterfaces.h>
 #include <mlir/IR/BuiltinTypes.h>
+#include <mlir/IR/ValueRange.h>
 #include <mlir/Transforms/DialectConversion.h>
 
 #include "columnar/Columnar.h"
@@ -187,6 +188,83 @@ mlir::LogicalResult QueryOutputOp::lowerBody(LowerBodyCtx &ctx,
   return mlir::success();
 }
 
+// HashJoinCollectOp
+static constexpr std::uint32_t HASH_JOIN_PARTITIONS = 16;
+static constexpr std::uint32_t HASH_SEED = 0;
+
+mlir::LogicalResult HashJoinCollectOp::lowerLocalOpen(
+    mlir::OpBuilder &builder, mlir::ValueRange globals,
+    llvm::SmallVectorImpl<mlir::Value> &newLocals) {
+  // How many partitions to allocate
+  auto partsOp = builder.create<mlir::arith::ConstantOp>(
+      getLoc(), builder.getI32Type(),
+      builder.getI32IntegerAttr(HASH_JOIN_PARTITIONS));
+  // The state type
+  auto localType = builder.getType<TupleBufferLocalType>(
+      getBuffer().getType().getTypes(), HASH_JOIN_PARTITIONS);
+  auto allocOp = builder.create<RuntimeCallOp>(
+      getLoc(), mlir::TypeRange{localType},
+      builder.getStringAttr("col_tuple_buffer_local_alloc"),
+      mlir::ValueRange{partsOp});
+  newLocals.push_back(allocOp->getResult(0));
+  return mlir::success();
+}
+
+mlir::LogicalResult
+HashJoinCollectOp::lowerLocalClose(mlir::OpBuilder &builder,
+                                   mlir::ValueRange globals,
+                                   mlir::ValueRange locals) {
+  // TODO: Free
+  return mlir::success();
+}
+
+mlir::LogicalResult HashJoinCollectOp::lowerBody(LowerBodyCtx &ctx,
+                                                 mlir::OpBuilder &builder) {
+  Adaptor adaptor(ctx.operands, *this);
+
+  // Hash the columns.
+  auto nrows = builder.create<mlir::tensor::DimOp>(
+      getLoc(), adaptor.getKeySel().front(), 0);
+  auto hashType = mlir::RankedTensorType::get(
+      llvm::ArrayRef<std::int64_t>{mlir::ShapedType::kDynamic},
+      builder.getI64Type());
+  // 1. Initialize all values to the seed value
+  mlir::Value hashOp = builder.create<mlir::tensor::GenerateOp>(
+      getLoc(), hashType, mlir::ValueRange{nrows},
+      [](mlir::OpBuilder &builder, mlir::Location loc,
+         mlir::ValueRange indices) {
+        auto seedOp = builder.create<mlir::arith::ConstantOp>(
+            loc, builder.getI64Type(), builder.getI64IntegerAttr(HASH_SEED));
+        builder.create<mlir::tensor::YieldOp>(loc, seedOp);
+      });
+  // 2. Hash the individual key columns.
+  for (auto [key, sel] :
+       llvm::zip_equal(adaptor.getKeys(), adaptor.getKeySel())) {
+    hashOp =
+        builder.create<HashOp>(getLoc(), hashOp.getType(), hashOp, sel, key);
+  }
+
+  // Allocate space for the entries (picking partitions based on the hash).
+  auto localBuffer = ctx.locals[0];
+  auto allocOp =
+      builder.create<TupleBufferInsertOp>(getLoc(), localBuffer, hashOp);
+
+  // Scatter the columns.
+  mlir::Value offset = builder.create<mlir::arith::ConstantOp>(
+      getLoc(), builder.getIndexType(), builder.getIndexAttr(0));
+  for (auto [key, sel] :
+       llvm::zip_equal(adaptor.getKeys(), adaptor.getKeySel())) {
+    offset = builder.create<ScatterOp>(getLoc(), sel, key, allocOp, offset);
+  }
+
+  for (auto [val, sel] :
+       llvm::zip_equal(adaptor.getValues(), adaptor.getValueSel())) {
+    offset = builder.create<ScatterOp>(getLoc(), sel, val, allocOp, offset);
+  }
+
+  return mlir::success();
+}
+
 static void unpackStructPointer(mlir::Value v, mlir::OpBuilder &builder,
                                 llvm::SmallVectorImpl<mlir::Value> &out) {
   auto ptrType = llvm::cast<PointerType>(v.getType());
@@ -203,7 +281,9 @@ static mlir::LogicalResult lowerPipeline(mlir::TypeConverter &typeConverter,
 
   // Blocks
   auto &globalOpenBlock = lowerOp.getGlobalOpen().emplaceBlock();
+  auto &localOpenBlock = lowerOp.getLocalOpen().emplaceBlock();
   auto &bodyBlock = lowerOp.getBody().emplaceBlock();
+  auto &localCloseBlock = lowerOp.getLocalClose().emplaceBlock();
   auto &globalCloseBlock = lowerOp.getGlobalClose().emplaceBlock();
 
   // All ops must implement the interface
@@ -223,6 +303,8 @@ static mlir::LogicalResult lowerPipeline(mlir::TypeConverter &typeConverter,
 
   // Number of globals opened per op
   llvm::SmallVector<unsigned int> globalsPerOp;
+  // Number of locals opened per op
+  llvm::SmallVector<unsigned int> localsPerOp;
 
   // Global open
   {
@@ -245,7 +327,11 @@ static mlir::LogicalResult lowerPipeline(mlir::TypeConverter &typeConverter,
                                         mlir::ValueRange{globalStructOp});
 
     // Globals are available in all blocks
+    localOpenBlock.addArgument(globalStructOp.getType(),
+                               globalStructOp.getLoc());
     bodyBlock.addArgument(globalStructOp.getType(), globalStructOp.getLoc());
+    localCloseBlock.addArgument(globalStructOp.getType(),
+                                globalStructOp.getLoc());
     globalCloseBlock.addArgument(globalStructOp.getType(),
                                  globalStructOp.getLoc());
   }
@@ -271,8 +357,68 @@ static mlir::LogicalResult lowerPipeline(mlir::TypeConverter &typeConverter,
                                         mlir::ValueRange{});
   }
 
-  // TODO: local open
-  // TODO: local close
+  // Local open
+  {
+    mlir::OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&localOpenBlock);
+
+    llvm::SmallVector<mlir::Value> globalArgs;
+    unpackStructPointer(localOpenBlock.getArgument(0), rewriter, globalArgs);
+    auto globalArgsLeft = llvm::ArrayRef<mlir::Value>(globalArgs);
+
+    llvm::SmallVector<mlir::Value> locals;
+    for (auto [op, numGlobals] : llvm::zip_equal(toLower, globalsPerOp)) {
+      auto globals = globalArgsLeft.take_front(numGlobals);
+      globalArgsLeft = globalArgsLeft.drop_front(numGlobals);
+
+      llvm::SmallVector<mlir::Value> newLocals;
+      if (mlir::failed(op.lowerLocalOpen(rewriter, globals, newLocals))) {
+        return mlir::failure();
+      }
+
+      locals.append(newLocals);
+      localsPerOp.push_back(newLocals.size());
+    }
+
+    auto localStructOp =
+        rewriter.create<AllocStructOp>(pipelineOp.getLoc(), locals);
+    rewriter.create<PipelineLowYieldOp>(pipelineOp.getLoc(),
+                                        mlir::ValueRange{localStructOp});
+
+    // Locals are available in body and local close
+    bodyBlock.addArgument(localStructOp.getType(), localStructOp.getLoc());
+    localCloseBlock.addArgument(localStructOp.getType(),
+                                localStructOp.getLoc());
+  }
+
+  // Local close
+  {
+    mlir::OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&localCloseBlock);
+
+    llvm::SmallVector<mlir::Value> globalArgs;
+    unpackStructPointer(localCloseBlock.getArgument(0), rewriter, globalArgs);
+    auto globalArgsLeft = llvm::ArrayRef<mlir::Value>(globalArgs);
+
+    llvm::SmallVector<mlir::Value> localArgs;
+    unpackStructPointer(localCloseBlock.getArgument(1), rewriter, localArgs);
+    auto localArgsLeft = llvm::ArrayRef<mlir::Value>(localArgs);
+
+    for (auto [op, numGlobals, numLocals] :
+         llvm::zip_equal(toLower, globalsPerOp, localsPerOp)) {
+      auto globals = globalArgsLeft.take_front(numGlobals);
+      globalArgsLeft = globalArgsLeft.drop_front(numGlobals);
+      auto locals = localArgsLeft.take_front(numLocals);
+      localArgsLeft = localArgsLeft.drop_front(numLocals);
+
+      if (mlir::failed(op.lowerLocalClose(rewriter, globals, locals))) {
+        return mlir::failure();
+      }
+    }
+
+    rewriter.create<PipelineLowYieldOp>(pipelineOp.getLoc(),
+                                        mlir::ValueRange{});
+  }
 
   // Body
   {
@@ -287,19 +433,26 @@ static mlir::LogicalResult lowerPipeline(mlir::TypeConverter &typeConverter,
 
     llvm::SmallVector<mlir::Value> globalArgs;
     unpackStructPointer(bodyBlock.getArgument(1), rewriter, globalArgs);
-    auto args = llvm::ArrayRef<mlir::Value>(globalArgs);
+    auto globalArgsLeft = llvm::ArrayRef<mlir::Value>(globalArgs);
 
-    for (auto [op, numGlobals] : llvm::zip_equal(toLower, globalsPerOp)) {
-      auto globals = args.take_front(numGlobals);
-      args = args.drop_front(numGlobals);
+    llvm::SmallVector<mlir::Value> localArgs;
+    unpackStructPointer(bodyBlock.getArgument(2), rewriter, localArgs);
+    auto localArgsLeft = llvm::ArrayRef<mlir::Value>(localArgs);
+
+    for (auto [op, numGlobals, numLocals] :
+         llvm::zip_equal(toLower, globalsPerOp, localsPerOp)) {
+      auto globals = globalArgsLeft.take_front(numGlobals);
+      globalArgsLeft = globalArgsLeft.drop_front(numGlobals);
+      auto locals = localArgsLeft.take_front(numLocals);
+      localArgsLeft = localArgsLeft.drop_front(numLocals);
 
       llvm::SmallVector<mlir::Value> operands;
       for (auto oper : op->getOperands()) {
         // TODO: catch failures here.
-        operands.push_back(mapping.lookup(oper));
+        operands.push_back(mapping.lookupOrDefault(oper));
       }
 
-      LowerBodyCtx ctx{typeConverter, bodyBlock.getArgument(0), globals,
+      LowerBodyCtx ctx{typeConverter, bodyBlock.getArgument(0), globals, locals,
                        operands};
       if (mlir::failed(op.lowerBody(ctx, rewriter))) {
         return mlir::failure();
