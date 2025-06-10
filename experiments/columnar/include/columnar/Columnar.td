@@ -699,17 +699,23 @@ def GlobalOp : Columnar_Op<"global", [Pure]> {
 }
 
 // TODO categorize
-def HashJoinCollectOp : Columnar_Op<"hj.collect", [AttrSizedOperandSegments]> {
+def HashJoinCollectOp : Columnar_Op<"hj.collect", [
+        AttrSizedOperandSegments,
+        DeclareOpInterfaceMethods<LowerPipelineOpInterface>]> {
     let summary = "Writes tuples into a buffer";
     // TODO: selection vectors
     let arguments = (ins
         Variadic<Column>:$keys,
+        Variadic<ColumnOf<Select>>:$keySel,
         Variadic<Column>:$values,
+        Variadic<ColumnOf<Select>>:$valueSel,
         TupleBuffer:$buffer);
 
     let assemblyFormat = [{
         `keys` `` `=` `` `[` $keys `]` `:` type($keys)
+        `key_sel` `` `=` `` `[` $keySel `]`
         `values` `` `=` `` `[` $values `]` `:` type($values)
+        `value_sel` `` `=` `` `[` $valueSel `]`
         `->` $buffer `:` type($buffer)
         attr-dict
     }];

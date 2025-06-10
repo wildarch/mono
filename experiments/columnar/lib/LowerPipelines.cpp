@@ -187,6 +187,19 @@ mlir::LogicalResult QueryOutputOp::lowerBody(LowerBodyCtx &ctx,
   return mlir::success();
 }
 
+mlir::LogicalResult HashJoinCollectOp::lowerBody(LowerBodyCtx &ctx,
+                                                 mlir::OpBuilder &builder) {
+  // Hash the columns.
+  // 1. Initialize all values to the seed value
+  // 2. Hash the individual columns.
+  //
+  // Update the count per partition.
+  // Allocate space for the entries (including the hash).
+
+  // Scatter the columns. If string data, allocate inside the buffer and copy.
+  return emitOpError("not implemented");
+}
+
 static void unpackStructPointer(mlir::Value v, mlir::OpBuilder &builder,
                                 llvm::SmallVectorImpl<mlir::Value> &out) {
   auto ptrType = llvm::cast<PointerType>(v.getType());
@@ -296,7 +309,7 @@ static mlir::LogicalResult lowerPipeline(mlir::TypeConverter &typeConverter,
       llvm::SmallVector<mlir::Value> operands;
       for (auto oper : op->getOperands()) {
         // TODO: catch failures here.
-        operands.push_back(mapping.lookup(oper));
+        operands.push_back(mapping.lookupOrDefault(oper));
       }
 
       LowerBodyCtx ctx{typeConverter, bodyBlock.getArgument(0), globals,
