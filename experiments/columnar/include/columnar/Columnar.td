@@ -983,7 +983,15 @@ def PrintChunkAppendOp : Columnar_Op<"print.chunk.append", [
     }];
 }
 
-def HashOp : Columnar_Op<"hash", [Pure, AllTypesMatch<["base", "result"]>]> {
+def HashOp : Columnar_Op<"hash", [
+        Pure,
+        AllTypesMatch<["base", "result"]>,
+        DeclareOpInterfaceMethods<BufferizableOpInterface, [
+            "bufferize",
+            "bufferizesToAllocation",
+            "bufferizesToMemoryRead",
+            "bufferizesToMemoryWrite",
+            "getAliasingValues"]>]> {
     let arguments = (ins
         TensorColOf<I64>:$base,
         TensorColOf<Index>:$sel,
@@ -998,7 +1006,13 @@ def HashOp : Columnar_Op<"hash", [Pure, AllTypesMatch<["base", "result"]>]> {
     }];
 }
 
-def TupleBufferInsertOp : Columnar_Op<"tuple_buffer.insert"> {
+def TupleBufferInsertOp : Columnar_Op<"tuple_buffer.insert", [
+        DeclareOpInterfaceMethods<BufferizableOpInterface, [
+            "bufferize",
+            "bufferizesToAllocation",
+            "bufferizesToMemoryRead",
+            "bufferizesToMemoryWrite",
+            "getAliasingValues"]>]> {
     let summary = "Insert tuples into a tuple buffer";
 
     let description = [{
@@ -1019,7 +1033,12 @@ def TupleBufferInsertOp : Columnar_Op<"tuple_buffer.insert"> {
     let results = (outs TensorColOf<Index>:$result);
 }
 
-def ScatterOp : Columnar_Op<"scatter"> {
+def ScatterOp : Columnar_Op<"scatter", [
+        DeclareOpInterfaceMethods<BufferizableOpInterface, [
+            "bufferize",
+            "bufferizesToMemoryRead",
+            "bufferizesToMemoryWrite",
+            "getAliasingValues"]>]> {
     let arguments = (ins
         TensorColOf<Index>:$sel,
         TensorCol:$value,
