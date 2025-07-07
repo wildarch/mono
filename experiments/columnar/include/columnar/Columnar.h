@@ -72,6 +72,9 @@ namespace columnar {
 /** Element type for columns produced by a COUNT aggregator. */
 mlir::Type getCountElementType(mlir::MLIRContext *ctx);
 
+/** 1D tensor representating a column with the given element type. */
+mlir::RankedTensorType tensorColOf(mlir::Type elemType);
+
 void registerLLVMTranslation(mlir::DialectRegistry &registry);
 
 } // namespace columnar

@@ -3,7 +3,9 @@
 #include <mlir/Bytecode/BytecodeOpInterface.h>
 #include <mlir/IR/Builders.h>
 #include <mlir/IR/BuiltinTypes.h>
+#include <mlir/IR/Diagnostics.h>
 #include <mlir/IR/DialectImplementation.h>
+#include <mlir/IR/Location.h>
 #include <mlir/IR/OpImplementation.h>
 #include <mlir/IR/TypeRange.h>
 #include <mlir/IR/ValueRange.h>
@@ -377,6 +379,32 @@ mlir::LogicalResult SelAddOp::inferReturnTypes(
 
 mlir::OpFoldResult SelTableOp::fold(FoldAdaptor adaptor) { return getTable(); }
 
+mlir::LogicalResult TupleBufferInsertOp::inferReturnTypes(
+    mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
+    Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  auto bufferType =
+      llvm::cast<TupleBufferLocalType>(adaptor.getBuffer().getType());
+  auto ptrType = PointerType::get(ctx, bufferType.getTupleType());
+  inferredReturnTypes.push_back(tensorColOf(ptrType));
+  return mlir::success();
+}
+
+mlir::LogicalResult GetFieldPtrOp::inferReturnTypes(
+    mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
+    Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  auto baseType = llvm::cast<PointerType>(adaptor.getBase().getType());
+  auto structType = llvm::cast<StructType>(baseType.getPointee());
+  if (adaptor.getField() >= structType.getFieldTypes().size()) {
+    return mlir::emitOptionalError(location,
+                                   "field index invalid for struct type");
+  }
+
+  auto fieldType = structType.getFieldTypes()[adaptor.getField()];
+  auto ptrType = PointerType::get(ctx, fieldType);
+  inferredReturnTypes.push_back(ptrType);
+  return mlir::success();
+}
+
 mlir::LogicalResult AllocStructOp::inferReturnTypes(
     mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
     Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
@@ -397,6 +425,12 @@ mlir::LogicalResult GetStructElementOp::inferReturnTypes(
 
 mlir::OpFoldResult ConstantStringOp::fold(FoldAdaptor adaptor) {
   return getValueAttr();
+}
+
+mlir::RankedTensorType tensorColOf(mlir::Type elemType) {
+  auto *ctx = elemType.getContext();
+  constexpr std::int64_t SHAPE_1D[1] = {mlir::ShapedType::kDynamic};
+  return mlir::RankedTensorType::get(SHAPE_1D, elemType);
 }
 
 } // namespace columnar

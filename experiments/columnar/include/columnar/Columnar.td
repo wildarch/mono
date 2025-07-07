@@ -110,7 +110,7 @@ def Struct : Columnar_Type<"Struct", "struct"> {
     }];
 }
 
-def Ptr : Columnar_Type<"Pointer", "ptr"> {
+def Ptr : Columnar_Type<"Pointer", "ptr", [MemRefElementTypeInterface]> {
     let parameters = (ins TypeParameter<"::mlir::Type", "pointee type">:$pointee);
 
     let builders = [
@@ -140,20 +140,20 @@ def StringLiteral : Columnar_Type<"StringLiteral", "str_lit"> {
 def TupleBuffer : Columnar_Type<"TupleBuffer", "tuple_buffer"> {
     let summary = "Row-oriented buffer for tuple data";
 
-    let parameters = (ins ArrayRefParameter<"mlir::Type">:$types);
+    let parameters = (ins Struct:$tupleType);
 
-    let assemblyFormat = [{ `<` $types `>` }];
+    let assemblyFormat = [{ `<` $tupleType `>` }];
 }
 
 def TupleBufferLocal : Columnar_Type<"TupleBufferLocal", "tuple_buffer.local"> {
     let summary = "Thread-local tuple buffer";
 
     let parameters = (ins
-        ArrayRefParameter<"mlir::Type">:$types,
+        Struct:$tupleType,
         "std::uint64_t":$numPartitions);
 
     let assemblyFormat = [{
-        `<` $types  `parts` `` `=` `` $numPartitions `>`
+        `<` $tupleType  `parts` `` `=` `` $numPartitions `>`
     }];
 }
 
@@ -1007,6 +1007,7 @@ def HashOp : Columnar_Op<"hash", [
 }
 
 def TupleBufferInsertOp : Columnar_Op<"tuple_buffer.insert", [
+        InferTypeOpAdaptor,
         DeclareOpInterfaceMethods<BufferizableOpInterface, [
             "bufferize",
             "bufferizesToAllocation",
@@ -1026,11 +1027,23 @@ def TupleBufferInsertOp : Columnar_Op<"tuple_buffer.insert", [
         TupleBufferLocal:$buffer,
         TensorColOf<I64>:$hashes);
 
+    let results = (outs TensorColOf<Ptr>:$result);
+
     let assemblyFormat = [{
         $buffer `,` $hashes `:` type($buffer) attr-dict
     }];
+}
 
-    let results = (outs TensorColOf<Index>:$result);
+def GetFieldPtrOp : Columnar_Op<"gfp", [Pure, InferTypeOpAdaptor]> {
+    let arguments = (ins
+        PtrOf<Struct>:$base,
+        I64Attr:$field);
+
+    let results = (outs Ptr:$result);
+
+    let assemblyFormat = [{
+        $base $field `:` type($base) attr-dict
+    }];
 }
 
 def ScatterOp : Columnar_Op<"scatter", [
@@ -1042,13 +1055,10 @@ def ScatterOp : Columnar_Op<"scatter", [
     let arguments = (ins
         TensorColOf<Index>:$sel,
         TensorCol:$value,
-        TensorColOf<Index>:$dest,
-        Index:$offset);
-
-    let results = (outs Index:$nextOffset);
+        TensorColOf<Ptr>:$dest);
 
     let assemblyFormat = [{
-        $value `[` $sel `]` `->` $dest `[` $offset `]` `:` type($value)
+        $value `[` $sel `]` `->` $dest `:` type($value) `->` type($dest)
         attr-dict
     }];
 }

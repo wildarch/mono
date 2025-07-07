@@ -342,6 +342,9 @@ void LowerToLLVM::runOnOperation() {
   typeConverter.addConversion([](ByteArrayType t) {
     return mlir::LLVM::LLVMPointerType::get(t.getContext());
   });
+  typeConverter.addConversion([](TupleBufferLocalType t) {
+    return mlir::LLVM::LLVMPointerType::get(t.getContext());
+  });
 
   // Find called runtime functions
   llvm::DenseMap<mlir::StringAttr, mlir::FunctionType> called;

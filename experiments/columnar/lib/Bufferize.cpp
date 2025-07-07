@@ -238,7 +238,8 @@ static std::optional<llvm::Twine> scatterFuncForType(mlir::TensorType type) {
     return "col_scatter_int32";
   } else if (elemType.isInteger(64)) {
     return "col_scatter_int64";
-  } else if (auto byteArrayType = mlir::dyn_cast<columnar::ByteArrayType>(elemType)) {
+  } else if (auto byteArrayType =
+                 mlir::dyn_cast<columnar::ByteArrayType>(elemType)) {
     return "col_scatter_byte_array";
   }
 
@@ -287,15 +288,14 @@ ScatterOp::bufferize(mlir::RewriterBase &rewriter,
     return mlir::failure();
   }
 
-  llvm::SmallVector<mlir::Value> callArgs{*sel, *value, *dest, getOffset()};
+  llvm::SmallVector<mlir::Value> callArgs{*sel, *value, *dest};
 
   // Call the runtime function
   auto nextOffset = rewriter.create<RuntimeCallOp>(
-      getLoc(), mlir::TypeRange{getOffset().getType()},
-      rewriter.getStringAttr(*func), callArgs);
+      getLoc(), mlir::TypeRange{}, rewriter.getStringAttr(*func), callArgs);
 
-  mlir::bufferization::replaceOpWithBufferizedValues(
-      rewriter, *this, nextOffset.getResults());
+  mlir::bufferization::replaceOpWithBufferizedValues(rewriter, *this,
+                                                     nextOffset.getResults());
   return mlir::success();
 }
 

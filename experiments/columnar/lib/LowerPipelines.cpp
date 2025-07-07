@@ -1,8 +1,14 @@
+#include <cassert>
+#include <llvm/ADT/STLExtras.h>
+#include <llvm/ADT/SmallVector.h>
 #include <mlir/Dialect/Arith/IR/Arith.h>
+#include <mlir/Dialect/Linalg/IR/Linalg.h>
 #include <mlir/Dialect/MemRef/IR/MemRef.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
+#include <mlir/IR/Builders.h>
 #include <mlir/IR/BuiltinTypeInterfaces.h>
 #include <mlir/IR/BuiltinTypes.h>
+#include <mlir/IR/TypeRange.h>
 #include <mlir/IR/ValueRange.h>
 #include <mlir/Transforms/DialectConversion.h>
 
@@ -201,7 +207,7 @@ mlir::LogicalResult HashJoinCollectOp::lowerLocalOpen(
       builder.getI32IntegerAttr(HASH_JOIN_PARTITIONS));
   // The state type
   auto localType = builder.getType<TupleBufferLocalType>(
-      getBuffer().getType().getTypes(), HASH_JOIN_PARTITIONS);
+      getBuffer().getType().getTupleType(), HASH_JOIN_PARTITIONS);
   auto allocOp = builder.create<RuntimeCallOp>(
       getLoc(), mlir::TypeRange{localType},
       builder.getStringAttr("col_tuple_buffer_local_alloc"),
@@ -250,16 +256,30 @@ mlir::LogicalResult HashJoinCollectOp::lowerBody(LowerBodyCtx &ctx,
       builder.create<TupleBufferInsertOp>(getLoc(), localBuffer, hashOp);
 
   // Scatter the columns.
-  mlir::Value offset = builder.create<mlir::arith::ConstantOp>(
-      getLoc(), builder.getIndexType(), builder.getIndexAttr(0));
-  for (auto [key, sel] :
-       llvm::zip_equal(adaptor.getKeys(), adaptor.getKeySel())) {
-    offset = builder.create<ScatterOp>(getLoc(), sel, key, allocOp, offset);
-  }
-
-  for (auto [val, sel] :
-       llvm::zip_equal(adaptor.getValues(), adaptor.getValueSel())) {
-    offset = builder.create<ScatterOp>(getLoc(), sel, val, allocOp, offset);
+  llvm::SmallVector<mlir::Value> columnSel;
+  llvm::append_range(columnSel, adaptor.getKeySel());
+  llvm::append_range(columnSel, adaptor.getValueSel());
+  llvm::SmallVector<mlir::Value> columnValues;
+  llvm::append_range(columnValues, adaptor.getKeys());
+  llvm::append_range(columnValues, adaptor.getValues());
+  assert(columnSel.size() == columnValues.size());
+  auto structType = getBuffer().getType().getTupleType();
+  for (auto [f, sel, val] : llvm::enumerate(columnSel, columnValues)) {
+    // First field contains the hash.
+    auto field = f + 1;
+    // Offset the base pointers to get pointers to the field we want to write.
+    auto fieldType = structType.getFieldTypes()[field];
+    auto resultType = tensorColOf(PointerType::get(fieldType));
+    auto genOp = builder.create<mlir::tensor::GenerateOp>(
+        getLoc(), resultType, mlir::ValueRange{nrows},
+        [&](mlir::OpBuilder &builder, mlir::Location loc,
+            mlir::ValueRange indices) {
+          auto ptr =
+              builder.create<mlir::tensor::ExtractOp>(loc, allocOp, indices);
+          auto offset = builder.create<GetFieldPtrOp>(loc, ptr, field);
+          builder.create<mlir::tensor::YieldOp>(loc, offset);
+        });
+    builder.create<ScatterOp>(getLoc(), sel, val, genOp);
   }
 
   return mlir::success();
