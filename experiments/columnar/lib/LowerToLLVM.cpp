@@ -1,7 +1,10 @@
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/Support/FormatVariadic.h>
+#include <llvm/Support/TypeSize.h>
 #include <mlir/Conversion/ArithToLLVM/ArithToLLVM.h>
 #include <mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h>
 #include <mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h>
@@ -12,8 +15,11 @@
 #include <mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h>
 #include <mlir/Dialect/LLVMIR/FunctionCallUtils.h>
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
+#include <mlir/IR/Attributes.h>
 #include <mlir/IR/BuiltinTypes.h>
+#include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/PatternMatch.h>
+#include <mlir/Interfaces/DataLayoutInterfaces.h>
 #include <mlir/Transforms/DialectConversion.h>
 
 #include "columnar/Columnar.h"
@@ -32,44 +38,50 @@ public:
   void runOnOperation() final;
 };
 
-class AllocStructOpLowering
-    : public mlir::ConvertOpToLLVMPattern<AllocStructOp> {
-  using mlir::ConvertOpToLLVMPattern<AllocStructOp>::ConvertOpToLLVMPattern;
+class TypeConverter : public mlir::LLVMTypeConverter {
+private:
+  template <typename T> void addConversionToPointer() {
+    addConversion([](T type) {
+      return mlir::LLVM::LLVMPointerType::get(type.getContext());
+    });
+  }
 
-  mlir::LogicalResult
-  matchAndRewrite(AllocStructOp op, OpAdaptor adaptor,
-                  mlir::ConversionPatternRewriter &rewriter) const override;
+  template <typename T1, typename T2, typename... Ts>
+  void addConversionToPointer() {
+    addConversionToPointer<T1>();
+    addConversionToPointer<T2, Ts...>();
+  }
+
+public:
+  TypeConverter(mlir::MLIRContext *ctx);
 };
 
-class GetStructElementOpLowering
-    : public mlir::ConvertOpToLLVMPattern<GetStructElementOp> {
-  using mlir::ConvertOpToLLVMPattern<
-      GetStructElementOp>::ConvertOpToLLVMPattern;
+template <typename SourceOp>
+class OpLowering : public mlir::ConvertOpToLLVMPattern<SourceOp> {
+  using mlir::ConvertOpToLLVMPattern<SourceOp>::ConvertOpToLLVMPattern;
 
   mlir::LogicalResult
-  matchAndRewrite(GetStructElementOp op, OpAdaptor adaptor,
-                  mlir::ConversionPatternRewriter &rewriter) const override;
-};
-
-class ConstantStringOpLowering
-    : public mlir::ConvertOpToLLVMPattern<ConstantStringOp> {
-  using mlir::ConvertOpToLLVMPattern<ConstantStringOp>::ConvertOpToLLVMPattern;
-
-  mlir::LogicalResult
-  matchAndRewrite(ConstantStringOp op, OpAdaptor adaptor,
-                  mlir::ConversionPatternRewriter &rewriter) const override;
-};
-
-class RuntimeCallOpLowering
-    : public mlir::ConvertOpToLLVMPattern<RuntimeCallOp> {
-  using mlir::ConvertOpToLLVMPattern<RuntimeCallOp>::ConvertOpToLLVMPattern;
-
-  mlir::LogicalResult
-  matchAndRewrite(RuntimeCallOp op, OpAdaptor adaptor,
+  matchAndRewrite(SourceOp op, typename SourceOp::Adaptor adaptor,
                   mlir::ConversionPatternRewriter &rewriter) const override;
 };
 
 } // namespace
+
+TypeConverter::TypeConverter(mlir::MLIRContext *ctx)
+    : mlir::LLVMTypeConverter(ctx) {
+  addConversionToPointer<PointerType, ScannerHandleType, ColumnHandleType,
+                         PrintChunkType, PrintHandleType, PipelineContextType,
+                         StringLiteralType, ByteArrayType, TupleBufferLocalType,
+                         TupleBufferType>();
+  addConversion([&](StructType t) -> mlir::Type {
+    llvm::SmallVector<mlir::Type> types;
+    if (mlir::failed(convertTypes(t.getFieldTypes(), types))) {
+      return nullptr;
+    }
+
+    return mlir::LLVM::LLVMStructType::getLiteral(t.getContext(), types);
+  });
+}
 
 static mlir::Value getOrCreateGlobalString(mlir::Location loc,
                                            mlir::OpBuilder &builder,
@@ -100,7 +112,8 @@ static mlir::Value getOrCreateGlobalString(mlir::Location loc,
       global.getType(), globalPtr, llvm::ArrayRef<mlir::Value>({cst0, cst0}));
 }
 
-mlir::LogicalResult AllocStructOpLowering::matchAndRewrite(
+template <>
+mlir::LogicalResult OpLowering<AllocStructOp>::matchAndRewrite(
     AllocStructOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
   // get or insert malloc
@@ -141,7 +154,8 @@ mlir::LogicalResult AllocStructOpLowering::matchAndRewrite(
   return mlir::success();
 }
 
-mlir::LogicalResult GetStructElementOpLowering::matchAndRewrite(
+template <>
+mlir::LogicalResult OpLowering<GetStructElementOp>::matchAndRewrite(
     GetStructElementOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
   auto structType = op.getValue().getType().getPointee();
@@ -160,7 +174,8 @@ mlir::LogicalResult GetStructElementOpLowering::matchAndRewrite(
   return mlir::success();
 }
 
-mlir::LogicalResult ConstantStringOpLowering::matchAndRewrite(
+template <>
+mlir::LogicalResult OpLowering<ConstantStringOp>::matchAndRewrite(
     ConstantStringOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
   auto value = op.getValue();
@@ -258,15 +273,41 @@ static void pipelineMakeRef(PipelineLowOp op, std::size_t idx,
                             mlir::IRRewriter &rewriter) {
   auto globalOpenSym =
       moveToFunction(op.getGlobalOpen(), idx, "globalOpen", rewriter);
+  auto localOpenSym =
+      moveToFunction(op.getLocalOpen(), idx, "localOpen", rewriter);
   auto bodySym = moveToFunction(op.getBody(), idx, "body", rewriter);
+  auto localCloseSym =
+      moveToFunction(op.getLocalClose(), idx, "localClose", rewriter);
   auto globalCloseSym =
       moveToFunction(op.getGlobalClose(), idx, "globalClose", rewriter);
 
-  rewriter.replaceOpWithNewOp<PipelineRefOp>(op, globalOpenSym, bodySym,
-                                             globalCloseSym);
+  rewriter.replaceOpWithNewOp<PipelineRefOp>(
+      op, globalOpenSym, localOpenSym, bodySym, localCloseSym, globalCloseSym);
 }
 
-mlir::LogicalResult RuntimeCallOpLowering::matchAndRewrite(
+template <>
+mlir::LogicalResult OpLowering<GlobalReadOp>::matchAndRewrite(
+    GlobalReadOp op, OpAdaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  auto module = op->getParentOfType<mlir::ModuleOp>();
+  auto global = module.lookupSymbol<mlir::LLVM::GlobalOp>(op.getGlobalName());
+  if (!global) {
+    return op.emitOpError("global variable not found: ") << op.getGlobalName();
+  }
+
+  auto globalPtr =
+      rewriter.create<mlir::LLVM::AddressOfOp>(op.getLoc(), global);
+  auto resultType = typeConverter->convertType(op.getResult().getType());
+  if (!resultType) {
+    return op.emitOpError("cannot convert result type");
+  }
+
+  rewriter.replaceOpWithNewOp<mlir::LLVM::LoadOp>(op, resultType, globalPtr);
+  return mlir::success();
+}
+
+template <>
+mlir::LogicalResult OpLowering<RuntimeCallOp>::matchAndRewrite(
     RuntimeCallOp op, OpAdaptor adaptor,
     mlir::ConversionPatternRewriter &rewriter) const {
   llvm::SmallVector<mlir::Type> resultTypes;
@@ -308,43 +349,47 @@ mlir::LogicalResult RuntimeCallOpLowering::matchAndRewrite(
   return mlir::success();
 }
 
-void LowerToLLVM::runOnOperation() {
-  mlir::LLVMTypeConverter typeConverter(&getContext());
-  typeConverter.addConversion([](PointerType t) {
-    return mlir::LLVM::LLVMPointerType::get(t.getContext());
-  });
-  typeConverter.addConversion([](ScannerHandleType t) {
-    return mlir::LLVM::LLVMPointerType::get(t.getContext());
-  });
-  typeConverter.addConversion([](ColumnHandleType t) {
-    return mlir::LLVM::LLVMPointerType::get(t.getContext());
-  });
-  typeConverter.addConversion([](PrintChunkType t) {
-    return mlir::LLVM::LLVMPointerType::get(t.getContext());
-  });
-  typeConverter.addConversion([](PrintHandleType t) {
-    return mlir::LLVM::LLVMPointerType::get(t.getContext());
-  });
-  typeConverter.addConversion([](PipelineContextType t) {
-    return mlir::LLVM::LLVMPointerType::get(t.getContext());
-  });
-  typeConverter.addConversion([&](StructType t) -> mlir::Type {
-    llvm::SmallVector<mlir::Type> types;
-    if (mlir::failed(typeConverter.convertTypes(t.getFieldTypes(), types))) {
-      return nullptr;
-    }
+template <>
+mlir::LogicalResult OpLowering<GlobalOp>::matchAndRewrite(
+    GlobalOp op, OpAdaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  auto type = typeConverter->convertType(op.getGlobalType());
+  if (!type) {
+    return op.emitOpError("unsupported global type: ") << op.getGlobalType();
+  }
 
-    return mlir::LLVM::LLVMStructType::getLiteral(t.getContext(), types);
-  });
-  typeConverter.addConversion([](StringLiteralType t) -> mlir::Type {
-    return mlir::LLVM::LLVMPointerType::get(t.getContext());
-  });
-  typeConverter.addConversion([](ByteArrayType t) {
-    return mlir::LLVM::LLVMPointerType::get(t.getContext());
-  });
-  typeConverter.addConversion([](TupleBufferLocalType t) {
-    return mlir::LLVM::LLVMPointerType::get(t.getContext());
-  });
+  mlir::Attribute value;
+  if (llvm::isa<mlir::LLVM::LLVMPointerType>(type)) {
+    value = rewriter.getZeroAttr(type);
+  } else {
+    return op.emitOpError("no default value for global of type: ") << type;
+  }
+
+  rewriter.replaceOpWithNewOp<mlir::LLVM::GlobalOp>(
+      op, type,
+      /*isConstant=*/false, mlir::LLVM::Linkage::Internal, op.getName(), value);
+  return mlir::success();
+}
+
+template <>
+mlir::LogicalResult OpLowering<GetFieldPtrOp>::matchAndRewrite(
+    GetFieldPtrOp op, OpAdaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  auto resultType = rewriter.getType<mlir::LLVM::LLVMPointerType>();
+  auto structType = llvm::cast<StructType>(op.getBase().getType().getPointee());
+  auto llvmStructType = typeConverter->convertType(structType);
+  if (!llvmStructType) {
+    return op.emitOpError("cannot convert struct type: ") << structType;
+  }
+
+  mlir::LLVM::GEPArg indices[] = {mlir::LLVM::GEPArg(op.getField())};
+  rewriter.replaceOpWithNewOp<mlir::LLVM::GEPOp>(op, resultType, llvmStructType,
+                                                 adaptor.getBase(), indices);
+  return mlir::success();
+}
+
+void LowerToLLVM::runOnOperation() {
+  TypeConverter typeConverter(&getContext());
 
   // Find called runtime functions
   llvm::DenseMap<mlir::StringAttr, mlir::FunctionType> called;
@@ -384,13 +429,17 @@ void LowerToLLVM::runOnOperation() {
   mlir::populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
   mlir::cf::populateControlFlowToLLVMConversionPatterns(typeConverter,
                                                         patterns);
-  patterns.add<AllocStructOpLowering, GetStructElementOpLowering,
-               ConstantStringOpLowering, RuntimeCallOpLowering>(typeConverter);
+  patterns.add<OpLowering<AllocStructOp>, OpLowering<GetStructElementOp>,
+               OpLowering<ConstantStringOp>, OpLowering<RuntimeCallOp>,
+               OpLowering<GlobalOp>, OpLowering<GlobalReadOp>,
+               OpLowering<GetFieldPtrOp>>(typeConverter);
 
   if (failed(
           applyFullConversion(getOperation(), target, std::move(patterns)))) {
     return signalPassFailure();
   }
+
+  getOperation()->dump();
 }
 
 } // namespace columnar

@@ -355,6 +355,42 @@ mlir::OpFoldResult CastOp::fold(FoldAdaptor adaptor) {
   return nullptr;
 }
 
+TupleBufferType HashJoinCollectOp::getBufferType() {
+  auto module = getOperation()->getParentOfType<mlir::ModuleOp>();
+  auto globalOp = llvm::cast<GlobalOp>(module.lookupSymbol(getBuffer()));
+
+  return llvm::dyn_cast<TupleBufferType>(globalOp.getGlobalType());
+}
+
+mlir::LogicalResult
+HashJoinCollectOp::verifySymbolUses(mlir::SymbolTableCollection &symbolTable) {
+  auto module = getOperation()->getParentOfType<mlir::ModuleOp>();
+  if (!module) {
+    return emitOpError("must be inside a module");
+  }
+
+  auto globalSymbol =
+      symbolTable.lookupNearestSymbolFrom(module, getBufferAttr());
+  if (!globalSymbol) {
+    return emitOpError("undefined buffer symbol: ") << getBuffer();
+  }
+
+  auto globalOp = llvm::dyn_cast<GlobalOp>(globalSymbol);
+  if (!globalOp) {
+    return emitOpError("symbol '") << getBuffer() << "' is not a global";
+  }
+
+  auto bufferType = llvm::dyn_cast<TupleBufferType>(globalOp.getGlobalType());
+  if (!bufferType) {
+    return emitOpError("global '")
+           << getBuffer() << "' is not a " << TupleBufferType::getMnemonic();
+  }
+
+  // TODO: Verify buffer struct type
+
+  return mlir::success();
+}
+
 mlir::LogicalResult HashJoinProbeOp::inferReturnTypes(
     mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
     Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
@@ -378,6 +414,26 @@ mlir::LogicalResult SelAddOp::inferReturnTypes(
 }
 
 mlir::OpFoldResult SelTableOp::fold(FoldAdaptor adaptor) { return getTable(); }
+
+mlir::LogicalResult
+GlobalReadOp::verifySymbolUses(mlir::SymbolTableCollection &symbolTable) {
+  auto module = getOperation()->getParentOfType<mlir::ModuleOp>();
+  if (!module) {
+    return emitOpError("must be inside a module");
+  }
+
+  auto globalSymbol =
+      symbolTable.lookupNearestSymbolFrom(module, getGlobalNameAttr());
+  if (!globalSymbol) {
+    return emitOpError("undefined global symbol: ") << getGlobalName();
+  }
+
+  if (!llvm::isa<GlobalOp>(globalSymbol)) {
+    return emitOpError("symbol '") << getGlobalName() << "' is not a global";
+  }
+
+  return mlir::success();
+}
 
 mlir::LogicalResult TupleBufferInsertOp::inferReturnTypes(
     mlir::MLIRContext *ctx, std::optional<mlir::Location> location,

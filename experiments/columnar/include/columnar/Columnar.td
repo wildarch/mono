@@ -9,6 +9,7 @@ include "mlir/IR/BuiltinTypeInterfaces.td"
 include "mlir/IR/DialectBase.td"
 include "mlir/IR/EnumAttr.td"
 include "mlir/IR/OpBase.td"
+include "mlir/IR/SymbolInterfaces.td"
 include "mlir/IR/Traits.td"
 include "mlir/Pass/PassBase.td"
 
@@ -729,13 +730,13 @@ def SubQueryOp : Columnar_Op<"sub_query", [Pure, IsolatedFromAbove]> {
 
 def GlobalState : AnyTypeOf<[TupleBuffer, HashTable]>;
 
-def GlobalOp : Columnar_Op<"global", [Pure]> {
+def GlobalOp : Columnar_Op<"global", [Symbol]> {
     let summary = "Declare shared state accessible from multiple operators";
 
-    let results = (outs GlobalState:$result);
+    let arguments = (ins SymbolNameAttr:$sym_name, TypeAttr:$globalType);
 
     let assemblyFormat = [{
-        type($result) attr-dict
+        $sym_name $globalType attr-dict
     }];
 }
 
@@ -744,7 +745,8 @@ def HashJoinCollectOp : Columnar_Op<"hj.collect", [
         AttrSizedOperandSegments,
         DeclareOpInterfaceMethods<
             LowerPipelineOpInterface,
-            ["lowerLocalOpen", "lowerLocalClose"]>]> {
+            ["lowerLocalOpen", "lowerLocalClose"]>,
+        DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
     let summary = "Writes tuples into a buffer";
     // TODO: selection vectors
     let arguments = (ins
@@ -752,19 +754,23 @@ def HashJoinCollectOp : Columnar_Op<"hj.collect", [
         Variadic<ColumnOf<Select>>:$keySel,
         Variadic<Column>:$values,
         Variadic<ColumnOf<Select>>:$valueSel,
-        TupleBuffer:$buffer);
+        FlatSymbolRefAttr:$buffer);
 
     let assemblyFormat = [{
         `keys` `` `=` `` `[` $keys `]` `:` type($keys)
         `key_sel` `` `=` `` `[` $keySel `]`
         `values` `` `=` `` `[` $values `]` `:` type($values)
         `value_sel` `` `=` `` `[` $valueSel `]`
-        `->` $buffer `:` type($buffer)
+        `->` $buffer
         attr-dict
     }];
 
     // TODO: verify types
     // TODO: verify buffer has hash field
+
+    let extraClassDeclaration = [{
+        TupleBufferType getBufferType();
+    }];
 }
 
 def HashJoinBuildOp : Columnar_Op<"hj.build", [Pure]> {
@@ -924,6 +930,18 @@ def PipelineLowYieldOp : Columnar_Op<"pipeline_low.yield", [
 
     let assemblyFormat = [{
         ($values^ `:` type($values))? attr-dict
+    }];
+}
+
+def GlobalReadOp : Columnar_Op<"global.read", [
+        Pure,
+        DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+    let arguments = (ins FlatSymbolRefAttr:$globalName);
+
+    let results = (outs GlobalState:$result);
+
+    let assemblyFormat = [{
+        $globalName `->` type($result) attr-dict
     }];
 }
 
@@ -1089,12 +1107,16 @@ def GetStructElementOp : Columnar_Op<"struct.get", [Pure, InferTypeOpAdaptor]> {
 def PipelineRefOp : Columnar_Op<"pipeline_ref", [IsolatedFromAbove]> {
     let arguments = (ins
         OptionalAttr<SymbolRefAttr>:$globalOpen,
+        OptionalAttr<SymbolRefAttr>:$localOpen,
         SymbolRefAttr:$body,
+        OptionalAttr<SymbolRefAttr>:$localClose,
         OptionalAttr<SymbolRefAttr>:$globalClose);
 
     let assemblyFormat = [{
         (`global_open` $globalOpen^)?
+        (`local_open` $localOpen^)?
         `body` $body
+        (`local_close` $localClose^)?
         (`global_close` $globalClose^)?
         attr-dict
     }];

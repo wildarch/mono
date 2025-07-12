@@ -2,6 +2,7 @@
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallVector.h>
 #include <mlir/Dialect/Arith/IR/Arith.h>
+#include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <mlir/Dialect/Linalg/IR/Linalg.h>
 #include <mlir/Dialect/MemRef/IR/MemRef.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
@@ -205,9 +206,10 @@ mlir::LogicalResult HashJoinCollectOp::lowerLocalOpen(
   auto partsOp = builder.create<mlir::arith::ConstantOp>(
       getLoc(), builder.getI32Type(),
       builder.getI32IntegerAttr(HASH_JOIN_PARTITIONS));
+
   // The state type
   auto localType = builder.getType<TupleBufferLocalType>(
-      getBuffer().getType().getTupleType(), HASH_JOIN_PARTITIONS);
+      getBufferType().getTupleType(), HASH_JOIN_PARTITIONS);
   auto allocOp = builder.create<RuntimeCallOp>(
       getLoc(), mlir::TypeRange{localType},
       builder.getStringAttr("col_tuple_buffer_local_alloc"),
@@ -220,7 +222,13 @@ mlir::LogicalResult
 HashJoinCollectOp::lowerLocalClose(mlir::OpBuilder &builder,
                                    mlir::ValueRange globals,
                                    mlir::ValueRange locals) {
-  // TODO: Free
+  // Merge local buffer to global one.
+  auto localBuffer = locals[0];
+  auto globalBuffer =
+      builder.create<GlobalReadOp>(getLoc(), getBufferType(), getBuffer());
+  builder.create<RuntimeCallOp>(getLoc(), mlir::TypeRange{},
+                                builder.getStringAttr("col_tuple_buffer_merge"),
+                                mlir::ValueRange{globalBuffer, localBuffer});
   return mlir::success();
 }
 
@@ -263,7 +271,7 @@ mlir::LogicalResult HashJoinCollectOp::lowerBody(LowerBodyCtx &ctx,
   llvm::append_range(columnValues, adaptor.getKeys());
   llvm::append_range(columnValues, adaptor.getValues());
   assert(columnSel.size() == columnValues.size());
-  auto structType = getBuffer().getType().getTupleType();
+  auto structType = getBufferType().getTupleType();
   for (auto [f, sel, val] : llvm::enumerate(columnSel, columnValues)) {
     // First field contains the hash.
     auto field = f + 1;

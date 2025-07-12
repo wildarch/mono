@@ -4,8 +4,8 @@
 #column_region_r_name = #columnar.table_col<#table_region 1 "r_name" : !columnar.str[!columnar.byte_array]>
 #column_region_r_regionkey = #columnar.table_col<#table_region 0 "r_regionkey" : si32[i32]>
 
-!buf = !columnar.tuple_buffer<<i64, si32, !columnar.str>>
-%buf = columnar.global !buf
+!buf = !columnar.tuple_buffer<<i64, i32, !columnar.byte_array>>
+columnar.global @buf !buf
 
 columnar.pipeline {
   %sel, %r_regionkey, %r_name = columnar.read_table #table_region [
@@ -30,5 +30,5 @@ columnar.pipeline {
     key_sel=[%sel]
     values=[%r_name] : !columnar.col<!columnar.str>
     value_sel=[%sel]
-    -> %buf : !buf
+    -> @buf
 }
