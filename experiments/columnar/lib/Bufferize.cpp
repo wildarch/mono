@@ -226,7 +226,7 @@ mlir::LogicalResult TupleBufferInsertOp::bufferize(
 
   // Call the runtime function.
   rewriter.create<RuntimeCallOp>(getLoc(), mlir::TypeRange{},
-                                 "col_tuple_buffer_insert", callArgs);
+                                 "col_tuple_buffer_local_insert", callArgs);
   mlir::bufferization::replaceOpWithBufferizedValues(rewriter, *this,
                                                      mlir::ValueRange{buffer});
   return mlir::success();
@@ -289,6 +289,10 @@ ScatterOp::bufferize(mlir::RewriterBase &rewriter,
   }
 
   llvm::SmallVector<mlir::Value> callArgs{*sel, *value, *dest};
+
+  if (isVariableLength(valueType.getElementType())) {
+    callArgs.emplace_back(getAllocator());
+  }
 
   // Call the runtime function
   auto nextOffset = rewriter.create<RuntimeCallOp>(

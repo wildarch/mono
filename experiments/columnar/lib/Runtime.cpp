@@ -15,6 +15,7 @@ using namespace columnar::runtime;
 // TODO: Implement
 class TupleBufferLocal;
 class TupleBufferGlobal;
+class Allocator;
 
 struct MemRef {
   void *alloc;
@@ -117,18 +118,22 @@ void col_hash_int64(MEMREF_PARAM(base), MEMREF_PARAM(sel), MEMREF_PARAM(value),
   llvm::errs() << "col_hash_int64\n";
 }
 
-void col_tuple_buffer_insert(void *buffer, MEMREF_PARAM(hashes),
-                             MEMREF_PARAM(result)) {
-  llvm::errs() << "col_tuple_buffer_insert\n";
-}
-
 void *col_tuple_buffer_local_alloc(std::int32_t size) {
   llvm::errs() << "col_tuple_buffer_local_alloc\n";
   return nullptr;
 }
 
+void col_tuple_buffer_local_get_allocator(void *buffer, void *allocator) {
+  llvm::errs() << "col_tuple_buffer_local_get_allocator\n";
+}
+
+void col_tuple_buffer_local_insert(void *buffer, MEMREF_PARAM(hashes),
+                                   MEMREF_PARAM(result)) {
+  llvm::errs() << "col_tuple_buffer_local_insert\n";
+}
+
 void col_scatter_byte_array(MEMREF_PARAM(sel), MEMREF_PARAM(value),
-                            MEMREF_PARAM(dest)) {
+                            MEMREF_PARAM(dest), Allocator *allocator) {
   llvm::errs() << "col_scatter_byte_array\n";
 }
 
@@ -176,8 +181,9 @@ llvm::orc::SymbolMap registerRuntimeSymbols(llvm::orc::MangleAndInterner mai) {
   REGISTER(col_print_chunk_append_int32);
   REGISTER(col_print_chunk_append_string);
   REGISTER(col_hash_int64);
-  REGISTER(col_tuple_buffer_insert);
   REGISTER(col_tuple_buffer_local_alloc);
+  REGISTER(col_tuple_buffer_local_get_allocator);
+  REGISTER(col_tuple_buffer_local_insert);
   REGISTER(col_scatter_byte_array);
   REGISTER(col_scatter_int32);
   REGISTER(col_tuple_buffer_merge);

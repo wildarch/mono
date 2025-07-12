@@ -72,7 +72,7 @@ TypeConverter::TypeConverter(mlir::MLIRContext *ctx)
   addConversionToPointer<PointerType, ScannerHandleType, ColumnHandleType,
                          PrintChunkType, PrintHandleType, PipelineContextType,
                          StringLiteralType, ByteArrayType, TupleBufferLocalType,
-                         TupleBufferType>();
+                         TupleBufferType, AllocatorType>();
   addConversion([&](StructType t) -> mlir::Type {
     llvm::SmallVector<mlir::Type> types;
     if (mlir::failed(convertTypes(t.getFieldTypes(), types))) {

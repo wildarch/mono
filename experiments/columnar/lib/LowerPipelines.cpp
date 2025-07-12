@@ -263,6 +263,14 @@ mlir::LogicalResult HashJoinCollectOp::lowerBody(LowerBodyCtx &ctx,
   auto allocOp =
       builder.create<TupleBufferInsertOp>(getLoc(), localBuffer, hashOp);
 
+  auto allocator =
+      builder
+          .create<RuntimeCallOp>(
+              getLoc(), mlir::TypeRange{builder.getType<AllocatorType>()},
+              builder.getStringAttr("col_tuple_buffer_local_get_allocator"),
+              mlir::ValueRange{localBuffer})
+          ->getResult(0);
+
   // Scatter the columns.
   llvm::SmallVector<mlir::Value> columnSel;
   llvm::append_range(columnSel, adaptor.getKeySel());
@@ -287,7 +295,7 @@ mlir::LogicalResult HashJoinCollectOp::lowerBody(LowerBodyCtx &ctx,
           auto offset = builder.create<GetFieldPtrOp>(loc, ptr, field);
           builder.create<mlir::tensor::YieldOp>(loc, offset);
         });
-    builder.create<ScatterOp>(getLoc(), sel, val, genOp);
+    builder.create<ScatterOp>(getLoc(), sel, val, genOp, allocator);
   }
 
   return mlir::success();

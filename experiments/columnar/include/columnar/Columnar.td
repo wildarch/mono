@@ -170,6 +170,8 @@ def HashTable : Columnar_Type<"HashTable", "hash_table"> {
     }];
 }
 
+def Allocator : Columnar_Type<"Allocator", "allocator"> {}
+
 // Attributes
 def StringArray : ArrayOfAttr<
         Columnar_Dialect,
@@ -1073,10 +1075,12 @@ def ScatterOp : Columnar_Op<"scatter", [
     let arguments = (ins
         TensorColOf<Index>:$sel,
         TensorCol:$value,
-        TensorColOf<Ptr>:$dest);
+        TensorColOf<Ptr>:$dest,
+        Allocator:$allocator);
 
     let assemblyFormat = [{
         $value `[` $sel `]` `->` $dest `:` type($value) `->` type($dest)
+        `allocator` `` `=` `` $allocator
         attr-dict
     }];
 }
