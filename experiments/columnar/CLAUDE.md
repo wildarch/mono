@@ -9,3 +9,7 @@
   The `// RUN:` comments in test files show the commands to execute.
 - To run the full testsuite, run `cmake --build experiments/columnar/build --target check`.
   Do not run this unless explicitly asked.
+
+# MLIR Source Code
+If you need to use an MLIR API for which there are no examples in the code base, check the MLIR source code on how to use it.
+Available from @/opt/llvm-src/mlir.

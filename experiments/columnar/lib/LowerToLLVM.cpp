@@ -438,8 +438,6 @@ void LowerToLLVM::runOnOperation() {
           applyFullConversion(getOperation(), target, std::move(patterns)))) {
     return signalPassFailure();
   }
-
-  getOperation()->dump();
 }
 
 } // namespace columnar

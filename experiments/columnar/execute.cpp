@@ -81,12 +81,14 @@ static int runJit(mlir::ModuleOp module) {
   // Bind runtime functions
   engine->registerSymbols(columnar::registerRuntimeSymbols);
 
+  using GlobalOpenFunc = void *();
+  using LocalOpenFunc = void *(void *);
+  using BodyFunc = bool(columnar::runtime::PipelineContext *, void *, void *);
+  using LocalCloseFunc = void *(void *, void *);
+  using GlobalCloseFunc = void(void *);
+
   // Run pipelines to completion
   for (auto pipe : pipelines) {
-    using GlobalOpenFunc = void *();
-    using BodyFunc = bool(columnar::runtime::PipelineContext *, void *);
-    using GlobalCloseFunc = void(void *);
-
     // Initialize global state.
     void *globalState;
     if (auto func = pipe.getGlobalOpen()) {
@@ -101,6 +103,20 @@ static int runJit(mlir::ModuleOp module) {
       globalState = funcPtr();
     }
 
+    // Initialize local state.
+    void *localState;
+    if (auto func = pipe.getLocalOpen()) {
+      auto maybeFuncPtr = engine->lookup(func->getLeafReference());
+      if (auto err = maybeFuncPtr.takeError()) {
+        llvm::errs() << "Failed to lookup localOpen for pipeline: " << err
+                     << "\n";
+        return -1;
+      }
+
+      auto *funcPtr = ((LocalOpenFunc *)maybeFuncPtr.get());
+      localState = funcPtr(globalState);
+    }
+
     // Run body repeatedly.
     auto maybeBodyFunc = engine->lookup(pipe.getBody().getLeafReference());
     if (auto err = maybeBodyFunc.takeError()) {
@@ -112,7 +128,20 @@ static int runJit(mlir::ModuleOp module) {
     columnar::runtime::PipelineContext pipelineCtx;
     bool haveMore = true;
     while (haveMore) {
-      haveMore = bodyFunc(&pipelineCtx, globalState);
+      haveMore = bodyFunc(&pipelineCtx, globalState, localState);
+    }
+
+    // Free local state.
+    if (auto func = pipe.getLocalClose()) {
+      auto maybeFuncPtr = engine->lookup(func->getLeafReference());
+      if (auto err = maybeFuncPtr.takeError()) {
+        llvm::errs() << "Failed to lookup localClose for pipeline: " << err
+                     << "\n";
+        return -1;
+      }
+
+      auto *funcPtr = ((LocalCloseFunc *)maybeFuncPtr.get());
+      funcPtr(globalState, localState);
     }
 
     // Free global state.
