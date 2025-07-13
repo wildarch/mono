@@ -19,6 +19,7 @@ add_library(
     runtime/Print.cpp
     runtime/TableColumn.cpp
     runtime/TableScanner.cpp
+    runtime/TupleBuffer.cpp
     SQLParser.cpp
     ${PROTO_SRCS}
     ${PROTO_HDRS}

@@ -388,6 +388,51 @@ mlir::LogicalResult OpLowering<GetFieldPtrOp>::matchAndRewrite(
   return mlir::success();
 }
 
+template <>
+mlir::LogicalResult OpLowering<TypeSizeOp>::matchAndRewrite(
+    TypeSizeOp op, OpAdaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  auto type = typeConverter->convertType(op.getType());
+  if (!type) {
+    return op.emitOpError("cannot convert type: ") << type;
+  }
+
+  auto module = op->getParentOfType<mlir::ModuleOp>();
+  auto dataLayout = mlir::DataLayout(module);
+  auto typeSize = dataLayout.getTypeSize(type);
+  if (!typeSize.isFixed()) {
+    return op.emitOpError("type has variable size: ") << type;
+  }
+
+  auto constantOp = rewriter.create<mlir::LLVM::ConstantOp>(
+      op.getLoc(), rewriter.getI64Type(),
+      rewriter.getI64IntegerAttr(typeSize.getFixedValue()));
+
+  rewriter.replaceOp(op, constantOp);
+  return mlir::success();
+}
+
+template <>
+mlir::LogicalResult OpLowering<TypeAlignOp>::matchAndRewrite(
+    TypeAlignOp op, OpAdaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  auto type = typeConverter->convertType(op.getType());
+  if (!type) {
+    return op.emitOpError("cannot convert type: ") << type;
+  }
+
+  auto module = op->getParentOfType<mlir::ModuleOp>();
+  auto dataLayout = mlir::DataLayout(module);
+  auto typeAlign = dataLayout.getTypeABIAlignment(type);
+
+  auto constantOp = rewriter.create<mlir::LLVM::ConstantOp>(
+      op.getLoc(), rewriter.getI64Type(),
+      rewriter.getI64IntegerAttr(typeAlign));
+
+  rewriter.replaceOp(op, constantOp);
+  return mlir::success();
+}
+
 void LowerToLLVM::runOnOperation() {
   TypeConverter typeConverter(&getContext());
 
@@ -432,7 +477,8 @@ void LowerToLLVM::runOnOperation() {
   patterns.add<OpLowering<AllocStructOp>, OpLowering<GetStructElementOp>,
                OpLowering<ConstantStringOp>, OpLowering<RuntimeCallOp>,
                OpLowering<GlobalOp>, OpLowering<GlobalReadOp>,
-               OpLowering<GetFieldPtrOp>>(typeConverter);
+               OpLowering<GetFieldPtrOp>, OpLowering<TypeSizeOp>,
+               OpLowering<TypeAlignOp>>(typeConverter);
 
   if (failed(
           applyFullConversion(getOperation(), target, std::move(patterns)))) {

@@ -3,6 +3,10 @@
 - When changing rewrite rules or passes, only build the `columnar-opt` target.
 - When changing SQL parsing logic, build `translate`
 - When changing the runtime (used to execute the lowered queries), build `execute`
+- NEVER change directories to run a build
+- NEVER use `ninja` or `make`.
+
+Example: `cmake --build experiments/columnar/build --target columnar-opt`.
 
 # Testing
 - Prefer to run tests on individual files.

@@ -7,13 +7,13 @@
 #include "columnar/runtime/Print.h"
 #include "columnar/runtime/TableColumn.h"
 #include "columnar/runtime/TableScanner.h"
+#include "columnar/runtime/TupleBuffer.h"
 
 namespace {
 
 using namespace columnar::runtime;
 
 // TODO: Implement
-class TupleBufferLocal;
 class TupleBufferGlobal;
 class Allocator;
 
@@ -118,9 +118,9 @@ void col_hash_int64(MEMREF_PARAM(base), MEMREF_PARAM(sel), MEMREF_PARAM(value),
   llvm::errs() << "col_hash_int64\n";
 }
 
-void *col_tuple_buffer_local_alloc(std::int32_t size) {
-  llvm::errs() << "col_tuple_buffer_local_alloc\n";
-  return nullptr;
+void *col_tuple_buffer_local_alloc(std::uint64_t tupleSize,
+                                   std::uint64_t tupleAlignment) {
+  return new TupleBufferLocal(tupleSize, tupleAlignment);
 }
 
 void col_tuple_buffer_local_get_allocator(void *buffer, void *allocator) {

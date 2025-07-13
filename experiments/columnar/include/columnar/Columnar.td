@@ -150,11 +150,10 @@ def TupleBufferLocal : Columnar_Type<"TupleBufferLocal", "tuple_buffer.local"> {
     let summary = "Thread-local tuple buffer";
 
     let parameters = (ins
-        Struct:$tupleType,
-        "std::uint64_t":$numPartitions);
+        Struct:$tupleType);
 
     let assemblyFormat = [{
-        `<` $tupleType  `parts` `` `=` `` $numPartitions `>`
+        `<` $tupleType `>`
     }];
 }
 
@@ -1063,6 +1062,26 @@ def GetFieldPtrOp : Columnar_Op<"gfp", [Pure, InferTypeOpAdaptor]> {
 
     let assemblyFormat = [{
         $base $field `:` type($base) attr-dict
+    }];
+}
+
+def TypeSizeOp : Columnar_Op<"type.size", [Pure]> {
+    let arguments = (ins TypeAttr:$type);
+
+    let results = (outs I64:$result);
+
+    let assemblyFormat = [{
+        $type attr-dict
+    }];
+}
+
+def TypeAlignOp : Columnar_Op<"type.align", [Pure]> {
+    let arguments = (ins TypeAttr:$type);
+
+    let results = (outs I64:$result);
+
+    let assemblyFormat = [{
+        $type attr-dict
     }];
 }
 

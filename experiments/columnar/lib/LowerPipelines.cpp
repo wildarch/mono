@@ -196,24 +196,21 @@ mlir::LogicalResult QueryOutputOp::lowerBody(LowerBodyCtx &ctx,
 }
 
 // HashJoinCollectOp
-static constexpr std::uint32_t HASH_JOIN_PARTITIONS = 16;
 static constexpr std::uint32_t HASH_SEED = 0;
 
 mlir::LogicalResult HashJoinCollectOp::lowerLocalOpen(
     mlir::OpBuilder &builder, mlir::ValueRange globals,
     llvm::SmallVectorImpl<mlir::Value> &newLocals) {
-  // How many partitions to allocate
-  auto partsOp = builder.create<mlir::arith::ConstantOp>(
-      getLoc(), builder.getI32Type(),
-      builder.getI32IntegerAttr(HASH_JOIN_PARTITIONS));
+  auto tupleType = getBufferType().getTupleType();
+  auto sizeOp = builder.create<TypeSizeOp>(getLoc(), tupleType);
+  auto alignOp = builder.create<TypeAlignOp>(getLoc(), tupleType);
 
   // The state type
-  auto localType = builder.getType<TupleBufferLocalType>(
-      getBufferType().getTupleType(), HASH_JOIN_PARTITIONS);
+  auto localType = builder.getType<TupleBufferLocalType>(tupleType);
   auto allocOp = builder.create<RuntimeCallOp>(
       getLoc(), mlir::TypeRange{localType},
       builder.getStringAttr("col_tuple_buffer_local_alloc"),
-      mlir::ValueRange{partsOp});
+      mlir::ValueRange{sizeOp, alignOp});
   newLocals.push_back(allocOp->getResult(0));
   return mlir::success();
 }
