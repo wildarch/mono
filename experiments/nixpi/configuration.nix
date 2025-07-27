@@ -15,21 +15,13 @@
   # Enables the generation of /boot/extlinux/extlinux.conf
   boot.loader.generic-extlinux-compatible.enable = true;
 
-  networking.hostName = "speaker"; # Define your hostname.
+  networking.hostName = "speaker";
 
   # Configure network connections interactively with nmcli or nmtui.
   networking.networkmanager.enable = true;
 
   # Set your time zone.
   time.timeZone = "Europe/Amsterdam";
-
-  # Select internationalisation properties.
-  # i18n.defaultLocale = "en_US.UTF-8";
-  # console = {
-  #   font = "Lat2-Terminus16";
-  #   keyMap = "us";
-  #   useXkbConfig = true; # use xkb.options in tty.
-  # };
 
   # Enable Broadcom Audio driver
   boot.kernelParams = [ "snd_bcm2835.enable_hdmi=1" "snd_bcm2835.enable_headphones=1" ];
@@ -40,17 +32,13 @@
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.daan = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "audio" ]; # Enable ‘sudo’ for the user.
-    packages = with pkgs; [
-      tree
-    ];
+    extraGroups = [ "wheel" "audio" ]; # Group wheel enables sudo
   };
 
   # List packages installed in system profile.
-  # You can use https://search.nixos.org/ to find more packages (and options).
   environment.systemPackages = with pkgs; [
-    vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-    librespot
+    vim
+    spotifyd
     tmux
   ];
 
@@ -59,36 +47,26 @@
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
 
-  # Librespot
-  systemd.services.librespot = {
-     # this service is "wanted by" (see systemd man pages, or other tutorials) the system
-     # level that allows multiple users to login and interact with the machine non-graphically
-     # (see the Red Hat tutorial or Arch Linux Wiki for more information on what each target means)
-     # this is the "node" in the systemd dependency graph that will run the service
+  # Spotifyd
+  systemd.services.spotifyd = {
      wantedBy = [ "multi-user.target" ];
-     # systemd service unit declarations involve specifying dependencies and order of execution
-     # of systemd nodes; here we are saying that we want our service to start after the network has
-     # set up (as our IRC client needs to relay over the network)
      wants = [ "network-online.target" ];
      after = [ "network-online.target" "audio.target" ];
-     description = "Start the Librespot daemon.";
+     description = "A spotify playing daemon";
      serviceConfig = {
        Type = "simple";
        SupplementaryGroups = "audio";
-       ExecStart = ''${pkgs.librespot}/bin/librespot -n "Songs for the Elderly" -B alsa -d 'default:CARD=Headphones' '';
+       ExecStart = ''${pkgs.spotifyd}/bin/spotifyd --no-daemon -d "Songs for the Elderly" --backend alsa --device 'default:CARD=Headphones' --use-mpris=false '';
+       Restart="always";
+       RestartSec=12;
      };
   };
 
-  # Open ports in the firewall.
+  # Disable the firewall.
+  # TODO: Re-enable but allow the necessary ports
+  networking.firewall.enable = false;
   # networking.firewall.allowedTCPPorts = [ ... ];
   # networking.firewall.allowedUDPPorts = [ ... ];
-  # Or disable the firewall altogether.
-  networking.firewall.enable = false;
-
-  # Copy the NixOS configuration file and link it from the resulting system
-  # (/run/current-system/configuration.nix). This is useful in case you
-  # accidentally delete configuration.nix.
-  # system.copySystemConfiguration = true;
 
   # This option defines the first version of NixOS you have installed on this particular machine,
   # and is used to maintain compatibility with application data (e.g. databases) created on older NixOS versions.
