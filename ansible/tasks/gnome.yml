@@ -1,14 +1,4 @@
 ---
-- name: Disable auto suspend on ac
-  community.general.dconf:
-    key: "/org/gnome/settings-daemon/plugins/power/sleep-inactive-ac-type"
-    value: "'nothing'"
-  
-- name: Disable auto suspend on battery
-  community.general.dconf:
-    key: "/org/gnome/settings-daemon/plugins/power/sleep-inactive-battery-type"
-    value: "'nothing'"
-  
 - name: Use F1 for Volume mute
   community.general.dconf:
     key: "/org/gnome/settings-daemon/plugins/media-keys/volume-mute"
@@ -28,7 +18,7 @@
   community.general.dconf:
     key: "/org/gnome/settings-daemon/plugins/power/ambient-enabled"
     value: "false"
-  
+
 - name: Set favourite apps
   community.general.dconf:
     key: "/org/gnome/shell/favorite-apps"

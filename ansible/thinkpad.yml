@@ -1,0 +1,62 @@
+---
+- name: Setup Thinkpad laptop
+  hosts: local
+  roles:
+  - role: gantsign.visual-studio-code
+    users:
+      - username: daan
+        visual_studio_code_extensions:
+          - vscodevim.vim
+          - james-yu.latex-workshop
+          - valentjn.vscode-ltex
+          - llvm-vs-code-extensions.vscode-clangd
+        visual_studio_code_settings: {
+          "workbench.startupEditor": "none",
+          "extensions.ignoreRecommendations": true,
+        }
+  - role: geerlingguy.docker
+    become: true
+    docker_install_compose: false
+    docker_users:
+    - daan
+
+  tasks:
+  # TODO: DisplayLink apt repository
+  - include_tasks: tasks/google-chrome.yml
+  - include_tasks: tasks/zotero.yml
+  - include_tasks: tasks/zoom.yml
+  - include_tasks: tasks/spotify.yml
+  - name: Install APT Packages
+    become: true
+    apt:
+      update_cache: true
+      cache_valid_time: 3600
+      pkg:
+      - rclone
+      - google-chrome-stable
+      - spotify-client
+      - build-essential
+      - default-jdk
+      - git
+      - vim-gtk3
+      - gimp
+      - inkscape
+      - python3-psutil # Allows Ansible to set keyboard shortcuts
+      - sshpass # To use ask-ssh-pass with Ansible
+      - bash-completion # Enable bash completion
+      - zotero
+      # Latex related
+      - latexmk
+      - texlive-latex-recommended
+      - texlive-fonts-recommended
+      - texlive-science
+      - texlive-extra-utils
+      # End Latex related
+
+  - name: Use Vim as editor
+    become: true
+    community.general.alternatives:
+      name: editor
+      path: /usr/bin/vim.gtk3
+
+  - include_tasks: tasks/gnome.yml

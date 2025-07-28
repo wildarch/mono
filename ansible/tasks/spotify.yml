@@ -1,0 +1,16 @@
+---
+# Adds the Spotify APT key and the Spotify APT repository
+#
+# After this the spotify package may be installed using apt
+- name: Add Spotify APT key
+  become: true
+  apt_key:
+    url: https://download.spotify.com/debian/pubkey_C85668DF69375001.gpg
+    state: present
+
+- name: Add Spotify APT repository
+  become: true
+  apt_repository:
+    repo: deb https://repository.spotify.com stable non-free
+    state: present
+    filename: spotify
