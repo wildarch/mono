@@ -2,18 +2,19 @@
 - name: Setup Thinkpad laptop
   hosts: local
   roles:
-  - role: gantsign.visual-studio-code
-    users:
-      - username: daan
-        visual_studio_code_extensions:
-          - vscodevim.vim
-          - james-yu.latex-workshop
-          - valentjn.vscode-ltex
-          - llvm-vs-code-extensions.vscode-clangd
-        visual_studio_code_settings: {
-          "workbench.startupEditor": "none",
-          "extensions.ignoreRecommendations": true,
-        }
+  # NOTE: Has a bug
+  # - role: gantsign.visual-studio-code
+  #   users:
+  #     - username: daan
+  #       visual_studio_code_extensions:
+  #         - vscodevim.vim
+  #         - james-yu.latex-workshop
+  #         - valentjn.vscode-ltex
+  #         - llvm-vs-code-extensions.vscode-clangd
+  #       visual_studio_code_settings: {
+  #         "workbench.startupEditor": "none",
+  #         "extensions.ignoreRecommendations": true,
+  #       }
   - role: geerlingguy.docker
     become: true
     docker_install_compose: false
@@ -23,7 +24,8 @@
   tasks:
   # TODO: DisplayLink apt repository
   - include_tasks: tasks/google-chrome.yml
-  - include_tasks: tasks/zotero.yml
+  # NOTE: Fails
+  # - include_tasks: tasks/zotero.yml
   - include_tasks: tasks/zoom.yml
   - include_tasks: tasks/spotify.yml
   - name: Install APT Packages
@@ -44,7 +46,7 @@
       - python3-psutil # Allows Ansible to set keyboard shortcuts
       - sshpass # To use ask-ssh-pass with Ansible
       - bash-completion # Enable bash completion
-      - zotero
+      # - zotero TODO re-enable
       # Latex related
       - latexmk
       - texlive-latex-recommended
