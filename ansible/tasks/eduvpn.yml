@@ -1,0 +1,22 @@
+---
+- name: Download EduVPN GPG key
+  ansible.builtin.get_url:
+    url: https://app.eduvpn.org/linux/v4/deb/app+linux@eduvpn.org.asc
+    dest: /tmp/eduvpn-key.asc
+
+- name: Convert and install EduVPN GPG key
+  become: true
+  ansible.builtin.shell: |
+    gpg --dearmor < /tmp/eduvpn-key.asc > /usr/share/keyrings/eduvpn-v4.gpg
+
+- name: Clean up temporary key file
+  ansible.builtin.file:
+    path: /tmp/eduvpn-key.asc
+    state: absent
+
+- name: Add EduVPN repository
+  become: true
+  ansible.builtin.copy:
+    content: |
+      deb [arch=amd64 signed-by=/usr/share/keyrings/eduvpn-v4.gpg] https://app.eduvpn.org/linux/v4/deb/ noble main
+    dest: /etc/apt/sources.list.d/eduvpn-v4.list

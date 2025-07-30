@@ -1,0 +1,37 @@
+- name: Set debconf to install the Microsoft repo
+  become: true
+  ansible.builtin.debconf:
+    name: code
+    question: code/add-microsoft-repo
+    value: 'true'
+    vtype: boolean
+
+- name: Install VS Code
+  become: true
+  apt:
+    deb: https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
+
+- name: Install VS Code extensions
+  ansible.builtin.command:
+    argv:
+    - code
+    - --force
+    - --install-extension
+    - vscodevim.vim
+    - --install-extension
+    - james-yu.latex-workshop
+    - --install-extension
+    - valentjn.vscode-ltex
+    - --install-extension
+    - llvm-vs-code-extensions.vscode-clangd
+    - --install-extension
+    - ms-vscode-remote.remote-containers
+
+- name: Create VS Code user settings
+  ansible.builtin.copy:
+    content: |
+      {
+          "extensions.ignoreRecommendations": true,
+          "workbench.startupEditor": "none"
+      }
+    dest: /home/daan/.config/Code/User/settings.json

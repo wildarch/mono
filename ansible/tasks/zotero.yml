@@ -1,13 +1,29 @@
 ---
-- name: Add Zotero APT key
+- name: Download Zotero GPG key
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/retorquere/zotero-deb/master/zotero-archive-keyring.asc
+    dest: /tmp/zotero-archive-keyring.asc
+
+- name: Create Zotero sources file with formatted GPG key
   become: true
-  apt_key:
-    url: https://raw.githubusercontent.com/retorquere/zotero-deb/master/zotero-archive-keyring.gpg 
-    state: present
-  
-- name: Add Zotero APT repository 
+  ansible.builtin.shell: |
+    # Format GPG key exactly like the original install script
+    GPGKEY=$(cat /tmp/zotero-archive-keyring.asc | sed 's/^$/./' | sed 's/^/ /')
+    
+    cat << EOF > /etc/apt/sources.list.d/zotero.sources
+    Types: deb
+    URIs: https://zotero.retorque.re/file/apt-package-archive
+    Suites: ./
+    By-Hash: force
+    Signed-By:$GPGKEY
+    EOF
+
+- name: Clean up temporary GPG key file
+  ansible.builtin.file:
+    path: /tmp/zotero-archive-keyring.asc
+    state: absent
+
+- name: Clean apt cache
   become: true
-  apt_repository:
-    repo: deb [signed-by=/usr/share/keyrings/zotero-archive-keyring.gpg by-hash=force] https://zotero.retorque.re/file/apt-package-archive ./
-    state: present
-    filename: zotero 
+  ansible.builtin.apt:
+    clean: true 

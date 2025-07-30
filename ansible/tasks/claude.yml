@@ -1,0 +1,26 @@
+- name: Install npm
+  become: true
+  ansible.builtin.apt:
+    name: npm
+    install_recommends: false
+
+- name: Create ~/.local directory
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.local"
+    state: directory
+
+- name: Set npm prefix to ~/.local
+  ansible.builtin.command:
+    cmd: npm config set prefix {{ ansible_env.HOME }}/.local
+
+- name: Add ~/.local/bin to PATH in .bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    line: 'export PATH=$HOME/.local/bin:$PATH'
+    create: true
+
+- name: Install Claude Code globally
+  ansible.builtin.npm:
+    name: "@anthropic-ai/claude-code"
+    global: true
+    path: "{{ ansible_env.HOME }}/.local/bin"

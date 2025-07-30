@@ -1,0 +1,4 @@
+- name: Install Synaptics repository keyring
+  become: true
+  ansible.builtin.apt:
+    deb: https://www.synaptics.com/sites/default/files/Ubuntu/pool/stable/main/all/synaptics-repository-keyring.deb

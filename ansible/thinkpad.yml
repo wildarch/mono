@@ -2,19 +2,6 @@
 - name: Setup Thinkpad laptop
   hosts: local
   roles:
-  # NOTE: Has a bug
-  # - role: gantsign.visual-studio-code
-  #   users:
-  #     - username: daan
-  #       visual_studio_code_extensions:
-  #         - vscodevim.vim
-  #         - james-yu.latex-workshop
-  #         - valentjn.vscode-ltex
-  #         - llvm-vs-code-extensions.vscode-clangd
-  #       visual_studio_code_settings: {
-  #         "workbench.startupEditor": "none",
-  #         "extensions.ignoreRecommendations": true,
-  #       }
   - role: geerlingguy.docker
     become: true
     docker_install_compose: false
@@ -22,10 +9,12 @@
     - daan
 
   tasks:
-  # TODO: DisplayLink apt repository
+  - include_tasks: tasks/eduvpn.yml
+  - include_tasks: tasks/zotero.yml
+  - include_tasks: tasks/display-link.yml
+  - include_tasks: tasks/claude.yml
+  - include_tasks: tasks/vscode.yml
   - include_tasks: tasks/google-chrome.yml
-  # NOTE: Fails
-  # - include_tasks: tasks/zotero.yml
   - include_tasks: tasks/zoom.yml
   - include_tasks: tasks/spotify.yml
   - name: Install APT Packages
@@ -46,7 +35,7 @@
       - python3-psutil # Allows Ansible to set keyboard shortcuts
       - sshpass # To use ask-ssh-pass with Ansible
       - bash-completion # Enable bash completion
-      # - zotero TODO re-enable
+      - zotero
       # Latex related
       - latexmk
       - texlive-latex-recommended
@@ -54,6 +43,10 @@
       - texlive-science
       - texlive-extra-utils
       # End Latex related
+      - ubuntu-restricted-extras # For MP3 support
+      - totem # Media player
+      - eduvpn-client
+      - displaylink-driver
 
   - name: Use Vim as editor
     become: true
