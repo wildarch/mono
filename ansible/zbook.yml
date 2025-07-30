@@ -2,19 +2,6 @@
 - name: Setup ZBook laptop
   hosts: local
   roles:
-  - role: gantsign.visual-studio-code
-    users:
-      - username: daan
-        visual_studio_code_extensions:
-          - vscodevim.vim
-          - james-yu.latex-workshop
-          - valentjn.vscode-ltex
-          - llvm-vs-code-extensions.vscode-clangd
-          - mike-lischke.vscode-antlr4
-        visual_studio_code_settings: {
-          "workbench.startupEditor": "none",
-          "extensions.ignoreRecommendations": true,
-        }
   - role: geerlingguy.docker
     become: true
     docker_install_compose: false
@@ -22,10 +9,14 @@
     - daan
 
   tasks:
-  # TODO: DisplayLink apt repository
-  - include_tasks: tasks/google-chrome.yml
+  - include_tasks: tasks/eduvpn.yml
   - include_tasks: tasks/zotero.yml
+  - include_tasks: tasks/display-link.yml
+  - include_tasks: tasks/claude.yml
+  - include_tasks: tasks/vscode.yml
+  - include_tasks: tasks/google-chrome.yml
   - include_tasks: tasks/zoom.yml
+  - include_tasks: tasks/spotify.yml
   - name: Install APT Packages
     become: true
     apt:
@@ -34,6 +25,7 @@
       pkg:
       - rclone
       - google-chrome-stable
+      - spotify-client
       - build-essential
       - default-jdk
       - git
@@ -51,7 +43,10 @@
       - texlive-science
       - texlive-extra-utils
       # End Latex related
-      - sqlite3
+      - ubuntu-restricted-extras # For MP3 support
+      - totem # Media player
+      - eduvpn-client
+      - displaylink-driver
 
   - name: Use Vim as editor
     become: true
@@ -73,3 +68,13 @@
       path: /etc/systemd/logind.conf
       regexp: '^HandleLidSwitchExternalPower='
       line: HandleLidSwitchExternalPower=ignore
+
+  - name: Disable auto suspend on ac
+    community.general.dconf:
+      key: "/org/gnome/settings-daemon/plugins/power/sleep-inactive-ac-type"
+      value: "'nothing'"
+  
+  - name: Disable auto suspend on battery
+    community.general.dconf:
+      key: "/org/gnome/settings-daemon/plugins/power/sleep-inactive-battery-type"
+      value: "'nothing'"
