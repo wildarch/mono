@@ -149,11 +149,6 @@ HashOp::bufferize(mlir::RewriterBase &rewriter,
   }
 
   // Get buffers for base selection vector and value.
-  auto base = mlir::bufferization::getBuffer(rewriter, getBase(), opts);
-  if (mlir::failed(base)) {
-    return mlir::failure();
-  }
-
   auto sel = mlir::bufferization::getBuffer(rewriter, getSel(), opts);
   if (mlir::failed(sel)) {
     return mlir::failure();
@@ -175,7 +170,7 @@ HashOp::bufferize(mlir::RewriterBase &rewriter,
   auto buffer = rewriter.create<mlir::memref::AllocOp>(getLoc(), memrefType,
                                                        mlir::ValueRange{dimOp});
 
-  llvm::SmallVector<mlir::Value> callArgs{*base, *sel, *value, buffer};
+  llvm::SmallVector<mlir::Value> callArgs{*value, *sel, buffer};
 
   // Call the runtime function.
   rewriter.create<RuntimeCallOp>(getLoc(), mlir::TypeRange{},

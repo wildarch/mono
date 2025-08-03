@@ -7,6 +7,7 @@
 #include <parquet/file_reader.h>
 #include <parquet/types.h>
 
+#include "columnar/runtime/ByteArray.h"
 #include "columnar/runtime/PipelineContext.h"
 #include "columnar/runtime/TableColumn.h"
 
@@ -41,7 +42,7 @@ void TableColumn::read(int rowGroup, int skip, std::int64_t size,
 }
 
 void TableColumn::read(PipelineContext &ctx, int rowGroup, int skip,
-                       std::int64_t size, char **buffer) {
+                       std::int64_t size, ByteArray *buffer) {
   // TODO: avoid such reads in IR generation.
   if (size == 0) {
     return;
@@ -64,11 +65,7 @@ void TableColumn::read(PipelineContext &ctx, int rowGroup, int skip,
 
   // Convert to the format we use internally.
   for (auto [i, src] : llvm::enumerate(tmp)) {
-    char *&trg = buffer[i];
-    // NOTE: Space for null terminator.
-    trg = (char *)ctx.allocate(src.len + 1, /*alignment=*/1);
-    std::memcpy(trg, src.ptr, src.len);
-    trg[src.len] = '\0';
+    buffer[i] = ByteArray(src.ptr, src.len, ctx.allocator());
   }
 }
 

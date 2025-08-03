@@ -1,10 +1,14 @@
 #include <cstdint>
 
+#include <llvm/ADT/ArrayRef.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include "columnar/Runtime.h"
+#include "columnar/runtime/ByteArray.h"
+#include "columnar/runtime/Hash.h"
 #include "columnar/runtime/PipelineContext.h"
 #include "columnar/runtime/Print.h"
+#include "columnar/runtime/Scatter.h"
 #include "columnar/runtime/TableColumn.h"
 #include "columnar/runtime/TableScanner.h"
 #include "columnar/runtime/TupleBuffer.h"
@@ -12,10 +16,6 @@
 namespace {
 
 using namespace columnar::runtime;
-
-// TODO: Implement
-class TupleBufferGlobal;
-class Allocator;
 
 struct MemRef {
   void *alloc;
@@ -27,6 +27,11 @@ struct MemRef {
   template <typename T> llvm::ArrayRef<T> asArrayRef() const {
     assert(stride == 1);
     return {static_cast<const T *>(align) + offset, size};
+  }
+
+  template <typename T> llvm::MutableArrayRef<T> asMutableArrayRef() const {
+    assert(stride == 1);
+    return {static_cast<T *>(align) + offset, size};
   }
 
   template <typename T> T *asPointerMut() {
@@ -85,7 +90,7 @@ void col_table_column_read_byte_array(TableColumn *column,
                                       std::int64_t size, MEMREF_PARAM(dest),
                                       PipelineContext *ctx) {
   MEMREF_VAR(dest);
-  column->read(*ctx, rowGroup, skip, size, dest.asPointerMut<char *>());
+  column->read(*ctx, rowGroup, skip, size, dest.asPointerMut<ByteArray>());
 }
 
 Printer *col_print_open() { return new Printer(); }
@@ -113,9 +118,13 @@ void col_print_chunk_append_string(PrintChunk *chunk, MEMREF_PARAM(col),
   chunk->append(col.asArrayRef<char *>(), sel.asArrayRef<std::size_t>());
 }
 
-void col_hash_int64(MEMREF_PARAM(base), MEMREF_PARAM(sel), MEMREF_PARAM(value),
+void col_hash_int64(MEMREF_PARAM(value), MEMREF_PARAM(sel),
                     MEMREF_PARAM(result)) {
-  llvm::errs() << "col_hash_int64\n";
+  MEMREF_VAR(value);
+  MEMREF_VAR(sel);
+  MEMREF_VAR(result);
+  Hash::hash(value.asArrayRef<std::uint64_t>(), sel.asArrayRef<std::size_t>(),
+             result.asMutableArrayRef<std::uint64_t>());
 }
 
 void *col_tuple_buffer_local_alloc(std::uint64_t tupleSize,
@@ -123,28 +132,40 @@ void *col_tuple_buffer_local_alloc(std::uint64_t tupleSize,
   return new TupleBufferLocal(tupleSize, tupleAlignment);
 }
 
-void col_tuple_buffer_local_get_allocator(void *buffer, void *allocator) {
-  llvm::errs() << "col_tuple_buffer_local_get_allocator\n";
+Allocator *col_tuple_buffer_local_get_allocator(TupleBufferLocal *buffer) {
+  return buffer->allocator();
 }
 
-void col_tuple_buffer_local_insert(void *buffer, MEMREF_PARAM(hashes),
-                                   MEMREF_PARAM(result)) {
-  llvm::errs() << "col_tuple_buffer_local_insert\n";
+void col_tuple_buffer_local_insert(TupleBufferLocal *buffer,
+                                   MEMREF_PARAM(hashes), MEMREF_PARAM(result)) {
+  MEMREF_VAR(hashes);
+  MEMREF_VAR(result);
+  buffer->insert(hashes.asArrayRef<hash64_t>(),
+                 result.asMutableArrayRef<void *>());
 }
 
 void col_scatter_byte_array(MEMREF_PARAM(sel), MEMREF_PARAM(value),
                             MEMREF_PARAM(dest), Allocator *allocator) {
-  llvm::errs() << "col_scatter_byte_array\n";
+  MEMREF_VAR(sel);
+  MEMREF_VAR(value);
+  MEMREF_VAR(dest);
+  scatterByteArray(sel.asArrayRef<std::size_t>(), value.asArrayRef<ByteArray>(),
+                   value.asArrayRef<ByteArray *>(), *allocator);
 }
 
 void col_scatter_int32(MEMREF_PARAM(sel), MEMREF_PARAM(value),
                        MEMREF_PARAM(dest)) {
-  llvm::errs() << "col_scatter_int32\n";
+  MEMREF_VAR(sel);
+  MEMREF_VAR(value);
+  MEMREF_VAR(dest);
+  scatterPrimitive(sel.asArrayRef<std::size_t>(),
+                   value.asArrayRef<std::uint32_t>(),
+                   dest.asArrayRef<std::uint32_t *>());
 }
 
 void col_tuple_buffer_merge(TupleBufferGlobal *global,
                             TupleBufferLocal *local) {
-  llvm::errs() << "col_tuple_buffer_merge\n";
+  global->merge(*local);
 }
 
 void col_debug_i32(std::int32_t v) { llvm::errs() << "DEBUG: " << v << "\n"; }

@@ -3,14 +3,17 @@
 #include <llvm/Support/Allocator.h>
 #include <parquet/file_reader.h>
 
+#include "columnar/runtime/Allocator.h"
+
 namespace columnar::runtime {
 
 class PipelineContext {
 private:
-  llvm::BumpPtrAllocator _allocator;
+  Allocator _allocator;
 
 public:
-  void *allocate(std::size_t size, std::size_t alignment);
+  auto &allocator() { return _allocator; }
+
   void reset();
 };
 

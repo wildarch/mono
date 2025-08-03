@@ -2,6 +2,7 @@
 
 #include <parquet/file_reader.h>
 
+#include "columnar/runtime/ByteArray.h"
 #include "columnar/runtime/PipelineContext.h"
 
 namespace columnar::runtime {
@@ -19,7 +20,7 @@ public:
 
   void read(int rowGroup, int skip, std::int64_t size, std::int32_t *buffer);
   void read(PipelineContext &ctx, int rowGroup, int skip, std::int64_t size,
-            char **buffer);
+            ByteArray *buffer);
 };
 
 } // namespace columnar::runtime

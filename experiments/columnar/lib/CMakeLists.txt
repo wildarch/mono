@@ -15,6 +15,7 @@ add_library(
     parquet/ParquetToCatalog.cpp
     PushDownPredicates.cpp
     Runtime.cpp
+    runtime/Hash.cpp
     runtime/PipelineContext.cpp
     runtime/Print.cpp
     runtime/TableColumn.cpp

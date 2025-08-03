@@ -196,8 +196,6 @@ mlir::LogicalResult QueryOutputOp::lowerBody(LowerBodyCtx &ctx,
 }
 
 // HashJoinCollectOp
-static constexpr std::uint32_t HASH_SEED = 0;
-
 mlir::LogicalResult HashJoinCollectOp::lowerLocalOpen(
     mlir::OpBuilder &builder, mlir::ValueRange globals,
     llvm::SmallVectorImpl<mlir::Value> &newLocals) {
@@ -239,20 +237,16 @@ mlir::LogicalResult HashJoinCollectOp::lowerBody(LowerBodyCtx &ctx,
   auto hashType = mlir::RankedTensorType::get(
       llvm::ArrayRef<std::int64_t>{mlir::ShapedType::kDynamic},
       builder.getI64Type());
-  // 1. Initialize all values to the seed value
-  mlir::Value hashOp = builder.create<mlir::tensor::GenerateOp>(
-      getLoc(), hashType, mlir::ValueRange{nrows},
-      [](mlir::OpBuilder &builder, mlir::Location loc,
-         mlir::ValueRange indices) {
-        auto seedOp = builder.create<mlir::arith::ConstantOp>(
-            loc, builder.getI64Type(), builder.getI64IntegerAttr(HASH_SEED));
-        builder.create<mlir::tensor::YieldOp>(loc, seedOp);
-      });
-  // 2. Hash the individual key columns.
-  for (auto [key, sel] :
-       llvm::zip_equal(adaptor.getKeys(), adaptor.getKeySel())) {
-    hashOp =
-        builder.create<HashOp>(getLoc(), hashOp.getType(), hashOp, sel, key);
+
+  if (adaptor.getKeys().empty()) {
+    return emitOpError("Need at least one 1 key");
+  }
+
+  auto hashOp =
+      builder.create<HashOp>(getLoc(), hashType, adaptor.getKeySel().front(),
+                             adaptor.getKeys().front());
+  if (adaptor.getKeys().size() > 1) {
+    return emitOpError("TODO: hash combine");
   }
 
   // Allocate space for the entries (picking partitions based on the hash).

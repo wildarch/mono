@@ -1004,7 +1004,6 @@ def PrintChunkAppendOp : Columnar_Op<"print.chunk.append", [
 
 def HashOp : Columnar_Op<"hash", [
         Pure,
-        AllTypesMatch<["base", "result"]>,
         DeclareOpInterfaceMethods<BufferizableOpInterface, [
             "bufferize",
             "bufferizesToAllocation",
@@ -1012,14 +1011,13 @@ def HashOp : Columnar_Op<"hash", [
             "bufferizesToMemoryWrite",
             "getAliasingValues"]>]> {
     let arguments = (ins
-        TensorColOf<I64>:$base,
         TensorColOf<Index>:$sel,
         TensorCol:$value);
 
     let results = (outs TensorColOf<I64>:$result);
 
     let assemblyFormat = [{
-        $base `,` $value `[` $sel `]` `:` type($value)
+        $value `[` $sel `]` `:` type($value)
         `->` type($result)
         attr-dict
     }];

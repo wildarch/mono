@@ -13,12 +13,15 @@
 #include <mlir/Conversion/LLVMCommon/TypeConverter.h>
 #include <mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h>
 #include <mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h>
+#include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/LLVMIR/FunctionCallUtils.h>
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <mlir/IR/Attributes.h>
+#include <mlir/IR/Builders.h>
 #include <mlir/IR/BuiltinTypes.h>
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/IR/PatternMatch.h>
+#include <mlir/IR/TypeRange.h>
 #include <mlir/Interfaces/DataLayoutInterfaces.h>
 #include <mlir/Transforms/DialectConversion.h>
 
@@ -365,9 +368,19 @@ mlir::LogicalResult OpLowering<GlobalOp>::matchAndRewrite(
     return op.emitOpError("no default value for global of type: ") << type;
   }
 
-  rewriter.replaceOpWithNewOp<mlir::LLVM::GlobalOp>(
+  auto globalOp = rewriter.replaceOpWithNewOp<mlir::LLVM::GlobalOp>(
       op, type,
       /*isConstant=*/false, mlir::LLVM::Linkage::Internal, op.getName(), value);
+  if (llvm::isa<TupleBufferType>(op.getGlobalType())) {
+    auto &block = globalOp.getInitializer().emplaceBlock();
+    mlir::OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&block);
+    auto callOp = rewriter.create<mlir::func::CallOp>(
+        op.getLoc(), "col_tuple_buffer_global_alloc", mlir::TypeRange{type},
+        mlir::ValueRange{});
+    rewriter.create<mlir::LLVM::ReturnOp>(op.getLoc(), callOp->getResult(0));
+  }
+
   return mlir::success();
 }
 
@@ -461,7 +474,6 @@ void LowerToLLVM::runOnOperation() {
     pipelineMakeRef(op, i, rewriter);
   }
 
-  // TODO: Invoke LLVM lowering to lower the functions.
   mlir::LLVMConversionTarget target(getContext());
   target.addLegalOp<mlir::ModuleOp>();
   target.addLegalOp<PipelineRefOp>();
