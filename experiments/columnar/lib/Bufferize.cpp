@@ -143,9 +143,9 @@ static std::optional<llvm::Twine> hashFuncForType(mlir::TensorType type) {
 mlir::LogicalResult
 HashOp::bufferize(mlir::RewriterBase &rewriter,
                   const mlir::bufferization::BufferizationOptions &opts) {
-  auto func = hashFuncForType(getType());
+  auto func = hashFuncForType(getValue().getType());
   if (!func) {
-    return emitOpError("unsupported type ") << getType();
+    return emitOpError("unsupported type ") << getValue().getType();
   }
 
   // Get buffers for base selection vector and value.

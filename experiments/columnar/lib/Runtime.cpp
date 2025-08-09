@@ -118,12 +118,12 @@ void col_print_chunk_append_string(PrintChunk *chunk, MEMREF_PARAM(col),
   chunk->append(col.asArrayRef<char *>(), sel.asArrayRef<std::size_t>());
 }
 
-void col_hash_int64(MEMREF_PARAM(value), MEMREF_PARAM(sel),
+void col_hash_int32(MEMREF_PARAM(value), MEMREF_PARAM(sel),
                     MEMREF_PARAM(result)) {
   MEMREF_VAR(value);
   MEMREF_VAR(sel);
   MEMREF_VAR(result);
-  Hash::hash(value.asArrayRef<std::uint64_t>(), sel.asArrayRef<std::size_t>(),
+  Hash::hash(value.asArrayRef<std::uint32_t>(), sel.asArrayRef<std::size_t>(),
              result.asMutableArrayRef<std::uint64_t>());
 }
 
@@ -205,7 +205,7 @@ llvm::orc::SymbolMap registerRuntimeSymbols(llvm::orc::MangleAndInterner mai) {
   REGISTER(col_print_chunk_alloc);
   REGISTER(col_print_chunk_append_int32);
   REGISTER(col_print_chunk_append_string);
-  REGISTER(col_hash_int64);
+  REGISTER(col_hash_int32);
   REGISTER(col_tuple_buffer_init);
   REGISTER(col_tuple_buffer_destroy);
   REGISTER(col_tuple_buffer_dump);

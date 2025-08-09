@@ -29,7 +29,7 @@ struct Hash {
     return a ^ b;
   }
 
-  static void hash(llvm::ArrayRef<std::uint64_t> value,
+  static void hash(llvm::ArrayRef<std::uint32_t> value,
                    llvm::ArrayRef<std::size_t> sel,
                    llvm::MutableArrayRef<std::uint64_t> result);
 };
