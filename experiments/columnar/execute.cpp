@@ -48,6 +48,10 @@ static int loadMLIR(mlir::MLIRContext &context,
 }
 
 static int runJit(mlir::ModuleOp module) {
+  // Find globals to initialize/destroy
+  llvm::SmallVector<columnar::GlobalRefOp> globals;
+  module->walk([&](columnar::GlobalRefOp op) { globals.push_back(op); });
+
   // Find pipelines to run
   llvm::SmallVector<columnar::PipelineRefOp> pipelines;
   module->walk([&](columnar::PipelineRefOp op) { pipelines.push_back(op); });
@@ -80,6 +84,18 @@ static int runJit(mlir::ModuleOp module) {
 
   // Bind runtime functions
   engine->registerSymbols(columnar::registerRuntimeSymbols);
+
+  // Initialize globals.
+  using GlobalInitFunc = void();
+  for (auto global : globals) {
+    auto init = engine->lookup(global.getInit().getLeafReference());
+    if (auto err = init.takeError()) {
+      llvm::errs() << "Failed to lookup init for global: " << err << "\n";
+    }
+
+    auto *initPtr = ((GlobalInitFunc *)init.get());
+    initPtr();
+  }
 
   using GlobalOpenFunc = void *();
   using LocalOpenFunc = void *(void *);
@@ -156,6 +172,18 @@ static int runJit(mlir::ModuleOp module) {
       auto *funcPtr = ((GlobalCloseFunc *)maybeFuncPtr.get());
       funcPtr(globalState);
     }
+  }
+
+  // Destroy globals.
+  using GlobalDestroyFunc = void();
+  for (auto global : globals) {
+    auto destroy = engine->lookup(global.getDestroy().getLeafReference());
+    if (auto err = destroy.takeError()) {
+      llvm::errs() << "Failed to lookup destroy for global: " << err << "\n";
+    }
+
+    auto *destroyPtr = ((GlobalInitFunc *)destroy.get());
+    destroyPtr();
   }
 
   return 0;

@@ -15,7 +15,7 @@ public:
   mlir::LogicalResult convertOperation(
       mlir::Operation *op, llvm::IRBuilderBase &builder,
       mlir::LLVM::ModuleTranslation &moduleTranslation) const override {
-    return mlir::success(llvm::isa<PipelineRefOp>(op));
+    return mlir::success(llvm::isa<PipelineRefOp, GlobalRefOp>(op));
   }
 };
 

@@ -272,6 +272,79 @@ static mlir::SymbolRefAttr moveToFunction(mlir::Region &region,
   return mlir::FlatSymbolRefAttr::get(funcOp.getSymNameAttr());
 }
 
+static mlir::SymbolRefAttr makeInitFunction(GlobalOp op, std::size_t idx,
+                                            mlir::IRRewriter &rewriter) {
+  auto name = llvm::formatv("global{}_init", idx).sstr<32>();
+  auto &block = op.getInit().front();
+
+  // Change terminator to ReturnOp appropriate for FuncOp.
+  mlir::func::ReturnOp returnOp;
+  {
+    mlir::OpBuilder::InsertionGuard guard(rewriter);
+    auto globalReturn = llvm::cast<GlobalReturnOp>(block.getTerminator());
+    rewriter.setInsertionPoint(globalReturn);
+    // Write to global.
+    rewriter.create<GlobalWriteOp>(globalReturn.getLoc(), op.getSymName(),
+                                   globalReturn.getInput());
+    returnOp = rewriter.replaceOpWithNewOp<mlir::func::ReturnOp>(
+        globalReturn, mlir::ValueRange{});
+  }
+
+  auto funcType =
+      rewriter.getFunctionType(mlir::TypeRange{}, mlir::TypeRange{});
+  auto funcOp =
+      rewriter.create<mlir::func::FuncOp>(op.getLoc(), name, funcType);
+  rewriter.inlineRegionBefore(op.getInit(), funcOp.getBody(),
+                              funcOp.getBody().begin());
+
+  return mlir::FlatSymbolRefAttr::get(funcOp.getSymNameAttr());
+}
+
+static mlir::SymbolRefAttr makeDestroyFunction(GlobalOp op, std::size_t idx,
+                                               mlir::IRRewriter &rewriter) {
+  auto name = llvm::formatv("global{}_destroy", idx).sstr<32>();
+  auto &block = op.getDestroy().front();
+
+  // Change terminator to ReturnOp appropriate for FuncOp.
+  mlir::func::ReturnOp returnOp;
+  {
+    mlir::OpBuilder::InsertionGuard guard(rewriter);
+    auto globalReturn = llvm::cast<GlobalReturnOp>(block.getTerminator());
+    rewriter.setInsertionPoint(globalReturn);
+    returnOp = rewriter.replaceOpWithNewOp<mlir::func::ReturnOp>(
+        globalReturn, mlir::ValueRange{});
+  }
+
+  auto funcType =
+      rewriter.getFunctionType(mlir::TypeRange{}, mlir::TypeRange{});
+  auto funcOp =
+      rewriter.create<mlir::func::FuncOp>(op.getLoc(), name, funcType);
+  rewriter.inlineRegionBefore(op.getInit(), funcOp.getBody(),
+                              funcOp.getBody().begin());
+
+  // Read the state variable.
+  mlir::Value state;
+  auto &newBlock = funcOp.getBody().emplaceBlock();
+  {
+    mlir::OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&newBlock);
+    state = rewriter.create<GlobalReadOp>(op.getLoc(), op.getGlobalType(),
+                                          op.getSymName());
+  }
+
+  // Inline the destroy block, passing in the state.
+  rewriter.inlineBlockBefore(&block, &newBlock, newBlock.end(), state);
+  return mlir::FlatSymbolRefAttr::get(funcOp.getSymNameAttr());
+}
+
+static void globalMakeRef(GlobalOp op, std::size_t idx,
+                          mlir::IRRewriter &rewriter) {
+  auto initSym = makeInitFunction(op, idx, rewriter);
+  auto destroySym = makeDestroyFunction(op, idx, rewriter);
+
+  rewriter.create<GlobalRefOp>(op.getLoc(), initSym, destroySym);
+}
+
 static void pipelineMakeRef(PipelineLowOp op, std::size_t idx,
                             mlir::IRRewriter &rewriter) {
   auto globalOpenSym =
@@ -306,6 +379,28 @@ mlir::LogicalResult OpLowering<GlobalReadOp>::matchAndRewrite(
   }
 
   rewriter.replaceOpWithNewOp<mlir::LLVM::LoadOp>(op, resultType, globalPtr);
+  return mlir::success();
+}
+
+template <>
+mlir::LogicalResult OpLowering<GlobalWriteOp>::matchAndRewrite(
+    GlobalWriteOp op, OpAdaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
+  auto module = op->getParentOfType<mlir::ModuleOp>();
+  auto global = module.lookupSymbol<mlir::LLVM::GlobalOp>(op.getGlobalName());
+  if (!global) {
+    return op.emitOpError("global variable not found: ") << op.getGlobalName();
+  }
+
+  auto globalPtr =
+      rewriter.create<mlir::LLVM::AddressOfOp>(op.getLoc(), global);
+  auto resultType = typeConverter->convertType(op.getValue().getType());
+  if (!resultType) {
+    return op.emitOpError("cannot convert result type");
+  }
+
+  rewriter.replaceOpWithNewOp<mlir::LLVM::StoreOp>(op, adaptor.getValue(),
+                                                   globalPtr);
   return mlir::success();
 }
 
@@ -368,18 +463,9 @@ mlir::LogicalResult OpLowering<GlobalOp>::matchAndRewrite(
     return op.emitOpError("no default value for global of type: ") << type;
   }
 
-  auto globalOp = rewriter.replaceOpWithNewOp<mlir::LLVM::GlobalOp>(
+  rewriter.replaceOpWithNewOp<mlir::LLVM::GlobalOp>(
       op, type,
       /*isConstant=*/false, mlir::LLVM::Linkage::Internal, op.getName(), value);
-  if (llvm::isa<TupleBufferType>(op.getGlobalType())) {
-    auto &block = globalOp.getInitializer().emplaceBlock();
-    mlir::OpBuilder::InsertionGuard guard(rewriter);
-    rewriter.setInsertionPointToStart(&block);
-    auto callOp = rewriter.create<mlir::func::CallOp>(
-        op.getLoc(), "col_tuple_buffer_global_alloc", mlir::TypeRange{type},
-        mlir::ValueRange{});
-    rewriter.create<mlir::LLVM::ReturnOp>(op.getLoc(), callOp->getResult(0));
-  }
 
   return mlir::success();
 }
@@ -465,8 +551,16 @@ void LowerToLLVM::runOnOperation() {
         /*arg_attrs=*/nullptr, /*res_attrs*/ nullptr);
   }
 
-  // Replace pipeline blocks with references to functions.
+  // Turn global initializers and destructors into functions, and create
+  // GlobalRefOps to track them.
   mlir::IRRewriter rewriter(&getContext());
+  llvm::SmallVector<GlobalOp> globals(getOperation().getOps<GlobalOp>());
+  for (auto [i, op] : llvm::enumerate(globals)) {
+    rewriter.setInsertionPointAfter(op);
+    globalMakeRef(op, i, rewriter);
+  }
+
+  // Replace pipeline blocks with references to functions.
   llvm::SmallVector<PipelineLowOp> pipelines(
       getOperation().getOps<PipelineLowOp>());
   for (auto [i, op] : llvm::enumerate(pipelines)) {
@@ -477,6 +571,7 @@ void LowerToLLVM::runOnOperation() {
   mlir::LLVMConversionTarget target(getContext());
   target.addLegalOp<mlir::ModuleOp>();
   target.addLegalOp<PipelineRefOp>();
+  target.addLegalOp<GlobalRefOp>();
 
   mlir::RewritePatternSet patterns(&getContext());
   mlir::populateSCFToControlFlowConversionPatterns(patterns);
@@ -489,8 +584,8 @@ void LowerToLLVM::runOnOperation() {
   patterns.add<OpLowering<AllocStructOp>, OpLowering<GetStructElementOp>,
                OpLowering<ConstantStringOp>, OpLowering<RuntimeCallOp>,
                OpLowering<GlobalOp>, OpLowering<GlobalReadOp>,
-               OpLowering<GetFieldPtrOp>, OpLowering<TypeSizeOp>,
-               OpLowering<TypeAlignOp>>(typeConverter);
+               OpLowering<GlobalWriteOp>, OpLowering<GetFieldPtrOp>,
+               OpLowering<TypeSizeOp>, OpLowering<TypeAlignOp>>(typeConverter);
 
   if (failed(
           applyFullConversion(getOperation(), target, std::move(patterns)))) {

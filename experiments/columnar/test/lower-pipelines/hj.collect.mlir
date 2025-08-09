@@ -5,7 +5,15 @@
 #column_region_r_regionkey = #columnar.table_col<#table_region 0 "r_regionkey" : si32[i32]>
 
 !buf = !columnar.tuple_buffer<<i64, i32, !columnar.byte_array>>
-columnar.global @buf !buf
+columnar.global @buf : !buf init {
+^bb0():
+  %0 = columnar.runtime_call "col_tuple_buffer_init"() : () -> (!buf)
+  columnar.global.return %0 : !buf
+} destroy {
+^bb0(%arg0 : !buf):
+  columnar.runtime_call "col_tuple_buffer_destroy"(%arg0) : (!buf) -> ()
+  columnar.global.return
+}
 
 columnar.pipeline {
   %sel, %r_regionkey, %r_name = columnar.read_table #table_region [

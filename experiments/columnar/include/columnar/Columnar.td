@@ -736,9 +736,23 @@ def GlobalOp : Columnar_Op<"global", [Symbol]> {
 
     let arguments = (ins SymbolNameAttr:$sym_name, TypeAttr:$globalType);
 
+    let regions = (region SizedRegion<1>:$init, SizedRegion<1>:$destroy);
+
     let assemblyFormat = [{
-        $sym_name $globalType attr-dict
+        $sym_name `:` $globalType attr-dict
+        `init` $init
+        `destroy` $destroy
     }];
+}
+
+def GlobalReturnOp : Columnar_Op<"global.return", [Terminator]> {
+    let arguments = (ins Optional<GlobalState>:$input);
+
+    let assemblyFormat = [{
+        ($input^ `:` type($input))? attr-dict
+    }];
+
+    // TODO: Verify type of input
 }
 
 // TODO categorize
@@ -946,6 +960,18 @@ def GlobalReadOp : Columnar_Op<"global.read", [
     }];
 }
 
+def GlobalWriteOp : Columnar_Op<"global.write", [
+        Pure,
+        DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+    let arguments = (ins
+        FlatSymbolRefAttr:$globalName,
+        GlobalState:$value);
+
+    let assemblyFormat = [{
+        $globalName $value `:` type($value) attr-dict
+    }];
+}
+
 def RuntimeCallOp : Columnar_Op<"runtime_call"> {
     let arguments = (ins StrAttr:$func, Variadic<AnyType>:$inputs);
 
@@ -1139,6 +1165,18 @@ def PipelineRefOp : Columnar_Op<"pipeline_ref", [IsolatedFromAbove]> {
         `body` $body
         (`local_close` $localClose^)?
         (`global_close` $globalClose^)?
+        attr-dict
+    }];
+}
+
+def GlobalRefOp : Columnar_Op<"global_ref", [IsolatedFromAbove]> {
+    let arguments = (ins
+        SymbolRefAttr:$init,
+        SymbolRefAttr:$destroy);
+
+    let assemblyFormat = [{
+        `init` $init
+        `destroy` $destroy
         attr-dict
     }];
 }

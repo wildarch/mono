@@ -435,6 +435,26 @@ GlobalReadOp::verifySymbolUses(mlir::SymbolTableCollection &symbolTable) {
   return mlir::success();
 }
 
+mlir::LogicalResult
+GlobalWriteOp::verifySymbolUses(mlir::SymbolTableCollection &symbolTable) {
+  auto module = getOperation()->getParentOfType<mlir::ModuleOp>();
+  if (!module) {
+    return emitOpError("must be inside a module");
+  }
+
+  auto globalSymbol =
+      symbolTable.lookupNearestSymbolFrom(module, getGlobalNameAttr());
+  if (!globalSymbol) {
+    return emitOpError("undefined global symbol: ") << getGlobalName();
+  }
+
+  if (!llvm::isa<GlobalOp>(globalSymbol)) {
+    return emitOpError("symbol '") << getGlobalName() << "' is not a global";
+  }
+
+  return mlir::success();
+}
+
 mlir::LogicalResult TupleBufferInsertOp::inferReturnTypes(
     mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
     Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
