@@ -129,6 +129,7 @@ void col_hash_int64(MEMREF_PARAM(value), MEMREF_PARAM(sel),
 
 TupleBufferGlobal *col_tuple_buffer_init() { return new TupleBufferGlobal(); }
 void col_tuple_buffer_destroy(TupleBufferGlobal *buffer) { delete buffer; }
+void col_tuple_buffer_dump(TupleBufferGlobal *buffer) { buffer->dump(); }
 
 TupleBufferLocal *col_tuple_buffer_local_alloc(std::uint64_t tupleSize,
                                                std::uint64_t tupleAlignment) {
@@ -207,6 +208,7 @@ llvm::orc::SymbolMap registerRuntimeSymbols(llvm::orc::MangleAndInterner mai) {
   REGISTER(col_hash_int64);
   REGISTER(col_tuple_buffer_init);
   REGISTER(col_tuple_buffer_destroy);
+  REGISTER(col_tuple_buffer_dump);
   REGISTER(col_tuple_buffer_local_alloc);
   REGISTER(col_tuple_buffer_local_get_allocator);
   REGISTER(col_tuple_buffer_local_insert);

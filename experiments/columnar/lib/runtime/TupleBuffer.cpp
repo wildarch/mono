@@ -3,6 +3,7 @@
 
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/Support/Alignment.h>
+#include <llvm/Support/raw_ostream.h>
 
 #include "columnar/runtime/Hash.h"
 #include "columnar/runtime/TupleBuffer.h"
@@ -76,6 +77,7 @@ void TupleBufferLocal::insert(llvm::ArrayRef<hash64_t> hashes,
     auto partIdx = HashPartitioning::partIdxForHash(h);
     auto &part = _partitions[partIdx];
     void *ptr = part.allocate();
+    llvm::errs() << "hash=" << h << " ptr= " << ptr << "\n";
 
     // Copy the hash into the newly allocated tuple.
     std::memcpy(ptr, &h, sizeof(h));
@@ -88,10 +90,37 @@ void TupleBufferLocal::insert(llvm::ArrayRef<hash64_t> hashes,
 void TupleBufferGlobal::merge(TupleBufferLocal &local) {
   std::lock_guard guard(_mutex);
   for (auto [i, part] : llvm::enumerate(local._partitions)) {
-    part.takeSlabs(_parts[i]._slabs);
+    part.takeSlabs(_parts[i].slabs);
   }
 
   _allocators.push_back(std::move(local._allocator));
+}
+
+void TupleBufferGlobal::dump() {
+  struct Tuple {
+    std::uint64_t hash;
+    std::uint32_t regionKey;
+    char *regionName;
+  };
+
+  llvm::errs() << "DUMP of tuple buffer parts=" << _parts.size() << "\n";
+  for (const auto &[partIdx, part] : llvm::enumerate(_parts)) {
+    llvm::errs() << "part " << partIdx << " slabs=" << part.slabs.size()
+                 << "\n";
+
+    for (const auto &[slabIdx, slab] : llvm::enumerate(part.slabs)) {
+      llvm::errs() << "slab " << slabIdx << " ptr=" << slab.ptr()
+                   << " nTuples=" << slab.nTuples() << "\n";
+      const auto *ptr = reinterpret_cast<const Tuple *>(slab.ptr());
+      for (std::size_t tupleIdx = 0; tupleIdx < slab.nTuples(); tupleIdx++) {
+        llvm::errs() << "tuple ptr: " << ptr + tupleIdx << "\n";
+        auto tuple = ptr[tupleIdx];
+        llvm::errs() << "tuple: hash=" << tuple.hash
+                     << " regionKey=" << tuple.regionKey
+                     << " regionName=" << tuple.regionName << "\n";
+      }
+    }
+  }
 }
 
 } // namespace columnar::runtime

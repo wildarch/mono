@@ -24,6 +24,10 @@ public:
   OwnedTupleSlab(void *ptr, std::size_t nTuples)
       : _ptr(ptr), _nTuples(nTuples) {}
   ~OwnedTupleSlab() { std::free(_ptr); }
+
+  void *ptr() { return _ptr; }
+
+  std::size_t nTuples() { return _nTuples; }
 };
 
 class TupleArena {
@@ -83,7 +87,7 @@ public:
 class TupleBufferGlobal {
 private:
   struct Partition {
-    std::vector<OwnedTupleSlab> _slabs;
+    std::vector<OwnedTupleSlab> slabs;
   };
 
   std::mutex _mutex;
@@ -92,6 +96,8 @@ private:
 
 public:
   void merge(TupleBufferLocal &local);
+
+  void dump();
 };
 
 } // namespace columnar::runtime
