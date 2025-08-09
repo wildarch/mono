@@ -5,6 +5,7 @@
 
 #include "columnar/runtime/Allocator.h"
 #include "columnar/runtime/ByteArray.h"
+
 namespace columnar::runtime {
 
 template <typename T>

@@ -154,7 +154,7 @@ void col_scatter_byte_array(MEMREF_PARAM(sel), MEMREF_PARAM(value),
   MEMREF_VAR(value);
   MEMREF_VAR(dest);
   scatterByteArray(sel.asArrayRef<std::size_t>(), value.asArrayRef<ByteArray>(),
-                   value.asArrayRef<ByteArray *>(), *allocator);
+                   dest.asArrayRef<ByteArray *>(), *allocator);
 }
 
 void col_scatter_int32(MEMREF_PARAM(sel), MEMREF_PARAM(value),

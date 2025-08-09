@@ -481,7 +481,11 @@ mlir::LogicalResult OpLowering<GetFieldPtrOp>::matchAndRewrite(
     return op.emitOpError("cannot convert struct type: ") << structType;
   }
 
-  mlir::LLVM::GEPArg indices[] = {mlir::LLVM::GEPArg(op.getField())};
+  mlir::LLVM::GEPArg indices[] = {
+      // First struct (not an array, just a pointer to a single struct).
+      mlir::LLVM::GEPArg(0),
+      // This field of the struct
+      mlir::LLVM::GEPArg(op.getField())};
   rewriter.replaceOpWithNewOp<mlir::LLVM::GEPOp>(op, resultType, llvmStructType,
                                                  adaptor.getBase(), indices);
   return mlir::success();

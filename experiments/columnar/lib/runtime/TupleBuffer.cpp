@@ -77,7 +77,6 @@ void TupleBufferLocal::insert(llvm::ArrayRef<hash64_t> hashes,
     auto partIdx = HashPartitioning::partIdxForHash(h);
     auto &part = _partitions[partIdx];
     void *ptr = part.allocate();
-    llvm::errs() << "hash=" << h << " ptr= " << ptr << "\n";
 
     // Copy the hash into the newly allocated tuple.
     std::memcpy(ptr, &h, sizeof(h));
@@ -97,6 +96,7 @@ void TupleBufferGlobal::merge(TupleBufferLocal &local) {
 }
 
 void TupleBufferGlobal::dump() {
+  // NOTE: When debugging, change this to the expected tuple struct type.
   struct Tuple {
     std::uint64_t hash;
     std::uint32_t regionKey;
@@ -114,7 +114,8 @@ void TupleBufferGlobal::dump() {
       const auto *ptr = reinterpret_cast<const Tuple *>(slab.ptr());
       for (std::size_t tupleIdx = 0; tupleIdx < slab.nTuples(); tupleIdx++) {
         llvm::errs() << "tuple ptr: " << ptr + tupleIdx << "\n";
-        auto tuple = ptr[tupleIdx];
+        const auto &tuple = ptr[tupleIdx];
+        llvm::errs() << "regionName ptr: " << &tuple.regionName << "\n";
         llvm::errs() << "tuple: hash=" << tuple.hash
                      << " regionKey=" << tuple.regionKey
                      << " regionName=" << tuple.regionName << "\n";
