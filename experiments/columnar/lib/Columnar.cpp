@@ -391,6 +391,54 @@ HashJoinCollectOp::verifySymbolUses(mlir::SymbolTableCollection &symbolTable) {
   return mlir::success();
 }
 
+mlir::LogicalResult
+HashJoinBuildOp::verifySymbolUses(mlir::SymbolTableCollection &symbolTable) {
+  auto module = getOperation()->getParentOfType<mlir::ModuleOp>();
+  if (!module) {
+    return emitOpError("must be inside a module");
+  }
+
+  // Buffer
+  auto bufferSymbol =
+      symbolTable.lookupNearestSymbolFrom(module, getBufferAttr());
+  if (!bufferSymbol) {
+    return emitOpError("undefined buffer symbol: ") << getBuffer();
+  }
+
+  auto bufferOp = llvm::dyn_cast<GlobalOp>(bufferSymbol);
+  if (!bufferOp) {
+    return emitOpError("symbol '") << getBuffer() << "' is not a global";
+  }
+
+  auto bufferType = llvm::dyn_cast<TupleBufferType>(bufferOp.getGlobalType());
+  if (!bufferType) {
+    return emitOpError("global '")
+           << getBuffer() << "' is not a " << TupleBufferType::getMnemonic();
+  }
+
+  // Table
+  auto tableSymbol =
+      symbolTable.lookupNearestSymbolFrom(module, getTableAttr());
+  if (!tableSymbol) {
+    return emitOpError("undefined table symbol: ") << getTable();
+  }
+
+  auto tableOp = llvm::dyn_cast<GlobalOp>(tableSymbol);
+  if (!tableOp) {
+    return emitOpError("symbol '") << getTable() << "' is not a global";
+  }
+
+  auto tableType = llvm::dyn_cast<HashTableType>(tableOp.getGlobalType());
+  if (!tableType) {
+    return emitOpError("global '")
+           << getTable() << "' is not a " << HashTableType::getMnemonic();
+  }
+
+  // TODO: Verify types are compatible
+
+  return mlir::success();
+}
+
 mlir::LogicalResult HashJoinProbeOp::inferReturnTypes(
     mlir::MLIRContext *ctx, std::optional<mlir::Location> location,
     Adaptor adaptor, llvm::SmallVectorImpl<mlir::Type> &inferredReturnTypes) {

@@ -127,7 +127,10 @@ void col_hash_int32(MEMREF_PARAM(value), MEMREF_PARAM(sel),
              result.asMutableArrayRef<std::uint64_t>());
 }
 
-TupleBufferGlobal *col_tuple_buffer_init() { return new TupleBufferGlobal(); }
+TupleBufferGlobal *col_tuple_buffer_init(std::uint64_t tupleSize,
+                                         std::uint64_t tupleAlignment) {
+  return new TupleBufferGlobal(tupleSize, tupleAlignment);
+}
 void col_tuple_buffer_destroy(TupleBufferGlobal *buffer) { delete buffer; }
 void col_tuple_buffer_dump(TupleBufferGlobal *buffer) { buffer->dump(); }
 

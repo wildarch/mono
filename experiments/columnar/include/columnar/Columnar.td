@@ -788,17 +788,20 @@ def HashJoinCollectOp : Columnar_Op<"hj.collect", [
     }];
 }
 
-def HashJoinBuildOp : Columnar_Op<"hj.build", [Pure]> {
+def HashJoinBuildOp : Columnar_Op<"hj.build", [
+        Pure,
+        DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
     let summary = "Write entries from a tuple buffer into a hash table";
 
     let arguments = (ins
-        TupleBuffer:$buffer,
-        HashTable:$table);
+        FlatSymbolRefAttr:$buffer,
+        FlatSymbolRefAttr:$table);
 
     let assemblyFormat = [{
-        $buffer `:` type($buffer)
-        `->` $table `:` type($table) attr-dict
+        $buffer `->` $table attr-dict
     }];
+
+    // TODO: verify types
 }
 
 def HashJoinProbeOp : Columnar_Op<"hj.probe", [Pure, InferTypeOpAdaptor]> {

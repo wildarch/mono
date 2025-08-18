@@ -7,8 +7,10 @@
 !buf = !columnar.tuple_buffer<<i64, i32, !columnar.byte_array>>
 columnar.global @buf : !buf init {
 ^bb0():
-  %0 = columnar.runtime_call "col_tuple_buffer_init"() : () -> (!buf)
-  columnar.global.return %0 : !buf
+  %0 = columnar.type.size !columnar.struct<i64, i32, !columnar.byte_array>
+  %1 = columnar.type.align !columnar.struct<i64, i32, !columnar.byte_array>
+  %2 = columnar.runtime_call "col_tuple_buffer_init"(%0, %1) : (i64, i64) -> (!buf)
+  columnar.global.return %2 : !buf
 } destroy {
 ^bb0(%arg0 : !buf):
   columnar.runtime_call "col_tuple_buffer_destroy"(%arg0) : (!buf) -> ()

@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace columnar::runtime {
 
@@ -17,6 +18,18 @@ struct HashPartitioning {
     assert(res < NUM_PARTITIONS);
     return res;
   }
+};
+
+class HashTable {
+  friend class HashTableBuilder;
+
+private:
+  std::size_t _shift = 0;
+  std::vector<uintptr_t> _directory;
+  void *_tupleStorage = nullptr;
+
+public:
+  ~HashTable();
 };
 
 } // namespace columnar::runtime
