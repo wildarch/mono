@@ -1,0 +1,3 @@
+device_name: 'Songs for the Elderly'
+audio_backend: alsa # Audio backend to use (alsa, pipe, pulseaudio)
+audio_device: 'default:CARD=Headphones' # ALSA audio device to use for playback

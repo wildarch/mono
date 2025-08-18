@@ -4,6 +4,38 @@
 
 { config, lib, pkgs, ... }:
 
+let
+  go-librespot = pkgs.buildGoModule rec {
+    pname = "go-librespot";
+    version = "b4a9dd9";
+
+    src = pkgs.fetchFromGitHub {
+      owner = "devgianlu";
+      repo = "go-librespot";
+      rev = "b4a9dd9c4f6b13502008122cb787f3c3a683d8d0";
+      hash = "sha256-42WkTBsDbXHmvpt7jb6A4s1Tnchj1j5yUFqxZ30f/24=";
+    };
+
+    vendorHash = "sha256-vjJ7jt8kzCYVfDeQQmfOe32PaKqKv+gc/rMMNPMvYt4=";
+
+    env.CGO_ENABLED = 1;
+    # Stop nix builds complaining about missing events package.
+    postPatch = "mkdir -p events/impl && echo package impl > events/impl/impl.go";
+
+    nativeBuildInputs = [ pkgs.pkg-config ];
+    buildInputs = [ pkgs.libogg pkgs.libvorbis pkgs.alsa-lib ];
+
+    subPackages = [ "./cmd/daemon" ];
+
+    meta = {
+      description = "Yet another open source Spotify client, written in Go.";
+      homepage = "https://github.com/devgianlu/go-librespot";
+      license = lib.licenses.gpl3Only;
+      maintainers = with lib.maintainers; [ ];
+    };
+  };
+in
+
 {
   imports =
     [ # Include the results of the hardware scan.
@@ -38,7 +70,7 @@
   # List packages installed in system profile.
   environment.systemPackages = with pkgs; [
     vim
-    spotifyd
+    go-librespot
     tmux
   ];
 
@@ -47,16 +79,17 @@
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
 
-  # Spotifyd
-  systemd.services.spotifyd = {
+  # Go-librespot
+  systemd.services.go-librespot = {
      wantedBy = [ "multi-user.target" ];
      wants = [ "network-online.target" ];
      after = [ "network-online.target" "audio.target" ];
-     description = "A spotify playing daemon";
+     description = "Go-librespot Spotify daemon";
      serviceConfig = {
        Type = "simple";
+       User = "daan"; # Configuration read from home dir
        SupplementaryGroups = "audio";
-       ExecStart = ''${pkgs.spotifyd}/bin/spotifyd --no-daemon -d "Songs for the Elderly" --backend alsa --device 'default:CARD=Headphones' --use-mpris=false '';
+       ExecStart = ''${go-librespot}/bin/daemon'';
        Restart="always";
        RestartSec=12;
      };
