@@ -92,6 +92,8 @@ in
        ExecStart = ''${go-librespot}/bin/daemon'';
        Restart="always";
        RestartSec=12;
+       # Restart every day to work around go-librespot bug
+       RuntimeMaxSec="1d";
      };
   };
 
