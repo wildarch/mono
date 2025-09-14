@@ -31,3 +31,6 @@ Serves 2.
    Add more water as needed, to achieve desired consistency (keep in mind, it will thicken even more once cheese is stirred in).
 
 5. Remove from heat, add Parmigiano-Reggiano, and stir vigorously to incorporate. Season with salt to taste. Divide between warmed serving bowls, topping each portion with toasted hazelnuts and additional grated cheese. Serve immediately.
+
+## Notes
+Original recipe from: https://www.seriouseats.com/orecchiette-with-broccoli-and-toasted-hazelnuts-recipe-7507873
