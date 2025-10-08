@@ -229,6 +229,19 @@ SEMIRINGS = [
     'TROP_MAX_INT',
 ]
 
+PREC = {
+    'DOT': 1,
+    'PLUS': 2,
+    'MINUS': 2,
+    'STAR': 3,
+    'DIVIDE': 3,
+    'EQUAL': 4,
+    'NOT_EQUAL': 4,
+    'LEQ': 4,
+    'GEQ': 4,
+
+}
+
 class Parser(object):
     def __init__(self, tokens):
         self.tokens = tokens
@@ -295,6 +308,12 @@ class Parser(object):
         if tok.type in SEMIRINGS:
             self.eat()
             return tok.type
+        
+    def parse_semiring(self):
+        ring = self.try_parse_semiring()
+        if not ring:
+            raise ParseError('Expected semiring', self.cur())
+        return ring
 
     def parse_type(self):
         ring = self.try_parse_semiring()
@@ -309,9 +328,7 @@ class Parser(object):
             cols = self.parse_dim()
             self.eat('COMMA')
 
-            ring = self.try_parse_semiring()
-            if not ring:
-                raise ParseError('Expected semiring', self.cur())
+            ring = self.parse_semiring()
 
             self.eat('RANGLE')
             return {
@@ -326,9 +343,7 @@ class Parser(object):
             rows = self.parse_dim()
             self.eat('COMMA')
 
-            ring = self.try_parse_semiring()
-            if not ring:
-                raise ParseError('Expected semiring', self.cur())
+            ring = self.parse_semiring()
 
             self.eat('RANGLE')
             return {
@@ -376,10 +391,110 @@ class Parser(object):
         self.eat('RSBRACKET')
         return True
     
-    def parse_expr(self):
-        while self.cur().type not in ['LBRACKET', 'SEMI']:
+    def parse_atom(self):
+        if self.try_eat('LPAREN'):
+            expr = self.parse_expr()
+            self.eat('RPAREN')
+            return expr
+
+        ident = self.try_eat('IDENT')
+        if ident:
+            return ident.body
+        
+        if self.try_eat('NOT'):
+            expr = self.parse_expr()
+            return {
+                'not': expr
+            }
+        
+        if self.try_eat('MINUS'):
+            expr = self.parse_expr()
+            return {
+                'neg': expr
+            }
+
+        if self.try_eat('MATRIX'):
+            self.eat('LANGLE')
+            ring = self.parse_semiring()
+            self.eat('RANGLE')
+            self.eat('LPAREN')
+            rows = self.parse_expr()
+            self.eat('COMMA')
+            cols = self.parse_expr()
+            self.eat('RPAREN')
+            return {
+                'ring': ring,
+                'rows': rows,
+                'cols': cols,
+            }
+
+        if self.try_eat('VECTOR'):
+            self.eat('LANGLE')
+            ring = self.parse_semiring()
+            self.eat('RANGLE')
+            self.eat('LPAREN')
+            rows = self.parse_expr()
+            self.eat('RPAREN')
+            return {
+                'ring': ring,
+                'rows': rows,
+            }
+        
+        # TODO: DIAG
+        # TODO: APPLY
+        # TODO: SELECT
+        # TODO: TRIL
+        # TODO: TRIU
+        # TODO: REDUCE_ROWS
+        # TODO: REDUCE_COLS
+        # TODO: CAST
+        # TODO: literal
+        # TODO: ZERO
+        # TODO: ONE
+        # TODO: PICK_ANY
+        
+        raise ParseError("invalid expression", self.cur())
+    
+    def parse_expr(self, min_prec = 1):
+        atom_lhs = self.parse_atom()
+
+        while True:
+            binop = self.cur()
+            if binop.type not in PREC or PREC[binop.type] < min_prec:
+                break
+
+            next_min_prec = PREC[binop.type] + 1
             self.eat()
-        return None
+
+            if binop.type == 'DOT':
+                if self.try_eat('T'):
+                    atom_lhs = {
+                        'transpose': atom_lhs,
+                    }
+                elif self.try_eat('NROWS'):
+                    atom_lhs = {
+                        'nrows': atom_lhs,
+                    }
+                elif self.try_eat('NCOLS'):
+                    atom_lhs = {
+                        'ncols': atom_lhs,
+                    }
+                elif self.try_eat('NVALS'):
+                    atom_lhs = {
+                        'nvals': atom_lhs,
+                    }
+                else:
+                    raise ParseError("invalid property", self.cur())
+            else:
+                atom_rhs = self.parse_expr(next_min_prec)
+                atom_lhs = {
+                    'lhs': atom_lhs,
+                    'op': binop.type,
+                    'rhs': atom_rhs,
+                }
+        
+        return atom_lhs
+
     
     def parse_stmt(self):
         if self.try_eat('FOR'):
