@@ -206,6 +206,14 @@ class Lexer(object):
             return Token('EOF', self.loc(), '')
 
         raise LexError(f"Unrecognized char '{self.cur()}'", self.loc())
+    
+    def all_tokens(self):
+        tokens = []
+        while True:
+            tok = self.next_token()
+            tokens.append(tok)
+            if tok.type == 'EOF':
+                return tokens
 
 class ParseError(Exception):
     def __init__(self, message, token):
@@ -222,89 +230,107 @@ SEMIRINGS = [
 ]
 
 class Parser(object):
-    def __init__(self, lexer):
-        self.lexer = lexer
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.offset = 0
     
-    def parse_expect(self, type):
-        tok = self.lexer.next_token()
-        if tok.type != type:
-            raise ParseError(f"Expected {type}", tok)
-        return tok
+    def cur(self):
+        if self.offset < len(self.tokens):
+            return self.tokens[self.offset]
+    
+    def peek(self):
+        if self.offset + 1 < len(self.tokens):
+            return self.tokens[self.offset + 1]
+        
+    def eat(self, type=None):
+        cur = self.cur()
+        if type and cur.type != type:
+            raise ParseError(f"Expected {type}", self.cur())
+        self.offset += 1
+        return cur
+    
+    def try_eat(self, type):
+        cur = self.cur()
+        if cur.type == type:
+            self.offset += 1
+            return cur
+        return None
     
     def parse_params(self):
-        self.parse_expect('LPAREN')
+        self.eat('LPAREN')
         params = []
         while True:
-            tok = self.lexer.next_token()
-            if tok.type == 'RPAREN':
+            if self.try_eat('RPAREN'):
                 # End of params
                 break
 
             if len(params) > 0:
                 # Additional parameters
-                if tok.type != 'COMMA':
-                    raise ParseError("Expected comma before next parameter", tok)
-                name = self.parse_expect('IDENT')
+                self.eat('COMMA')
+                name = self.eat('IDENT')
             else:
                 # First parameter
-                if tok.type != 'IDENT':
-                    raise ParseError("Expected parameter name", tok)
-                name = tok
-            
-            self.parse_expect('COLON')
+                name = self.eat('IDENT')
+
+            self.eat('COLON')
 
             type = self.parse_type()
-            params.append((name, type))
+            params.append((name.body, type))
 
         return params
     
     def parse_dim(self):
-        tok = self.lexer.next_token()
+        tok = self.cur()
         if tok.type == 'IDENT':
+            self.eat()
             return tok.body
         elif tok.type == 'INT' and tok.body == '1':
+            self.eat()
             return '1'
         else:
             raise ParseError("Expected dimension symbol", tok)
 
-    def parse_semiring(self):
-        tok = self.lexer.next_token()
+    def try_parse_semiring(self):
+        tok = self.cur()
         if tok.type in SEMIRINGS:
+            self.eat()
             return tok.type
-        else:
-            raise ParseError("Expected semiring", tok)
 
     def parse_type(self):
-        tok = self.lexer.next_token()
-        if tok.type in SEMIRINGS:
-            return tok.type
-        elif tok.type == 'MATRIX':
-            self.parse_expect('LANGLE')
+        ring = self.try_parse_semiring()
+        if ring:
+            return ring
+        elif self.try_eat('MATRIX'):
+            self.eat('LANGLE')
 
             rows = self.parse_dim()
-            self.parse_expect('COMMA')
+            self.eat('COMMA')
 
             cols = self.parse_dim()
-            self.parse_expect('COMMA')
+            self.eat('COMMA')
 
-            ring = self.parse_semiring()
+            ring = self.try_parse_semiring()
+            if not ring:
+                raise ParseError('Expected semiring', self.cur())
 
-            self.parse_expect('RANGLE')
+            self.eat('RANGLE')
             return {
                 'type': 'MATRIX',
                 'rows': rows,
                 'cols': cols,
                 'ring': ring,
             }
-        elif tok.type == 'VECTOR':
-            self.parse_expect('LANGLE')
+        elif self.try_eat('VECTOR'):
+            self.eat('LANGLE')
 
             rows = self.parse_dim()
-            self.parse_expect('COMMA')
+            self.eat('COMMA')
 
-            ring = self.parse_semiring()
+            ring = self.try_parse_semiring()
+            if not ring:
+                raise ParseError('Expected semiring', self.cur())
 
-            self.parse_expect('RANGLE')
+            self.eat('RANGLE')
             return {
                 'type': 'VECTOR',
                 'rows': rows,
@@ -312,128 +338,106 @@ class Parser(object):
             }
         else:
             raise ParseError("Expected type", tok)
+        
+    def parse_range(self):
+        begin = self.parse_expr()
+        if self.try_eat('COLON'):
+            end = self.parse_expr()
+            return {
+                'begin': begin,
+                'end': end,
+            }
+        else:
+            return {
+                'dim': begin,
+            }
+    
+    def try_parse_mask(self):
+        if not self.try_eat('LANGLE'):
+            return None
+        
+        complement = self.try_eat('NOT')
+        name = self.eat('IDENT')
+
+        self.eat('RANGLE')
+        return {
+            'complement': complement,
+            'name': name.body,
+        }
+    
+    def try_parse_fill(self):
+        if not self.try_eat('LSBRACKET'):
+            return False
+        
+        self.eat('COLON')
+        if self.try_eat('COMMA'):
+            self.eat('COLON')
+
+        self.eat('RSBRACKET')
+        return True
     
     def parse_expr(self):
-        while True:
-            tok = self.lexer.next_token()
-            # TODO: Does not always end with SEMI
-            if tok.type == 'SEMI':
-                return None
-
+        while self.cur().type not in ['LBRACKET', 'SEMI']:
+            self.eat()
+        return None
+    
     def parse_stmt(self):
-        tok = self.lexer.next_token()
-        if tok.type == 'RBRACKET':
-            return None
-
-        if tok.type == 'IDENT':
-            base = tok
-            tok = self.lexer.next_token()
-            if tok.type == '<':
-                # Mask
-                # TODO
-                pass
-
-            fill = False
-            if tok.type == 'LSBRACKET':
-                # Fill
-                fill = True
-                self.parse_expect('COLON')
-
-                # Optional ,:
-                tok = self.lexer.next_token()
-                if tok.type == 'COMMA':
-                    self.parse_expect('COLON')
-                    tok = self.lexer.next_token()
-                
-                if tok.type != 'RSBRACKET':
-                    raise ParseError('Invalid fill spec', tok)
-
-                tok = self.lexer.next_token()
-
-            accum = False
-            if tok.type == '+':
-                # Accumulate
-                # TODO: Don't allow mask or fill
-                accum = True
-                tok = self.lexer.next_token()
-            
-            if tok.type != 'ASSIGN':
-                raise ParseError("Expected '='", tok)
-            
-            expr = self.parse_expr()
-            return {
-                'type': 'ASSIGN',
-                'base': base.body,
-                'fill': fill,
-                'expr': expr,
-            }
-        elif tok.type == 'FOR':
-            iter_var = self.parse_expect('IDENT')
-            self.parse_expect('IN')
-
-            # Range
-            begin = self.parse_expr()
-            tok = self.lexer.next_token()
-            if tok.type == 'COLON':
-                end = self.parse_expr()
-                self.parse_expect('LBRACKET')
-                range = {
-                    'begin': begin,
-                    'end': end,
-                }
-            elif tok.type == 'LBRACKET':
-                range = {
-                    'dim': begin,
-                }
-            else:
-                raise ParseError("Invalid range", tok)
-
-            # Body
-            stmts = []
-            while True:
-                stmt = self.parse_stmt()
-                if stmt:
-                    stmts.append(stmt)
-                else:
-                    break
+        if self.try_eat('FOR'):
+            iter_var = self.eat('IDENT')
+            self.eat('IN')
+            iter_range = self.parse_range()
+            body = self.parse_block()
             return {
                 'type': 'FOR',
                 'iter_var': iter_var.body,
-                'range': range,
-                'body': stmts,
+                'range': iter_range,
+                'body': body,
             }
-
-            # TODO until
-        elif tok.type == 'RETURN':
+        elif self.try_eat('RETURN'):
             expr = self.parse_expr()
+            self.eat('SEMI')
             return {
                 'type': 'RETURN',
                 'expr': expr,
             }
+
+        base = self.eat('IDENT')
+
+        accum = self.try_eat('ACCUM')
+        if not accum:
+            mask = self.try_parse_mask()
+            fill = self.try_parse_fill()
+            self.eat('ASSIGN')
+        else:
+            mask = None
+            fill = False
+
+        expr = self.parse_expr()
+        self.eat('SEMI')
+        return {
+            'base': base.body,
+            'accum': accum is not None,
+            'mask': mask,
+            'fill': fill,
+            'expr': expr,
+        }
     
     def parse_block(self):
-        self.parse_expect('LBRACKET')
+        self.eat('LBRACKET')
         stmts = []
 
-        while True:
-            stmt = self.parse_stmt()
-            if stmt:
-                stmts.append(stmt)
-            else:
-                break
+        while self.cur().type != 'RBRACKET':
+            stmts.append(self.parse_stmt())
+            
+        self.eat('RBRACKET')
+        return stmts
     
     def parse_func(self):
-        func = self.lexer.next_token()
-        if func.type == 'EOF':
-            return None
-
-        if func.type != 'FUNC':
-            raise ParseError("Expected 'func'", func)
-        
-        ident = self.parse_expect('IDENT')
+        self.eat('FUNC')
+        ident = self.eat('IDENT')
         params = self.parse_params()
 
-        arrow = self.parse_expect('ARROW')
+        arrow = self.eat('ARROW')
         retty = self.parse_type()
 
         block = self.parse_block()
@@ -448,17 +452,17 @@ class Parser(object):
 
     def parse_program(self):
         funcs = []
-        while True:
-            f = self.parse_func()
-            if f is None:
-                break
-            funcs.append(f)
+        while self.cur().type == 'FUNC':
+            funcs.append(self.parse_func())
+        if self.cur().type != 'EOF':
+            raise ParseError("Invalid top-level definition", self.cur())
+
         return funcs
 
 if __name__ == "__main__":
     path = sys.argv[1]
     with open(path) as f:
         lex = Lexer(path, f.read())
-        parser = Parser(lex)
+        parser = Parser(lex.all_tokens())
         program = parser.parse_program()
         print(program)
