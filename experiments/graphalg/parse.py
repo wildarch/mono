@@ -1,4 +1,5 @@
 import sys
+import pprint
 
 class Loc(object):
     def __init__(self, file, line, col):
@@ -391,6 +392,21 @@ class Parser(object):
         self.eat('RSBRACKET')
         return True
     
+    def parse_literal(self):
+        if self.try_eat('TRUE'):
+            return True
+        elif self.try_eat('FALSE'):
+            return False
+        int_val = self.try_eat('INT')
+        if int_val:
+            return int(int_val.body)
+        
+        float_val = self.try_eat('FLOAT')
+        if float_val:
+            return float(float_val.body)
+        
+        raise ParseError("Invalid literal", self.cur())
+    
     def parse_atom(self):
         if self.try_eat('LPAREN'):
             expr = self.parse_expr()
@@ -440,18 +456,108 @@ class Parser(object):
                 'rows': rows,
             }
         
-        # TODO: DIAG
+        if self.try_eat('DIAG'):
+            self.eat('LPAREN')
+            expr = self.parse_expr()
+            self.eat('RPAREN')
+            return {
+                'diag': expr,
+            }
+
         # TODO: APPLY
+        if self.try_eat('APPLY'):
+            self.eat('LPAREN')
+            func = self.eat('IDENT')
+            self.eat('COMMA')
+            args = [self.parse_expr()]
+            if self.try_eat('COMMA'):
+                args.append(self.parse_expr())
+            self.eat('RPAREN')
+
+            return {
+                'apply': {
+                    'func': func.body,
+                    'args': args,
+                }
+            }
+
         # TODO: SELECT
-        # TODO: TRIL
-        # TODO: TRIU
-        # TODO: REDUCE_ROWS
-        # TODO: REDUCE_COLS
-        # TODO: CAST
-        # TODO: literal
+
+        if self.try_eat('TRIL'):
+            self.eat('LPAREN')
+            expr = self.parse_expr()
+            self.eat('RPAREN')
+            return {
+                'tril': expr,
+            }
+
+
+        if self.try_eat('TRIU'):
+            self.eat('LPAREN')
+            expr = self.parse_expr()
+            self.eat('RPAREN')
+            return {
+                'triu': expr,
+            }
+
+        if self.try_eat('REDUCE'):
+            self.eat('LPAREN')
+            expr = self.parse_expr()
+            self.eat('RPAREN')
+            return {
+                'reduce': expr,
+            }
+
+        if self.try_eat('REDUCE_ROWS'):
+            self.eat('LPAREN')
+            expr = self.parse_expr()
+            self.eat('RPAREN')
+            return {
+                'reduce_rows': expr,
+            }
+
+        if self.try_eat('REDUCE_COLS'):
+            self.eat('LPAREN')
+            expr = self.parse_expr()
+            self.eat('RPAREN')
+            return {
+                'reduce_cols': expr,
+            }
+
+        if self.try_eat('CAST'):
+            self.eat('LANGLE')
+            ring = self.parse_semiring()
+            self.eat('RANGLE')
+            self.eat('LPAREN')
+            expr = self.parse_expr()
+            self.eat('RPAREN')
+            return {
+                'cast': {
+                    'ring': ring,
+                    'expr': expr,
+                }
+            }
+
+        ring = self.try_parse_semiring()
+        if ring:
+            self.eat('LPAREN')
+            lit = self.parse_literal()
+            self.eat('RPAREN')
+            return {
+                'ring': ring,
+                'literal': lit,
+            }
+
         # TODO: ZERO
         # TODO: ONE
         # TODO: PICK_ANY
+        if self.try_eat('PICK_ANY'):
+            self.eat('LPAREN')
+            expr = self.parse_expr()
+            self.eat('RPAREN')
+            return {
+                'pick_any': expr,
+            }
         
         raise ParseError("invalid expression", self.cur())
     
@@ -460,13 +566,41 @@ class Parser(object):
 
         while True:
             binop = self.cur()
-            if binop.type not in PREC or PREC[binop.type] < min_prec:
+            if binop.type == 'LPAREN' and self.peek().type == 'DOT':
+                prec = 5
+            elif binop.type in PREC:
+                prec = PREC[binop.type]
+            else:
+                break
+            
+            if prec < min_prec:
                 break
 
-            next_min_prec = PREC[binop.type] + 1
+            next_min_prec = prec + 1
             self.eat()
 
-            if binop.type == 'DOT':
+            if binop.type == 'LPAREN' and self.try_eat('DOT'):
+                func = self.try_eat('IDENT')
+                if func:
+                    self.eat('RPAREN')
+                    atom_rhs = self.parse_expr(next_min_prec)
+                    atom_lhs = {
+                        'lhs': atom_lhs,
+                        'op': func.body,
+                        'rhs': atom_rhs,
+                    }
+                elif self.cur().type in PREC and self.cur().type != 'DOT':
+                    binop = self.eat()
+                    self.eat('RPAREN')
+                    atom_rhs = self.parse_expr(next_min_prec)
+                    atom_lhs = {
+                        'lhs': atom_lhs,
+                        'op': binop.body,
+                        'rhs': atom_rhs,
+                    }
+                else:
+                    raise ParseError("Invalid element-wise function", self.cur())
+            elif binop.type == 'DOT':
                 if self.try_eat('T'):
                     atom_lhs = {
                         'transpose': atom_lhs,
@@ -502,11 +636,16 @@ class Parser(object):
             self.eat('IN')
             iter_range = self.parse_range()
             body = self.parse_block()
+            until = None
+            if self.try_eat('UNTIL'):
+                until = self.parse_expr()
+                self.eat('SEMI')
             return {
                 'type': 'FOR',
                 'iter_var': iter_var.body,
                 'range': iter_range,
                 'body': body,
+                'until': until,
             }
         elif self.try_eat('RETURN'):
             expr = self.parse_expr()
@@ -580,4 +719,4 @@ if __name__ == "__main__":
         lex = Lexer(path, f.read())
         parser = Parser(lex.all_tokens())
         program = parser.parse_program()
-        print(program)
+        pprint.pp(program)
