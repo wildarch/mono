@@ -5,7 +5,7 @@ sudo apt install npm --no-install-recommends
 
 # Setup NPM prefix
 mkdir -p ~/.local
-npm config set prefix ~/.local
+npm config --location user set prefix ~/.local
 echo 'export PATH=$HOME/.local/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 
