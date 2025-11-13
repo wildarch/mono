@@ -10,11 +10,11 @@ mkdir build/
 cd build/
 
 # Initial example
-clang-20 -O3 -mcmodel=medium -c ../stencils.c
+clang-20 -O3 -mcmodel=medium -fno-pic -c ../stencils.c
 objdump -d -Mintel,x86-64 --disassemble --reloc stencils.o
 
 clang-20 ../cnp_jit.c ../cnp_stencils.c -o cnp_jit
 
 # Complex stencil
-clang-20 -O3 -mcmodel=medium -c ../complex_stencil.c
+clang-20 -O3 -mcmodel=medium -fno-pie -c ../complex_stencil.c
 objdump -d -Mintel,x86-64 --disassemble --reloc complex_stencil.o
