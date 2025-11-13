@@ -8,9 +8,7 @@ Use `rpi-imager`. It is installed from the regular repositories:
 sudo apt install rpi-imager
 ```
 
-Set hostname `speaker`, username `daan`, copy the SSH key and configure the Wi-Fi credentials.
-The automatic Wi-Fi configuration did not work for me.
-I had to connect a screen and keyboard and configure it using `raspi-config` after first boot.
+Set hostname `speaker`, username `daan`, and enable the SSH server.
 
 ## Provisioning
 Optionally verify the pi is reachable under hostname `speaker`:
@@ -23,4 +21,29 @@ Run the playbook:
 
 ```shell
 ansible-playbook ansible/speaker.yml
+```
+
+## Last Update (2025-11-13)
+Use `rpi-imager`. It is installed from the regular repositories:
+
+```bash
+sudo apt install rpi-imager
+```
+
+Set hostname `speaker`, username `daan`, and enable the SSH server.
+I added to `/boot/firmware/config.txt`:
+```
+dtoverlay=disable-wifi
+```
+
+I setup a Spotify Connect server using [raspotify](https://github.com/dtcooper/raspotify):
+
+```bash
+sudo apt-get -y install curl && curl -sL https://dtcooper.github.io/raspotify/install.sh | sh
+```
+
+To `/etc/raspotify/conf` I add:
+
+```bash
+LIBRESPOT_NAME="Songs for the elderly"
 ```

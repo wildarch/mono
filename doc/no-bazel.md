@@ -12,10 +12,3 @@ I have also found Bazel annoying or limiting to use at times:
 I want to try and use a devcontainer instead for a more flexible solution.
 This means foregoing a central tool for building and testing parts of the repo, but in return I get more control over how I build and run my code.
 The devcontainer should keep things relatively reliable/portable.
-
-## Devcontainer
-Steps:
-- [x] Build cast backend
-- [ ] Build columnar
-- [ ] Tweak ansible deployment scripts
-- [ ] Update CI
