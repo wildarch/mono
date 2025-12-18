@@ -22,7 +22,7 @@
 - name: Set favourite apps
   community.general.dconf:
     key: "/org/gnome/shell/favorite-apps"
-    value: "['google-chrome.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', 'code.desktop']"
+    value: "['firefox_firefox.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', 'code.desktop']"
 
 - name: Use Alt+Tab to switch windows (not applications)
   community.general.dconf:

@@ -15,12 +15,22 @@
       name: caddy
 
   tasks:
+  - name: Install headscale
+    become: true
+    apt:
+      deb: https://github.com/juanfont/headscale/releases/download/v0.27.1/headscale_0.27.1_linux_arm64.deb
+
+  - name: Enable headscale
+    ansible.builtin.systemd:
+      name: caddy
+      enabled: true
+      state: started
+
   - name: Add Caddy APT key
     become: true
-    apt_key:
+    ansible.builtin.get_url:
       url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
-      file: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-      state: present
+      dest: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 
   - name: Add Caddy APT repository
     become: true

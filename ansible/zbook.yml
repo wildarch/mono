@@ -17,6 +17,7 @@
   - include_tasks: tasks/google-chrome.yml
   - include_tasks: tasks/zoom.yml
   - include_tasks: tasks/spotify.yml
+  - include_tasks: tasks/tailscale.yml
   - name: Install APT Packages
     become: true
     apt:
