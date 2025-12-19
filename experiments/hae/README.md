@@ -18,3 +18,8 @@ The number of rows is 100.
 
 Evaluate each expression and print the results to STDOUT for the shortest time.
 The result has int64 type.
+
+## TODO
+- Find a good hash function for sequences of 4 characters
+- Implement dispatching based on it.
+- Check against data generator which combinations are most important, and make sure they have a unique entry in the table.
