@@ -77,3 +77,5 @@ target_link_libraries(
     MLIRTransforms
     Parquet::parquet_shared
 )
+
+target_compile_options(columnar PUBLIC -fno-rtti)

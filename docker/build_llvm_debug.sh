@@ -11,37 +11,38 @@ sha256sum -c - <<EOF
 f0a4a240aabc9b056142d14d5478bb6d962aeac549cbd75b809f5499240a8b38  /tmp/llvm-project-20.1.2.src.tar.xz
 EOF
 
-# Extract to /opt/llvm-src
-mkdir -p /opt/llvm-src
+# Extract to /tmp/llvm-src
+mkdir -p /tmp/llvm-src
 tar -xf /tmp/$LLVM_PROJECT_FILE_NAME.tar.xz \
-   -C /opt/llvm-src --strip-components 1
+   -C /tmp/llvm-src --strip-components 1
 rm /tmp/$LLVM_PROJECT_FILE_NAME.tar.xz
 
 # Configure, build and install
 mkdir /tmp/build/
 
-# Based on https://mlir.llvm.org/getting_started/ with some tweaks:
-# - Build in Debug mode to enable debug utils such as the --debug flag
-# - Use clang-20 and mold
-# - Install to /opt/llvm-debug
-# - Reduced number of parallel link jobs to avoid running out of memory
-cmake -G Ninja -S /opt/llvm-src/llvm -B /tmp/build \
+# MLIR Debug build
+# Based on https://mlir.llvm.org/getting_started/ with some tweaks
+cmake -G Ninja -S /tmp/llvm-src/llvm -B /tmp/build \
    -DCMAKE_BUILD_TYPE=Debug \
-   -DCMAKE_C_COMPILER=clang-20  \
-   -DCMAKE_CXX_COMPILER=clang++-20 \
+   -DLLVM_TARGETS_TO_BUILD=Native \
    -DCMAKE_INSTALL_PREFIX=/opt/llvm-debug \
+   -DLLVM_ENABLE_PROJECTS=mlir \
    -DLLVM_ENABLE_ASSERTIONS=ON \
-   -DLLVM_ENABLE_PROJECTS="mlir" \
-   -DLLVM_ENABLE_RTTI=ON \
-   -DLLVM_INSTALL_UTILS=ON \
-   -DLLVM_LINK_LLVM_DYLIB=ON \
-   -DLLVM_PARALLEL_LINK_JOBS=2 \
-   -DLLVM_TARGETS_TO_BUILD="Native" \
+   -DMLIR_TABLEGEN=/usr/bin/mlir-tblgen-20 \
+   -DLLVM_TABLEGEN=/usr/bin/llvm-tblgen-20 \
+   -DMLIR_LINALG_ODS_YAML_GEN=/usr/bin/mlir-linalg-ods-yaml-gen-20 \
+   -DLLVM_BUILD_EXAMPLES=OFF \
+   -DLLVM_BUILD_TOOLS=OFF \
+   -DLLVM_INCLUDE_BENCHMARKS=OFF \
+   -DLLVM_INCLUDE_DOCS=OFF \
+   -DLLVM_INCLUDE_TESTS=OFF \
+   -DLLVM_INCLUDE_UTILS=OFF \
    -DLLVM_USE_LINKER=mold \
    -DLLVM_USE_SPLIT_DWARF=ON \
 
 cmake --build /tmp/build
-cmake --install /tmp/build
+sudo cmake --install /tmp/build
+sudo rm -r /tmp/build/
 
-# Cleanup build dir so it is not included in the image snapshot
-rm -r /tmp/build/
+# Cleanup source so it is not included in the docker image (saves ~2GiB)
+rm -r /tmp/llvm-src/

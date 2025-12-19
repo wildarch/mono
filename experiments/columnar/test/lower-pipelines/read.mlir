@@ -21,7 +21,7 @@
 // CHECK: %c0 = arith.constant 0 : index
 // CHECK: %[[#MORE:]] = arith.cmpi ugt, %[[#CLAIM]]#2, %c0
 // CHECK: %generated = tensor.generate %[[#CLAIM]]#2 {
-// CHECK:   tensor.yield %arg2
+// CHECK:   tensor.yield %arg3
 // CHECK: %[[#READ:]] = columnar.table.column.read %[[#COL]] : tensor<?xi32>
 // CHECK-SAME: row_group=%[[#CLAIM]]#0
 // CHECK-SAME: skip=%[[#CLAIM]]#1

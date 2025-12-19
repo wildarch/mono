@@ -12,4 +12,5 @@ jobs:
               -DCMAKE_CXX_COMPILER=clang++-20  \
               -DCMAKE_LINKER_TYPE=MOLD \
       - run: cmake --build /tmp/build --target check
+      - run: cast/build_deb.sh
 
