@@ -1,24 +1,6 @@
-/**
- * Generates test input for an arithmetic expression evaluator
- *
- * expressions are written to STDOUT, expected output to STDERR.
- */
-#include <cstdint>
-#include <cstdlib>
 #include <iostream>
 
-class InputGen {
-private:
-  std::string _expr;
-  std::size_t _budget = 0;
-
-  char getValidOp(std::int64_t lhs, std::int64_t rhs, std::size_t maxPrec);
-  std::int64_t genAtom();
-  std::int64_t genExpr();
-
-public:
-  std::pair<std::string, std::int64_t> genExpr(std::size_t budget);
-};
+#include "InputGen.h"
 
 char InputGen::getValidOp(std::int64_t lhs, std::int64_t rhs,
                           std::size_t maxPrec) {
@@ -129,15 +111,4 @@ std::pair<std::string, std::int64_t> InputGen::genExpr(std::size_t budget) {
       std::move(_expr),
       result,
   };
-}
-
-int main() {
-  srand(42);
-  InputGen g;
-  for (std::size_t i = 0; i < 100; i++) {
-    auto [str, val] = g.genExpr(50000);
-    std::cout << str << "\n";
-    std::cerr << val << "\n";
-  }
-  return 0;
 }

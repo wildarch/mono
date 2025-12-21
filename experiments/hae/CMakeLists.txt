@@ -12,7 +12,12 @@ include_directories(include/)
 
 add_subdirectory(lib)
 
+add_executable(submit submit.cpp)
+
 add_executable(gen gen.cpp)
 
 add_executable(legal_words legal_words.cpp)
 target_link_libraries(legal_words PRIVATE hae)
+
+add_executable(word_freq word_freq.cpp)
+target_link_libraries(word_freq PRIVATE hae)
