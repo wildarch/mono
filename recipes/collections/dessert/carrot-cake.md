@@ -2,21 +2,21 @@
 ![](https://www.chainbaker.com/wp-content/uploads/2024/01/IMG_6204.jpg)
 
 ## Ingredients
-- 70g egg
-- 100g dark brown sugar
-- 70g vegetable oil
-- 3g vanilla extract
-- 3g cinnamon
-- 0.5g salt or a small pinch
-- 30g chopped pecans or walnuts
-- 30g raisins
-- 120g grated carrot
-- 100g all-purpose flour
-- 6g baking powder
+- 140g egg
+- 200g dark brown sugar
+- 140g vegetable oil
+- 6g vanilla extract
+- 6g cinnamon
+- 1g salt or a small pinch
+- 60g chopped pecans or walnuts
+- 60g raisins
+- 240g grated carrot
+- 200g all-purpose flour
+- 12g baking powder
 
 ### Topping
-- 15g cream cheese
-- 50g icing sugar
+- 30g cream cheese
+- 100g icing sugar
 - Crushed nuts
 
 ## Instructions
