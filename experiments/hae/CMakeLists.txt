@@ -14,6 +14,8 @@ add_subdirectory(lib)
 
 add_executable(submit submit.cpp)
 
+add_executable(basic basic.cpp)
+
 add_executable(gen gen.cpp)
 
 add_executable(legal_words legal_words.cpp)
