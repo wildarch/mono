@@ -23,3 +23,5 @@ target_link_libraries(legal_words PRIVATE hae)
 
 add_executable(word_freq word_freq.cpp)
 target_link_libraries(word_freq PRIVATE hae)
+
+add_executable(bytewise bytewise.cpp)
