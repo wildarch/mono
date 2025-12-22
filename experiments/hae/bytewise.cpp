@@ -2,22 +2,53 @@
  * Implementation based on a state machine that moves one byte of input at a
  * time.
  */
+#include <cassert>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <vector>
 
 struct State {
   bool parsingInt = false;
   std::uint16_t intValue = 0;
-  int minPrec = 0;
+  bool negInt = false;
+  bool parsingOp = false;
 
-  std::int64_t result = 0;
+  std::vector<std::int64_t> output;
+  std::vector<char> ops;
 
   void stopIntParse() {
     parsingInt = false;
-    result = intValue;
+    output.push_back(negInt ? -intValue : intValue);
     intValue = 0;
+    negInt = false;
+    parsingOp = true;
+  }
+
+  void apply(char op) {
+    auto rhs = output.back();
+    output.pop_back();
+    auto lhs = output.back();
+    auto &out = output.back();
+
+    switch (op) {
+    case '+':
+      out = lhs + rhs;
+      break;
+    case '-':
+      out = lhs - rhs;
+      break;
+    case '*':
+      out = lhs * rhs;
+      break;
+    case '/':
+      out = lhs / rhs;
+      break;
+    default:
+      std::cerr << "invalid op '" << op << "'\n";
+      std::abort();
+    }
   }
 
   void stepSpace() {
@@ -32,48 +63,78 @@ struct State {
   }
 
   void stepAdd() {
-    if (minPrec > 1) {
-      // At MUL/DIV level.
-      // Keep result.
-      std::abort();
-    } else {
-      // TODO: compute rhs
-      // TODO: result = result + rhs;
-      std::abort();
+    while (!ops.empty() && ops.back() != '(') {
+      // Any op has at least the precedence of '+'.
+      apply(ops.back());
+      ops.pop_back();
     }
+
+    ops.push_back('+');
+    parsingOp = false;
   }
 
   void stepSub() {
-    // TODO: implement
-    std::abort();
+    if (!parsingOp) {
+      // leading - for an int
+      negInt = true;
+      return;
+    }
+
+    while (!ops.empty() && ops.back() != '(') {
+      // Any op has at least the precedence of '-'.
+      apply(ops.back());
+      ops.pop_back();
+    }
+
+    ops.push_back('-');
+    parsingOp = false;
   }
 
   void stepMul() {
-    // TODO: implement
-    std::abort();
+    while (!ops.empty() && (ops.back() == '*' || ops.back() == '/')) {
+      apply(ops.back());
+      ops.pop_back();
+    }
+
+    ops.push_back('*');
+    parsingOp = false;
   }
 
   void stepDiv() {
-    // TODO: implement
-    std::abort();
+    while (!ops.empty() && (ops.back() == '*' || ops.back() == '/')) {
+      apply(ops.back());
+      ops.pop_back();
+    }
+
+    ops.push_back('/');
+    parsingOp = false;
   }
 
-  void stepOpen() {
-    // TODO: Save current result.
-    // TODO: Parse a new atom.
-    std::abort();
-  }
+  void stepOpen() { ops.push_back('('); }
 
   void stepClose() {
     if (parsingInt)
       stopIntParse();
 
-    // TODO: pop from continue stack
-    std::abort();
+    while (ops.back() != '(') {
+      apply(ops.back());
+      ops.pop_back();
+    }
+
+    // Discard '('
+    ops.pop_back();
   }
 
   void stepEnd() {
-    // Nothing, result is already set.
+    if (parsingInt)
+      stopIntParse();
+
+    while (!ops.empty()) {
+      apply(ops.back());
+      ops.pop_back();
+    }
+
+    assert(output.size() == 1);
   }
 
   void step(char c) {
@@ -121,6 +182,8 @@ int main(int argc, char **argv) {
     }
 
     s.stepEnd();
+
+    std::cout << s.output.back() << "\n";
   }
 
   return 0;
