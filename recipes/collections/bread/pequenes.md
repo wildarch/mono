@@ -1,28 +1,32 @@
 # Pequenes (Chilean Empanadas)
 ![](https://www.seriouseats.com/thmb/nZl_UHI4BFAwW1YhQUHEZmPYwPg=/750x0/filters:no_upscale():max_bytes(150000):strip_icc()/20230926-Pequenes-EstudioComo-hero-64c0606409db41b39bc195d533f2dd79.jpg)
 
-Makes 12 empanadas.
+Makes 6 empanadas.
 
 ## Ingredients (Filling)
-- 60 ml lard, vegetable shortening, or vegetable oil
-- 1.5 kg white or yellow onions (about 7 medium onions), diced
-- 1 tbsp Chilean aji de color or sweet (smoked) paprika
-- 1/2 tsp ground cumin
-- 9 g salt
-- 1 to 2 tablespoons (15-30 ml) Chilean hot sauce or sriracha (optional)
+- 30 ml lard, vegetable shortening, or vegetable oil
+- 750g white or yellow onions (about 4 medium onions), diced
+- 1/2 tbsp Chilean aji de color or sweet (smoked) paprika
+- 1/4 tsp ground cumin
+- 5 g salt
+- 1 tbsp (15) Chilean hot sauce or sriracha (optional)
 - Freshly ground black pepper
-- 1 tbsp all-purpose flour
-- 235 ml beef or vegetable broth
+- 1/2 tbsp all-purpose flour
+- 120 ml beef or vegetable broth
 
 ## Ingredients (Dough)
-- 115 g unsalted butter
-- 115 g lard or vegetable shortening (or more unsalted butter)
-- 9g salt
-- 905 g all-purpose flour, plus more for dusting
-- 1 tsp baking powder
-- 355 ml hot water (55 to 60°C), divided
-- 2 large eggs, at room temperature and lightly beaten, divided
-- 2 tablespoons (30 ml) Chilean pisco (use Peruvian pisco or vodka if not available)
+- 60g g unsalted butter
+- 60g g lard or vegetable shortening (or more unsalted butter)
+- 5g salt
+- 450g all-purpose flour, plus more for dusting
+- 1/2 tsp baking powder
+- 180 ml hot water (55 to 60°C), divided
+- 1 large egg, at room temperature and lightly beaten, divided
+- 1 tbsp (15 ml) Chilean pisco (use Peruvian pisco or vodka if not available)
+
+## Ingredients (To Assemble)
+- 30 ml milk
+- 1 egg yolk beaten with 1 tablespoons milk to form an egg wash
 
 ## Instructions
 1. **For the Pequenes Filling:** In a large nonstick pan or medium Dutch oven, heat lard over medium heat until melted and shimmering.
@@ -49,7 +53,7 @@ Makes 12 empanadas.
 8. **To Assemble:** Before filling the pequenes, par-freeze onion filling until firm, 15 to 30 minutes.
   Adjust oven rack to middle position and preheat oven to 245°C.
 
-9. Cut dough into 12 equal pieces (125g each).
+9. Cut dough into 6 equal pieces (125g each).
 
 10. Working with 1 piece of dough at a time (keep remaining dough pieces covered and warm), dust dough piece lightly with flour and roll into a ball on a lightly floured work surface.
     Using a rolling pin, roll into a 24cm round.
