@@ -25,5 +25,3 @@ add_executable(word_freq word_freq.cpp)
 target_link_libraries(word_freq PRIVATE hae)
 
 add_executable(bytewise bytewise.cpp)
-
-add_executable(lut32 lut32.cpp)

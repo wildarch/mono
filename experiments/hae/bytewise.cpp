@@ -9,27 +9,42 @@
 #include <string>
 #include <vector>
 
+// =================
+// === DEBUGGING ===
+// =================
+struct dummy_out {};
+template <typename T> dummy_out operator<<(dummy_out os, T s) { return os; }
+
+// #define DEBUG std::cerr
+#define DEBUG (dummy_out{})
+
 struct State {
-  bool parsingInt = false;
+  enum Mode {
+    ATOM,
+    INT,
+    OP,
+  } mode = ATOM;
+
   std::uint16_t intValue = 0;
   bool negInt = false;
-  bool parsingOp = false;
 
   std::vector<std::int64_t> output;
   std::vector<char> ops;
 
   void stopIntParse() {
-    parsingInt = false;
+    assert(mode == INT);
     output.push_back(negInt ? -intValue : intValue);
+    DEBUG << "output PUSH: " << output.back() << "\n";
     intValue = 0;
     negInt = false;
-    parsingOp = true;
   }
 
   void apply(char op) {
     auto rhs = output.back();
+    DEBUG << "output POP: " << output.back() << "\n";
     output.pop_back();
     auto lhs = output.back();
+    DEBUG << "output POP: " << output.back() << "\n";
     auto &out = output.back();
 
     switch (op) {
@@ -49,20 +64,38 @@ struct State {
       std::cerr << "invalid op '" << op << "'\n";
       std::abort();
     }
+
+    DEBUG << "output PUSH: " << output.back() << "\n";
   }
 
   void stepSpace() {
-    if (parsingInt)
+    switch (mode) {
+    case ATOM:
+      mode = OP;
+      break;
+    case INT:
       stopIntParse();
+      mode = OP;
+      break;
+    case OP:
+      mode = ATOM;
+      break;
+    }
   }
 
   void stepDigit(char c) {
-    parsingInt = true;
+    if (mode == ATOM) {
+      mode = INT;
+    }
+
+    assert(mode == INT);
     intValue *= 10;
     intValue += c - '0';
   }
 
   void stepAdd() {
+    assert(mode == OP);
+
     while (!ops.empty() && ops.back() != '(') {
       // Any op has at least the precedence of '+'.
       apply(ops.back());
@@ -70,16 +103,18 @@ struct State {
     }
 
     ops.push_back('+');
-    parsingOp = false;
+    // NOTE: mode remains OP
   }
 
   void stepSub() {
-    if (!parsingOp) {
+    if (mode == ATOM) {
       // leading - for an int
+      mode = INT;
       negInt = true;
       return;
     }
 
+    assert(mode == OP);
     while (!ops.empty() && ops.back() != '(') {
       // Any op has at least the precedence of '-'.
       apply(ops.back());
@@ -87,34 +122,38 @@ struct State {
     }
 
     ops.push_back('-');
-    parsingOp = false;
+    // NOTE: mode remains OP
   }
 
   void stepMul() {
+    assert(mode == OP);
     while (!ops.empty() && (ops.back() == '*' || ops.back() == '/')) {
       apply(ops.back());
       ops.pop_back();
     }
 
     ops.push_back('*');
-    parsingOp = false;
+    // NOTE: mode remains OP
   }
 
   void stepDiv() {
+    assert(mode == OP);
     while (!ops.empty() && (ops.back() == '*' || ops.back() == '/')) {
       apply(ops.back());
       ops.pop_back();
     }
 
     ops.push_back('/');
-    parsingOp = false;
+    // NOTE: mode remains OP
   }
 
   void stepOpen() { ops.push_back('('); }
 
   void stepClose() {
-    if (parsingInt)
+    if (mode == INT) {
       stopIntParse();
+      mode = ATOM;
+    }
 
     while (ops.back() != '(') {
       apply(ops.back());
@@ -126,8 +165,11 @@ struct State {
   }
 
   void stepEnd() {
-    if (parsingInt)
+    if (mode == INT)
       stopIntParse();
+
+    // Reset to initial conditions
+    mode = ATOM;
 
     while (!ops.empty()) {
       apply(ops.back());
@@ -178,6 +220,21 @@ int main(int argc, char **argv) {
   while (std::getline(std::cin, line)) {
     State s;
     for (auto c : line) {
+      DEBUG << "input '" << c << "' mode ";
+      switch (s.mode) {
+      case State::ATOM:
+        DEBUG << "ATOM";
+        break;
+      case State::INT:
+        DEBUG << "INT";
+        break;
+      case State::OP:
+        DEBUG << "OP";
+        break;
+      }
+
+      DEBUG << "\n";
+
       s.step(c);
     }
 
