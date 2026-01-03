@@ -22,27 +22,30 @@
 
   - name: Enable headscale
     ansible.builtin.systemd:
-      name: caddy
+      name: headscale
       enabled: true
       state: started
 
-  - name: Add Caddy APT key
+  - name: Install caddy prerequisites
     become: true
-    ansible.builtin.get_url:
-      url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
-      dest: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+    apt:
+      pkg:
+        - debian-keyring
+        - debian-archive-keyring
+        - apt-transport-https
+        - curl
 
-  - name: Add Caddy APT repository
+  - name: Configure caddy APT repository
     become: true
-    apt_repository:
-      repo: deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
-      state: present
-      filename: caddy-stable
+    ansible.builtin.shell: |
+      curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor > /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+      curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
+      chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+      chmod o+r /etc/apt/sources.list.d/caddy-stable.list
 
-  - name: Install packages
+  - name: Install caddy
     apt:
       update_cache: yes
-      cache_valid_time: 3600
       pkg:
         - caddy
 
@@ -80,6 +83,12 @@
     ansible.builtin.command:
       cmd: "../../cast/build_deb.sh"
       creates: "../../cast/cast-backend_0.0.1-1_arm64.deb"
+
+  - name: Install rsync
+    become: true
+    apt:
+      pkg:
+        - rsync
 
   - name: Transfer cast backend
     ansible.posix.synchronize:
