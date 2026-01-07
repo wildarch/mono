@@ -14,8 +14,8 @@ sudo headscale users create zbook
 To connect a device after a reinstall, do the following.
 
 ```bash
-# NOTE: https:// protocol is required
-sudo tailscale up --login-server https://headscale.wildarch.dev
+# NOTE: http:// protocol is required
+sudo tailscale up --login-server http://headscale.wildarch.dev
 ```
 
 A browser window with further instructions is opened and contains the value for `<YOUR_MACHINE_KEY>`. Approve and register the node on the headscale server:
