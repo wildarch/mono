@@ -293,6 +293,13 @@ mlir::LogicalResult HashJoinCollectOp::lowerBody(LowerBodyCtx &ctx,
   return mlir::success();
 }
 
+// TODO: HashJoinBuildOp
+// 1. GLOBAL: Allocate directory, size based on the total nr. of tuples
+// 2. Count number of tuples per hash (write to directory)
+// 3. Apply exclusive prefix sum over directory, to find where each directory
+// starts.
+// 4. Copy tuples to final destination (and update corresponding directory slot)
+
 static void unpackStructPointer(mlir::Value v, mlir::OpBuilder &builder,
                                 llvm::SmallVectorImpl<mlir::Value> &out) {
   auto ptrType = llvm::cast<PointerType>(v.getType());
