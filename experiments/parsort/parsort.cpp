@@ -12,6 +12,15 @@
 
 struct Parser {
   static constexpr std::size_t NUM_PARTS = 16;
+  struct Part {
+    // Points to the start of this part.
+    const char *start;
+    // Points to the end of this part.
+    const char *end;
+    // Points to the start of the next part.
+    // Used to parse the (remainder of) the last edge.
+    const char *next;
+  };
   std::vector<const char *> parts;
 
   // TODO: parse method.
@@ -61,6 +70,8 @@ int main(int argc, char **argv) {
   for (int i = 0; i < Parser::NUM_PARTS; i++) {
     parser.parts.push_back(file_contents + i * part_size);
   }
+
+  parser.parts.push_back(file_contents + file_size);
 
   // TODO: parser.parse()
 
