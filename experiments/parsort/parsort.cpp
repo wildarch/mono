@@ -1,6 +1,8 @@
 #include <charconv>
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <iterator>
 #include <string_view>
 
 // for mmap
@@ -12,19 +14,73 @@
 
 struct Parser {
   static constexpr std::size_t NUM_PARTS = 16;
-  struct Part {
-    // Points to the start of this part.
-    const char *start;
-    // Points to the end of this part.
-    const char *end;
-    // Points to the start of the next part.
-    // Used to parse the (remainder of) the last edge.
-    const char *next;
-  };
   std::vector<const char *> parts;
 
-  // TODO: parse method.
+  void parseLine(std::string_view line);
+  void parse(std::size_t part);
 };
+
+void Parser::parse(std::size_t part) {
+  // TODO
+  std::cout << "part: " << part << "\n";
+  bool isFirst = part == 0;
+  bool isLast = part == (NUM_PARTS - 1);
+
+  const char *start = parts[part];
+  const char *end = parts[part + 1];
+
+  if (!isFirst) {
+    // Find the first newline
+    while (start < end && *start != '\n') {
+      start++;
+    }
+
+    if (*start != '\n') {
+      // No newline within the buffer, skip.
+      std::cout << "part " << part
+                << " does not contain any newlines, skipping\n";
+      return;
+    }
+
+    // Skip over the start of the first line.
+    start++;
+  }
+
+  // NOTE: start now points to the start of the next line.
+  while (start < end) {
+    // Find next newline
+    const char *lineEnd = start;
+    while (*lineEnd != '\n' && lineEnd < end) {
+      lineEnd++;
+    }
+
+    if (*lineEnd == '\n') {
+      // Have a complete line.
+      std::string_view line(start, std::distance(start, lineEnd));
+      parseLine(line);
+      // Next line.
+      start = lineEnd + 1;
+      continue;
+    }
+
+    if (!isLast) {
+      // Keep scanning until we find a newline.
+      end = parts.back();
+      while (*lineEnd != '\n' && lineEnd < end) {
+        lineEnd++;
+      }
+    }
+
+    std::string_view line(start, std::distance(start, lineEnd));
+    if (*lineEnd != '\n') {
+      std::cerr << "Error: Garbage at end of file: '" << line << "'\n";
+    } else {
+      // The final line
+      parseLine(line);
+      return;
+    }
+  }
+}
 
 int main(int argc, char **argv) {
   // Check we have exactly one argument
@@ -72,6 +128,10 @@ int main(int argc, char **argv) {
   }
 
   parser.parts.push_back(file_contents + file_size);
+
+  for (int i = 0; i < Parser::NUM_PARTS; i++) {
+    parser.parse(i);
+  }
 
   // TODO: parser.parse()
 
