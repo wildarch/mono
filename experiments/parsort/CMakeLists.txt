@@ -11,3 +11,4 @@ add_executable(
     parsort.cpp
 )
 target_compile_features(parsort PRIVATE cxx_std_17)
+target_include_directories(parsort PRIVATE include/)
