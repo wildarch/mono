@@ -1,4 +1,5 @@
 #include <charconv>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -139,6 +140,7 @@ int main(int argc, char **argv) {
   ChunkDelimited chunkFile(fileContents, NUM_CHUNKS);
 
   // Step 2: Parse to binary format.
+  auto parseStart = std::chrono::steady_clock::now();
   auto tempDir = std::filesystem::temp_directory_path() / "parsort";
   std::error_code createError;
   std::filesystem::create_directories(tempDir, createError);
@@ -171,6 +173,12 @@ int main(int argc, char **argv) {
 
           chunkFile.visitLinesInChunk(
               i, [&](std::string_view line) { parseLine(os, line); });
+          os.flush();
+          if (os.fail()) {
+            std::cerr << "error flushing chunk file\n";
+            return;
+          }
+
           parseOk = true;
         },
         i, std::ref(chunkFile), chunkPaths[i], std::ref(parseThreadsOk[i]));
@@ -182,7 +190,10 @@ int main(int argc, char **argv) {
     parseOk &= parseThreadsOk[i];
   }
 
-  std::cout << "parsed\n";
+  auto parseEnd = std::chrono::steady_clock::now();
+  auto parseTime = std::chrono::duration_cast<std::chrono::milliseconds>(
+      parseEnd - parseStart);
+  std::cout << "parsed in " << parseTime << "\n";
 
   // Unmap the file
   if (munmap(filePtr, fileSize) == -1) {
