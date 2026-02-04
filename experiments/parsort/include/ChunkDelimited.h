@@ -18,7 +18,7 @@ public:
     _chunks.push_back(input.end());
   }
 
-  template <typename F> void visitLinesInChunk(std::size_t chunk, F &&f) {
+  template <typename F> void visitLinesInChunk(std::size_t chunk, F &&f) const {
     bool isFirst = chunk == 0;
     bool isLast = chunk == (_chunks.size() - 1);
 

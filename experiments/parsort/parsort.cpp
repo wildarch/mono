@@ -1,8 +1,18 @@
 #include <charconv>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <ios>
 #include <iostream>
+#include <sstream>
 #include <string_view>
+#include <system_error>
+#include <thread>
+#include <vector>
 
 // for mmap
 #include <fcntl.h>
@@ -12,7 +22,7 @@
 
 #include "ChunkDelimited.h"
 
-static void handleLine(std::string_view line) {
+static void parseLine(std::ofstream &os, std::string_view line) {
   if (line.empty()) {
     return;
   }
@@ -71,8 +81,16 @@ static void handleLine(std::string_view line) {
     return;
   }
 
-  // Print the parsed lines to the console
-  std::cout << u << " " << v << " " << w << "\n";
+  constexpr auto tupleSize = sizeof(u) + sizeof(v) + sizeof(w);
+  char serialized[tupleSize];
+  std::memcpy(serialized, &u, sizeof(u));
+  std::memcpy(&serialized[sizeof(u)], &v, sizeof(v));
+  std::memcpy(&serialized[sizeof(u) + sizeof(v)], &w, sizeof(w));
+  os.write(serialized, tupleSize);
+  if (os.bad()) {
+    std::cerr << "error: failed to write tuple to buffer\n";
+    return;
+  }
 }
 
 int main(int argc, char **argv) {
@@ -115,17 +133,61 @@ int main(int argc, char **argv) {
   close(fd);
 
   std::string_view fileContents(filePtr, fileSize);
-  constexpr std::size_t NUM_PARTS = 16;
-  ChunkDelimited chunkFile(fileContents, NUM_PARTS);
 
-  for (int i = 0; i < NUM_PARTS; i++) {
-    chunkFile.visitLinesInChunk(i, handleLine);
+  // Step 1: Split the input file into chunks.
+  constexpr std::size_t NUM_CHUNKS = 16;
+  ChunkDelimited chunkFile(fileContents, NUM_CHUNKS);
+
+  // Step 2: Parse to binary format.
+  auto tempDir = std::filesystem::temp_directory_path() / "parsort";
+  std::error_code createError;
+  std::filesystem::create_directories(tempDir, createError);
+  if (createError) {
+    std::cerr << "error: cannot create temp directory: "
+              << createError.message() << "\n";
+    return 1;
   }
+
+  std::vector<std::filesystem::path> chunkPaths;
+  for (int i = 0; i < NUM_CHUNKS; i++) {
+    std::ostringstream filename;
+    filename << "chunk" << std::setfill('0') << std::setw(4) << i;
+    auto chunkFilePath = tempDir / filename.str();
+    chunkPaths.push_back(chunkFilePath);
+  }
+
+  bool parseThreadsOk[NUM_CHUNKS];
+  std::vector<std::thread> parseThreads;
+  for (int i = 0; i < NUM_CHUNKS; i++) {
+    parseThreadsOk[i] = false;
+    parseThreads.emplace_back(
+        [](int i, const ChunkDelimited &chunkFile,
+           std::filesystem::path outputPath, bool &parseOk) {
+          std::ofstream os(outputPath, std::ios_base::trunc);
+          if (os.fail()) {
+            std::cerr << "error opening file " << outputPath << '\n';
+            return;
+          }
+
+          chunkFile.visitLinesInChunk(
+              i, [&](std::string_view line) { parseLine(os, line); });
+          parseOk = true;
+        },
+        i, std::ref(chunkFile), chunkPaths[i], std::ref(parseThreadsOk[i]));
+  }
+
+  bool parseOk = true;
+  for (int i = 0; i < NUM_CHUNKS; i++) {
+    parseThreads[i].join();
+    parseOk &= parseThreadsOk[i];
+  }
+
+  std::cout << "parsed\n";
 
   // Unmap the file
   if (munmap(filePtr, fileSize) == -1) {
     perror("error: Cannot munmap file");
   }
 
-  return 0;
+  return parseOk ? 0 : 1;
 }
