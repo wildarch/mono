@@ -6,14 +6,24 @@
     "icons": {
         "48": "icons/border-48.png"
     },
+    "permissions": [
+        "webRequest"
+    ],
     "content_scripts": [
         {
             "matches": [
-                "*://*.whatsapp.com/*"
+                "*://*.mozilla.org/*"
             ],
             "js": [
                 "borderify.js"
             ]
         }
-    ]
+    ],
+    "background": {
+        "scripts": [
+            "background.js"
+        ],
+        "persistent": false,
+        "type": "module"
+    }
 }

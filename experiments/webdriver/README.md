@@ -71,3 +71,4 @@ There is also an `evdev` package for python. That should also work (I did not tr
 I can use [Native messaging](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Native_messaging) to interface with a local server that handles e.g. simulating mouse/keyboard events.
 
 The [Zotero Connector](https://github.com/zotero/zotero-connectors) that I am familiar with (as a user) works differently: It expects the desktop client to run a server on a fixed port, and sends HTTP requests to it from a background script.
+CORS prevents making the request directly from the content script, so we must send a message to a background script instead, and the background script can then make the request for us.
