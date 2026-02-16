@@ -15,16 +15,24 @@ addEventListener('mousemove', (event) => {
         const mouseX = event.clientX;
         const mouseY = event.clientY;
 
-        if (mouseX < targetRect.left) {
-            console.log("need to move right");
-        } else if (mouseX > targetRect.right) {
-            console.log("need to move left");
-        }
+        // Calculate the center of the targetRect
+        const centerX = targetRect.left + targetRect.width / 2;
+        const centerY = targetRect.top + targetRect.height / 2;
 
-        if (mouseY < targetRect.top) {
-            console.log("need to move down");
-        } else if (mouseY > targetRect.bottom) {
-            console.log("need to move up");
+        let dx = 0;
+        let dy = 0;
+        const max_move = 10;
+
+        // Calculate the distance from the mouse to the center of the target
+        const diffX = mouseX - centerX;
+        const diffY = mouseY - centerY;
+
+        // Move towards the center if not already there, capping movement
+        dx = -Math.sign(diffX) * Math.min(max_move, Math.abs(diffX));
+        dy = -Math.sign(diffY) * Math.min(max_move, Math.abs(diffY));
+
+        if (dx !== 0 || dy !== 0) {
+            browser.runtime.sendMessage({ x: Math.round(dx), y: Math.round(dy) });
         }
     }
 });
