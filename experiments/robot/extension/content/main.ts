@@ -1,12 +1,8 @@
-document.body.style.border = "5px solid red";
-
-browser.runtime.onMessage.addListener((msg) => {
-    console.log(msg);
-});
-
-addEventListener('load', async () => {
-    browser.runtime.sendMessage({});
-});
+function waitForSearchBox(limit) {
+    const selector = 'div[aria-label="Search input textbox"]';
+    const searchBox = document.querySelector(selector);
+    // TODO: check if we have found it, otherwise wait a bit and retry.
+}
 
 addEventListener('mousemove', (event) => {
     const target = document.querySelector('#trying_it_out');
@@ -32,6 +28,7 @@ addEventListener('mousemove', (event) => {
         dy = -Math.sign(diffY) * Math.min(max_move, Math.abs(diffY));
 
         if (dx !== 0 || dy !== 0) {
+            // Request mouse movement via background script
             browser.runtime.sendMessage({ x: Math.round(dx), y: Math.round(dy) });
         }
     }
