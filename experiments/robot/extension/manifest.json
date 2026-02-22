@@ -15,7 +15,7 @@
                 "*://*.mozilla.org/*"
             ],
             "js": [
-                "borderify.js"
+                "content.js"
             ]
         }
     ],
