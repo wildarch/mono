@@ -1,4 +1,6 @@
-function waitForSearchBox(limit) {
+import browser from "webextension-polyfill";
+
+function waitForSearchBox(limit: number) {
     const selector = 'div[aria-label="Search input textbox"]';
     const searchBox = document.querySelector(selector);
     // TODO: check if we have found it, otherwise wait a bit and retry.
@@ -7,7 +9,7 @@ function waitForSearchBox(limit) {
 addEventListener('mousemove', (event) => {
     const target = document.querySelector('#trying_it_out');
     if (target) {
-        const targetRect = target.firstElementChild.getBoundingClientRect();
+        const targetRect = target.firstElementChild!!.getBoundingClientRect();
         const mouseX = event.clientX;
         const mouseY = event.clientY;
 
