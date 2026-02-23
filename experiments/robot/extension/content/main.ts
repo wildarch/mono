@@ -6,10 +6,11 @@ function waitForSearchBox(limit: number) {
     // TODO: check if we have found it, otherwise wait a bit and retry.
 }
 
-addEventListener('mousemove', (event) => {
-    const target = document.querySelector('#trying_it_out');
+addEventListener('mousemove', (event: MouseEvent) => {
+    const selector = 'div[aria-label="Search input textbox"]';
+    const target = document.querySelector(selector);
     if (target) {
-        const targetRect = target.firstElementChild!!.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
         const mouseX = event.clientX;
         const mouseY = event.clientY;
 
