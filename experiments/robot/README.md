@@ -48,7 +48,7 @@ def main():
         uinput.REL_Y,
         uinput.BTN_LEFT,
         uinput.BTN_RIGHT,
-        )
+    )
 
     with uinput.Device(events) as device:
         for i in range(20):
@@ -72,3 +72,9 @@ I can use [Native messaging](https://developer.mozilla.org/en-US/docs/Mozilla/Ad
 
 The [Zotero Connector](https://github.com/zotero/zotero-connectors) that I am familiar with (as a user) works differently: It expects the desktop client to run a server on a fixed port, and sends HTTP requests to it from a background script.
 CORS prevents making the request directly from the content script, so we must send a message to a background script instead, and the background script can then make the request for us.
+
+## Typescript Build
+Rollup is giving me issues, so I'm trying out bun for a change:
+```bash
+bun build experiments/robot/extension/content/main.ts --outfile experiments/robot/extension/build/content.js
+```

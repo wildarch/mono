@@ -28,18 +28,23 @@ class MouseControlHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'Bad Request: Invalid JSON')
             return
 
-        x = data.get('x', 0)
-        y = data.get('y', 0)
+        print(data)
+        if 'mouseMoveRel' in data:
+            x = data['mouseMoveRel']['x']
+            y = data['mouseMoveRel']['y']
+            if not isinstance(x, int) or not isinstance(y, int):
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b'Bad Request: x and y must be integers')
+                return
 
-        if not isinstance(x, int) or not isinstance(y, int):
-            self.send_response(400)
-            self.end_headers()
-            self.wfile.write(b'Bad Request: x and y must be integers')
-            return
-
-        print(x, y)
-        device.emit(uinput.REL_X, x, syn=False)
-        device.emit(uinput.REL_Y, y)
+            print(x, y)
+            device.emit(uinput.REL_X, x, syn=False)
+            device.emit(uinput.REL_Y, y)
+        if 'mouseClickLeft' in data and data['mouseClickLeft']:
+            device.emit_click(uinput.BTN_LEFT)
+        if 'mouseClickRight' in data and data['mouseClickRight']:
+            device.emit_click(uinput.BTN_LEFT)
 
         self.send_response(200)
         self.end_headers()
