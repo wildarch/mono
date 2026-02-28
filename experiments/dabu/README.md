@@ -6,7 +6,7 @@ I want to investigate the following things here in more detail:
 3. If I were to implement a cloud build system, what should the design look like?
 
 ## Literature
-The paper everyone points to [Build Systems à la Carte: Theory and Practice](Build Systems à la Carte: Theory and Practice).
+The paper everyone points to [Build Systems à la Carte: Theory and Practice](https://simon.peytonjones.org/build-systems-a-la-carte-theory-and-practice/).
 I explored some of the works that cite this paper, but found little that was directly related to the design of cloud build systems.
 The papers I found are in Zotero.
 
@@ -48,13 +48,17 @@ Two primary disadvantages of deep constructive traces:
    *NOTE: I don't think this is a real issue in my case, because we strongly want to avoid non-determinism anyway*
 2. No early cutoff: we do not look at the intermediate results, so we must assume that all intermediate results could have changed.
 
+### Evaluation
+Regarding rebuilder strategy, **constructive traces appear the clear winner**.
+Firstly, the dirty bit strategy is not suitable for a system where multiple builds can be happening in parallel.
+Verifying traces are essentially the same as constructive traces, except that they do not store intermediate build results.
+Deep constructive traces do not support early cutoff, and without it even changing a comment in one file can lead to a lot of unncessary work.
+Buck has also switched to constructive rather than deep constructive traces, I assume for this reason.
 
-Not up to debate for a cloud build system:
-- Constructive traces: Early cutoff is important: Without it, changing a comment in one file can lead to a lot of unnecessary work.
-  Buck has also switched to constructive rather than deep constructive traces, I assume for this reason.
-  Dirty bit is not suitable for a system where multiple builds can be happening in parallel
-  Verifying traces are effectively constructive traces without storing values, but we need those values for the cache to work.
-
-Up to debate:
-- Suspending vs. Restarting scheduler.
-  Both are possible and there is precedent for both: Buck is suspending, Bazel is restarting.
+It is not immediately clear whether a suspending or a restarting scheduler is the best approach.
+Buck2 uses a suspending scheduler [on top of the async Rust stack](https://www.reddit.com/r/rust/comments/136qs44/hello_rrust_we_are_meta_engineers_who_created_the/)
+Bazel uses a restarting scheduler, although it appears to be moving towards [suspending instead](https://bazel.build/contribute/statemachine-guide).
+I expect that dynamic dependencies are quite rare in most builds, so it may not matter too much which of the two options we pick (for static dependencies, we can use topological sorting to come up with an ordering to avoids suspensions or restarts).
+For the cases where it does happen, it seems like a time/space tradeoff: suspension is optimal at the cost of (potentially) high memory consumption, whereas restarting is slower but more memory-friendly.
+It is even possible to devise a hybrid solution: implement the tasks to support suspension, but let the runtime decide whether to suspend or to abort and restart the task later (this is safe because tasks are deterministic).
+For now I think it is reasonable to assume either solution is acceptable, and I should make the design decision based on **whatever model (suspending/restarting) is easiest to implement tasks in**.
