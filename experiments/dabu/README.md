@@ -72,7 +72,44 @@ For now I think it is reasonable to assume either solution is acceptable, and I 
 ## System Design
 Key ideas:
 - Docker images for build environment.
-- Content-addressable blob storage server.
+- Content-addressable blob storage server. Use sha256 for hashing
 - Client watches for file changes, uploads files as needed.
 - Innovate on the rebuilder: efficiently decide which files need rebuilding.
   Challenge: edit state lives on the client, while analysis and cache is remote.
+
+### Specifying Source State
+When a build is started, the build server must obtain the contents of the required source files from the client.
+Ideally, the build server already has most of the source files stored in the cache, and only needs to request a few files from the client.
+The protocol is as follows:
+1. Client requests a set of targets to build.
+   It includes a hash of the current state of the workspace.
+   *A possible optimization here would be to specify the state of the workspace as a git commit hash, plus the paths and hashes of the current diff.*
+2. The build server constructs an initial build graph (without the dynamic dependencies).
+   If the hash of the workspace is in the cache, then we can read all build scripts from the cache.
+   Otherwise, we ask the client to upload a directory listing of the workspace including hashes of files and subdirectories.
+   For files not in the cache, we ask the client to upload them.
+   For missing directories we proceed recursively, asking for directory listings etc.
+3. The build server now has all the necessary files, and starts executing the build.
+   If there are dynamic dependencies, the server may request additional files from the client during the execution.
+
+### Building a Target
+Assuming none of the intermediate results are cached, here is how to run a build:
+1. Locate the build script for the target
+2. Run the build script to obtain the task definition and the input paths.
+   Recurse into the build scripts of the dependencies.
+3. Run topological sort to create an order
+4. Run the tasks
+5. **TODO**
+
+### Build Graph Storage
+**TODO: This conflates source graph, analysis graph, etc?**
+
+The build graph is interesting because it stores a (potentially) very large graph with particular constraints:
+- The graph is directed and acyclic (DAG)
+- Nodes are identified by a hash (SHA256) (or a path string?)
+- The graph storage does not need to be durable (we can always reconstruct it from the build scripts)
+- We want to optimize for a particular set of queries (see below)
+
+Key queries:
+- Does the graph contain a node with hash H?
+- What are the neighbours of node X (in sorted order)?
