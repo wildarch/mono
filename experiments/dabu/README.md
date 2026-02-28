@@ -48,7 +48,13 @@ Two primary disadvantages of deep constructive traces:
    *NOTE: I don't think this is a real issue in my case, because we strongly want to avoid non-determinism anyway*
 2. No early cutoff: we do not look at the intermediate results, so we must assume that all intermediate results could have changed.
 
-### Evaluation
+### Self-Tracking
+Not only do we need to rebuild a task if the inputs change, we also have to rebuild it if we change the definition of the task itself.
+For example, we may have a C++ library build task (`cc_library` in Bazel) to which we add an additional input, or we modify a compiler flag.
+This is actually not too hard to incorporate: We simply make the task description (a build script) an input to the task.
+That way, when we modify the build script, it will naturally trigger a rebuild of the task.
+
+### Conclusions
 Regarding rebuilder strategy, **constructive traces appear the clear winner**.
 Firstly, the dirty bit strategy is not suitable for a system where multiple builds can be happening in parallel.
 Verifying traces are essentially the same as constructive traces, except that they do not store intermediate build results.
@@ -62,3 +68,11 @@ I expect that dynamic dependencies are quite rare in most builds, so it may not 
 For the cases where it does happen, it seems like a time/space tradeoff: suspension is optimal at the cost of (potentially) high memory consumption, whereas restarting is slower but more memory-friendly.
 It is even possible to devise a hybrid solution: implement the tasks to support suspension, but let the runtime decide whether to suspend or to abort and restart the task later (this is safe because tasks are deterministic).
 For now I think it is reasonable to assume either solution is acceptable, and I should make the design decision based on **whatever model (suspending/restarting) is easiest to implement tasks in**.
+
+## System Design
+Key ideas:
+- Docker images for build environment.
+- Content-addressable blob storage server.
+- Client watches for file changes, uploads files as needed.
+- Innovate on the rebuilder: efficiently decide which files need rebuilding.
+  Challenge: edit state lives on the client, while analysis and cache is remote.
