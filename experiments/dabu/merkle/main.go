@@ -71,7 +71,7 @@ func main() {
 	log.Printf("root dir: %s", *rootPath)
 	h, err := hash(*rootPath)
 	if err != nil {
-		log.Fatalf("failed to hash directory: %w", err)
+		log.Fatalf("failed to hash directory: %s", err.Error())
 	}
 
 	log.Printf("root hash: %x", h)
