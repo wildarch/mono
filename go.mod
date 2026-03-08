@@ -1,6 +1,6 @@
 module github.com/wildarch/mono
 
-go 1.19
+go 1.20
 
 require github.com/oracle/oci-go-sdk/v65 v65.77.1
 
