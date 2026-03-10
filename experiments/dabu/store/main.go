@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/rpc"
 	"slices"
+	"strings"
 
 	"github.com/wildarch/mono/experiments/dabu/store/api"
 )
@@ -50,8 +51,8 @@ func (s *Store) PutDir(req *api.PutDirRequest, res *api.PutResponse) error {
 	})
 
 	for _, child := range req.Children {
-		h.Sum([]byte(child.Name))
-		h.Sum(child.Id[:])
+		h.Write([]byte(child.Name))
+		h.Write(child.Id[:])
 	}
 
 	sum := [32]byte(h.Sum(nil))
@@ -65,6 +66,45 @@ func (s *Store) PutDir(req *api.PutDirRequest, res *api.PutResponse) error {
 		log.Printf("dir %x has child %s with sum %x", sum, child.Name, child.Id)
 	}
 
+	return nil
+}
+
+func (s *Store) GetFile(req *api.GetFileRequest, res *api.GetFileResponse) error {
+	root, found := s.cas[req.Root]
+	if !found {
+		return fmt.Errorf("unknown root %x", req.Root)
+	}
+
+	path := req.Path
+	log.Printf("searching for path %s at root %x", path, req.Root)
+	for path != "" {
+		idx := strings.Index(path, "/")
+		var part string
+		if idx == -1 {
+			// Final component
+			part = path
+			path = ""
+		} else {
+			part = path[:idx]
+			path = path[idx+1:]
+		}
+
+		childFound := false
+		for _, child := range root.children {
+			if child.Name == part {
+				root = s.cas[child.Id]
+				log.Printf("searching for path %s at root %x", path, child.Id)
+				childFound = true
+				break
+			}
+		}
+
+		if !childFound {
+			return fmt.Errorf("not found: %s of full path %s", part, req.Path)
+		}
+	}
+
+	res.Data = root.data
 	return nil
 }
 

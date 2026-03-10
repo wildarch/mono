@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"flag"
 	"io"
 	"log"
@@ -73,8 +74,20 @@ func upload(client *rpc.Client, path string) (api.StoreId, error) {
 	}
 }
 
+func download(client *rpc.Client, root api.StoreId, path string) ([]byte, error) {
+	req := &api.GetFileRequest{Root: root, Path: path}
+	var res api.GetFileResponse
+	if err := client.Call("Store.GetFile", req, &res); err != nil {
+		return nil, err
+	}
+
+	return res.Data, nil
+}
+
 func main() {
-	rootPath := flag.String("root", ".", "root directory for the merkle tree")
+	uploadRoot := flag.String("upload-root", "", "root directory to be uploaded")
+	downloadRootHash := flag.String("download-root-hash", "", "root directory hash")
+	downloadPath := flag.String("download-file-path", "", "path to the file to be downloaded")
 	flag.Parse()
 
 	client, err := rpc.DialHTTP("tcp", "localhost:8000")
@@ -82,11 +95,27 @@ func main() {
 		log.Fatal("failed to connect to store:", err)
 	}
 
-	log.Printf("root dir: %s", *rootPath)
-	h, err := upload(client, *rootPath)
-	if err != nil {
-		log.Fatalf("failed to upload directory: %s", err.Error())
+	if *uploadRoot != "" {
+		log.Printf("root dir: %s", *uploadRoot)
+		h, err := upload(client, *uploadRoot)
+		if err != nil {
+			log.Fatalf("failed to upload directory: %s", err.Error())
+		}
+
+		log.Printf("root hash: %x", h)
 	}
 
-	log.Printf("root hash: %x", h)
+	if *downloadRootHash != "" {
+		rootHash, err := hex.DecodeString(*downloadRootHash)
+		if err != nil {
+			log.Fatalf("invalid root hash: %s", err.Error())
+		}
+
+		log.Printf("download %s from root %x", *downloadPath, rootHash)
+		data, err := download(client, api.StoreId(rootHash), *downloadPath)
+		if err != nil {
+			log.Fatalf("failed to download file: %s", err.Error())
+		}
+		os.Stdout.Write(data)
+	}
 }

@@ -18,3 +18,12 @@ type PutDirRequestChild struct {
 	Name string
 	Id   StoreId
 }
+
+type GetFileRequest struct {
+	Root StoreId
+	Path string
+}
+
+type GetFileResponse struct {
+	Data []byte
+}
