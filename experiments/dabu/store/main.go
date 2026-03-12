@@ -25,12 +25,20 @@ type Store struct {
 
 func (s *Store) PutFile(req *api.PutFileRequest, res *api.PutResponse) error {
 	h := sha256.New()
-	sum := [32]byte(h.Sum(req.Data))
+	h.Write(req.Data)
+	sum := [32]byte(h.Sum(nil))
+	res.Id = sum
+	if _, exists := s.cas[sum]; exists {
+		log.Printf("cache hit for %s: %x", req.PathForDebug, sum)
+		return nil
+	}
+
+	res.IsNew = true
 	s.cas[sum] = StoreEntry{
 		data: req.Data,
 	}
-	res.Id = sum
-	log.Printf("put file with sum %x", sum)
+
+	log.Printf("put new file %s: %x", req.PathForDebug, sum)
 	return nil
 }
 
@@ -56,10 +64,16 @@ func (s *Store) PutDir(req *api.PutDirRequest, res *api.PutResponse) error {
 	}
 
 	sum := [32]byte(h.Sum(nil))
+	res.Id = sum
+	if _, exists := s.cas[sum]; exists {
+		log.Printf("cache hit for %x", sum)
+		return nil
+	}
+
+	res.IsNew = true
 	s.cas[sum] = StoreEntry{
 		children: req.Children,
 	}
-	res.Id = sum
 
 	log.Printf("put dir with sum %x", sum)
 	for _, child := range req.Children {

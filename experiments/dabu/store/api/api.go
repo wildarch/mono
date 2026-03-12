@@ -3,11 +3,13 @@ package api
 type StoreId [32]byte
 
 type PutFileRequest struct {
-	Data []byte
+	Data         []byte
+	PathForDebug string
 }
 
 type PutResponse struct {
-	Id StoreId
+	Id    StoreId
+	IsNew bool
 }
 
 type PutDirRequest struct {

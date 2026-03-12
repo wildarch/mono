@@ -41,16 +41,20 @@ func uploadDir(client *rpc.Client, path string, f *os.File) (api.StoreId, error)
 	return res.Id, nil
 }
 
-func uploadFile(client *rpc.Client, f *os.File) (api.StoreId, error) {
+func uploadFile(client *rpc.Client, path string, f *os.File) (api.StoreId, error) {
 	data, err := io.ReadAll(f)
 	if err != nil {
 		return api.StoreId{}, nil
 	}
 
-	req := &api.PutFileRequest{Data: data}
+	req := &api.PutFileRequest{Data: data, PathForDebug: path}
 	var res api.PutResponse
 	if err = client.Call("Store.PutFile", req, &res); err != nil {
 		return api.StoreId{}, err
+	}
+
+	if res.IsNew {
+		log.Printf("new file %s: %x", path, res.Id)
 	}
 
 	return res.Id, nil
@@ -70,7 +74,7 @@ func upload(client *rpc.Client, path string) (api.StoreId, error) {
 	if stat.IsDir() {
 		return uploadDir(client, path, f)
 	} else {
-		return uploadFile(client, f)
+		return uploadFile(client, path, f)
 	}
 }
 
