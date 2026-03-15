@@ -2,6 +2,11 @@ package api
 
 type StoreId [32]byte
 
+type DirListing struct {
+	Name string
+	Id   StoreId
+}
+
 type PutFileRequest struct {
 	Data         []byte
 	PathForDebug string
@@ -13,12 +18,7 @@ type PutResponse struct {
 }
 
 type PutDirRequest struct {
-	Children []PutDirRequestChild
-}
-
-type PutDirRequestChild struct {
-	Name string
-	Id   StoreId
+	Children []DirListing
 }
 
 type GetFileRequest struct {
@@ -28,4 +28,13 @@ type GetFileRequest struct {
 
 type GetFileResponse struct {
 	Data []byte
+}
+
+type GetRequest struct {
+	Id StoreId
+}
+
+type GetResponse struct {
+	Data     []byte
+	Children []DirListing
 }

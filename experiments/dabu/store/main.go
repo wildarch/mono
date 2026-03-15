@@ -16,7 +16,7 @@ import (
 
 type StoreEntry struct {
 	data     []byte
-	children []api.PutDirRequestChild
+	children []api.DirListing
 }
 
 type Store struct {
@@ -54,7 +54,7 @@ func (s *Store) PutDir(req *api.PutDirRequest, res *api.PutResponse) error {
 	}
 
 	// Ensure deterministic sort order
-	slices.SortFunc(req.Children, func(a, b api.PutDirRequestChild) int {
+	slices.SortFunc(req.Children, func(a, b api.DirListing) int {
 		return cmp.Compare(a.Name, b.Name)
 	})
 
@@ -119,6 +119,17 @@ func (s *Store) GetFile(req *api.GetFileRequest, res *api.GetFileResponse) error
 	}
 
 	res.Data = root.data
+	return nil
+}
+
+func (s *Store) Get(req *api.GetRequest, res *api.GetResponse) error {
+	obj, found := s.cas[req.Id]
+	if !found {
+		return fmt.Errorf("unknown object %x", req.Id)
+	}
+
+	res.Children = obj.children
+	res.Data = obj.data
 	return nil
 }
 

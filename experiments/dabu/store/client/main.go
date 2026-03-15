@@ -30,7 +30,7 @@ func uploadDir(client *rpc.Client, path string, f *os.File) (api.StoreId, error)
 			return api.StoreId{}, err
 		}
 
-		req.Children = append(req.Children, api.PutDirRequestChild{Name: name, Id: subid})
+		req.Children = append(req.Children, api.DirListing{Name: name, Id: subid})
 	}
 
 	var res api.PutResponse
