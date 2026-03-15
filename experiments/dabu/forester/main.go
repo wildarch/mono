@@ -2,7 +2,10 @@ package main
 
 import (
 	"encoding/hex"
+	"errors"
 	"flag"
+	"fmt"
+	"io/fs"
 	"log"
 	"net/rpc"
 	"os"
@@ -11,10 +14,33 @@ import (
 	"github.com/wildarch/mono/experiments/dabu/store/api"
 )
 
-func instantiate(client *rpc.Client, id api.StoreId, targetPath string) error {
+type Forester struct {
+	client   *rpc.Client
+	cacheDir string
+}
+
+func (f *Forester) cachePath(id api.StoreId) string {
+	idStr := fmt.Sprintf("%x", id)
+	return path.Join(f.cacheDir, idStr)
+}
+
+func (f *Forester) instantiate(id api.StoreId) error {
 	req := &api.GetRequest{Id: id}
 	var res api.GetResponse
-	if err := client.Call("Store.Get", req, &res); err != nil {
+	if err := f.client.Call("Store.Get", req, &res); err != nil {
+		return err
+	}
+
+	// Check if already exists
+	targetPath := f.cachePath(id)
+	_, err := os.Stat(targetPath)
+	if err == nil {
+		// Already exists, no need to instantiate.
+		return nil
+	} else if errors.Is(err, fs.ErrNotExist) {
+		// Not instantiate before, code below will create it.
+	} else {
+		// Unexpected error
 		return err
 	}
 
@@ -26,7 +52,11 @@ func instantiate(client *rpc.Client, id api.StoreId, targetPath string) error {
 
 		for _, child := range res.Children {
 			subpath := path.Join(targetPath, child.Name)
-			if err := instantiate(client, child.Id, subpath); err != nil {
+			if err := f.instantiate(child.Id); err != nil {
+				return err
+			}
+
+			if err := os.Symlink(f.cachePath(child.Id), subpath); err != nil {
 				return err
 			}
 		}
@@ -42,7 +72,7 @@ func instantiate(client *rpc.Client, id api.StoreId, targetPath string) error {
 
 func main() {
 	rootHash := flag.String("root-hash", "", "root directory hash")
-	targetRoot := flag.String("target", "", "target directory at which to instantiate the root")
+	cacheDir := flag.String("cache", "/tmp/forester-cache", "cache directory for object storage")
 	flag.Parse()
 
 	client, err := rpc.DialHTTP("tcp", "localhost:8000")
@@ -53,16 +83,23 @@ func main() {
 	if *rootHash == "" {
 		log.Fatalf("-root-hash flag is required")
 	}
-	if *targetRoot == "" {
-		log.Fatalf("-target flag is required")
-	}
-	rootId, err := hex.DecodeString(*rootHash)
+
+	decodedId, err := hex.DecodeString(*rootHash)
 	if err != nil {
 		log.Fatalf("invalid root hash: %s", err.Error())
 	}
 
-	err = instantiate(client, api.StoreId(rootId), *targetRoot)
+	rootId := api.StoreId(decodedId)
+
+	if err := os.MkdirAll(*cacheDir, 0775); err != nil {
+		log.Fatalf("cannot create cache directory at %s: %s", *cacheDir, err.Error())
+	}
+
+	f := Forester{client: client, cacheDir: *cacheDir}
+	err = f.instantiate(rootId)
 	if err != nil {
 		log.Fatalf("failed to instantiate: %s", err.Error())
 	}
+
+	log.Println(f.cachePath(rootId))
 }
