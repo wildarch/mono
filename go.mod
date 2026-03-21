@@ -25,5 +25,6 @@ require (
 	github.com/apache/arrow/go/parquet v0.0.0-20211112161151-bc219186db40
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
+	go.starlark.net v0.0.0-20260210143700-b62fd896b91b
 	golang.org/x/sys v0.8.0 // indirect
 )
