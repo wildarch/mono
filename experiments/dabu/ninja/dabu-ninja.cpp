@@ -58,6 +58,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  /*
   auto ninjaBinary = state.LookupNode("hello");
   if (!ninjaBinary) {
     std::cerr << "no 'ninja' node found\n";
@@ -65,6 +66,31 @@ int main(int argc, char **argv) {
   }
 
   walk(ninjaBinary, 0);
+  */
+
+  // NOTE: relevant data of edge:
+  // - command
+  // - inputs
+  // - outputs
+  for (auto *edge : state.edges_) {
+    const auto &rule = edge->rule();
+    if (rule.IsPhony()) {
+      std::cout << "phony (edge)\n";
+    } else {
+      // NOTE: command is expected to be executed with 'sh -c'
+      auto cmd = edge->EvaluateCommand();
+      std::cout << "edge: " << cmd << "\n";
+    }
+
+    // NOTE: relevant data of node: path
+    for (const auto *node : edge->inputs_) {
+      std::cout << "  in " << node->path() << "\n";
+    }
+
+    for (const auto *node : edge->outputs_) {
+      std::cout << "  out " << node->path() << "\n";
+    }
+  }
 
   return 0;
 }
