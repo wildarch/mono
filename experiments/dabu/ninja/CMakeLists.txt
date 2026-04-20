@@ -13,6 +13,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Ninja)
 
+# Boost.JSON
+find_package(Boost REQUIRED)
+
 add_executable(
     dabu-ninja
     dabu-ninja.cpp
