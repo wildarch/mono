@@ -80,3 +80,6 @@ Key ideas:
 - Build rules as *extensions* of the source directory.
   Rules define how to produce files (e.g. a compiled binary) or even entire directories (e.g. `node_modules/`)
 
+## TODO
+- Create a trivial example CMake project to build
+- Build example project based on CMake Ninja config
