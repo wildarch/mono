@@ -27,12 +27,12 @@ int main(int argc, char **argv) {
     const auto &rule = edge->rule();
     object jsonEdge;
     if (rule.IsPhony()) {
-      jsonEdge["phony"] = true;
+      jsonEdge["Phony"] = true;
     } else {
       // NOTE: command is expected to be executed with 'sh -c'
-      jsonEdge["phony"] = false;
+      jsonEdge["Phony"] = false;
       auto cmd = edge->EvaluateCommand();
-      jsonEdge["command"] = cmd;
+      jsonEdge["Command"] = cmd;
     }
 
     // NOTE: relevant data of node: path
@@ -46,8 +46,8 @@ int main(int argc, char **argv) {
       outputs.emplace_back(node->path());
     }
 
-    jsonEdge["inputs"] = inputs;
-    jsonEdge["outputs"] = outputs;
+    jsonEdge["Inputs"] = inputs;
+    jsonEdge["Outputs"] = outputs;
 
     std::cout << serialize(jsonEdge) << "\n";
   }
