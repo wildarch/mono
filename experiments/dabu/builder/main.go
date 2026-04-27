@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -121,19 +122,80 @@ func ninjaEdges(ninja string, build string) ([]Edge, error) {
 	return edges, nil
 }
 
+type SourceId [32]byte
+
+type RepoDirEntry struct {
+	Name string
+	Node *RepoNode
+}
+
+type BuildRule struct {
+	Inputs  []RepoNode
+	Outputs []RepoNode
+	Command []string
+}
+
+type RepoNode struct {
+	Rule     *BuildRule     // If built from other files
+	Children []RepoDirEntry // If directory
+	SId      SourceId       // If source file
+}
+
+type Repo struct {
+	Sources map[SourceId][]byte
+	Root    *RepoNode
+}
+
+func buildGitRepo(root string) (*Repo, error) {
+	repo := &Repo{}
+
+	// Get list of files from git
+	git := exec.Command("git", "ls-files")
+	git.Dir = root
+	out, err := git.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := git.Start(); err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(out)
+	for scanner.Scan() {
+		file := scanner.Text()
+		// TODO: actually put it in the repo
+		log.Printf("file to put into repo: %s", file)
+	}
+
+	if err := git.Wait(); err != nil {
+		return nil, err
+	}
+
+	return repo, nil
+}
+
 func main() {
-	ninja, err := buildNinjaHelperBinary()
-	if err != nil {
-		log.Fatal(err)
-	}
+	/*
+		ninja, err := buildNinjaHelperBinary()
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	buildDir := "experiments/dabu/ninja/build"
-	edges, err := ninjaEdges(ninja, buildDir)
-	if err != nil {
-		log.Fatal(err)
-	}
+		buildDir := "experiments/dabu/ninja/build"
+		edges, err := ninjaEdges(ninja, buildDir)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	if err := build(buildDir, edges, "dabu-ninja"); err != nil {
+		if err := build(buildDir, edges, "dabu-ninja"); err != nil {
+			log.Fatal(err)
+		}
+	*/
+
+	// TODO: get all source files in repo
+	_, err := buildGitRepo(".")
+	if err != nil {
 		log.Fatal(err)
 	}
 }
