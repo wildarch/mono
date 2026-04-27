@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
   ManifestParserOptions options;
   ManifestParser parser(&state, &diskInterface, options);
   std::string err;
-  chdir("experiments/dabu/ninja/build/");
+  // chdir("experiments/dabu/ninja/build/");
   if (!parser.Load("build.ninja", &err)) {
     std::cerr << err << "\n";
     return 1;
