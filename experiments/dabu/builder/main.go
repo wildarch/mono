@@ -59,7 +59,7 @@ func build(edges []Edge, path string) error {
 }
 
 func main() {
-	if err := os.Chdir("experiments/dabu/cmake-hello/build/"); err != nil {
+	if err := os.Chdir("experiments/dabu/ninja/build/"); err != nil {
 		log.Fatal(err)
 	}
 
@@ -81,5 +81,5 @@ func main() {
 		edges = append(edges, e)
 	}
 
-	build(edges, "hello")
+	build(edges, "dabu-ninja")
 }
