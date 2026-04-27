@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"cmp"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -146,8 +148,65 @@ type Repo struct {
 	Root    *RepoNode
 }
 
+func (n *RepoNode) addSource(p string, sid SourceId) {
+	dir, file := path.Split(p)
+	if dir == "" {
+		// Put into this directory
+		for _, child := range n.Children {
+			if child.Name == file {
+				// Update existing file
+				child.Node.SId = sid
+				return
+			}
+		}
+
+		// Make a new file in the directory
+		entry := RepoDirEntry{file, &RepoNode{SId: sid}}
+		n.Children = append(n.Children, entry)
+		// Ensure deterministic sort order
+		slices.SortFunc(n.Children, func(a, b RepoDirEntry) int {
+			return cmp.Compare(a.Name, b.Name)
+		})
+		return
+	}
+
+	// Drop trailing slash
+	dir = dir[:len(dir)-1]
+
+	// Find the directory
+	for _, child := range n.Children {
+		if child.Name == dir {
+			child.Node.addSource(file, sid)
+			return
+		}
+	}
+
+	// Make a new directory and recurse into it
+	dirNode := &RepoNode{}
+	dirNode.addSource(file, sid)
+
+	// Attach to the current node
+	entry := RepoDirEntry{dir, dirNode}
+	n.Children = append(n.Children, entry)
+	// Ensure deterministic sort order
+	slices.SortFunc(n.Children, func(a, b RepoDirEntry) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+}
+
+func (r *Repo) AddSource(p string, d []byte) {
+	h := sha256.New()
+	h.Write(d)
+	sid := [32]byte(h.Sum(nil))
+	r.Sources[sid] = d
+	r.Root.addSource(p, sid)
+	log.Printf("Add source file %s (hash %x)", p, sid)
+}
+
 func buildGitRepo(root string) (*Repo, error) {
-	repo := &Repo{}
+	repo := &Repo{
+		Sources: map[SourceId][]byte{},
+		Root:    &RepoNode{}}
 
 	// Get list of files from git
 	git := exec.Command("git", "ls-files")
@@ -164,8 +223,18 @@ func buildGitRepo(root string) (*Repo, error) {
 	scanner := bufio.NewScanner(out)
 	for scanner.Scan() {
 		file := scanner.Text()
-		// TODO: actually put it in the repo
-		log.Printf("file to put into repo: %s", file)
+		f, err := os.Open(file)
+		if err != nil {
+			return nil, err
+		}
+
+		defer f.Close()
+		data, err := io.ReadAll(f)
+		if err != nil {
+			return nil, err
+		}
+
+		repo.AddSource(file, data)
 	}
 
 	if err := git.Wait(); err != nil {
