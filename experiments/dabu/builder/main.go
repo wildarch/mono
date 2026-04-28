@@ -126,6 +126,20 @@ func ninjaEdges(ninja string, build string) ([]Edge, error) {
 
 type SourceId [32]byte
 
+func noSID() SourceId {
+	return [32]byte{0}
+}
+
+func isNoSID(s SourceId) bool {
+	for _, b := range s {
+		if b != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
 type RepoDirEntry struct {
 	Name string
 	Node *RepoNode
@@ -194,13 +208,65 @@ func (n *RepoNode) addSource(p string, sid SourceId) {
 	})
 }
 
+func (n *RepoNode) getSource(p string) SourceId {
+	log.Printf("looking for source file %s", p)
+	dir, file := path.Split(p)
+	log.Printf("dir %s file %s", dir, file)
+	if dir == "" {
+		// File is in the current directory
+		for _, child := range n.Children {
+			if child.Name == file {
+				return child.Node.SId
+			}
+		}
+
+		// File not found
+		return noSID()
+	}
+
+	// Drop trailing slash
+	dir = dir[:len(dir)-1]
+
+	// Find the directory
+	for _, child := range n.Children {
+		if child.Name == dir {
+			return child.Node.getSource(file)
+		}
+	}
+
+	// Directory not found
+	return noSID()
+}
+
 func (r *Repo) AddSource(p string, d []byte) {
 	h := sha256.New()
 	h.Write(d)
 	sid := [32]byte(h.Sum(nil))
 	r.Sources[sid] = d
 	r.Root.addSource(p, sid)
-	log.Printf("Add source file %s (hash %x)", p, sid)
+}
+
+func (r *Repo) Instantiate(root string, p string) error {
+	sid := r.Root.getSource(p)
+	if isNoSID(sid) {
+		return fmt.Errorf("no such source file '%s'", p)
+	}
+
+	d, found := r.Sources[sid]
+	if !found {
+		return fmt.Errorf("no source data for sid %x", sid)
+	}
+
+	dir, _ := path.Split(p)
+	if err := os.MkdirAll(path.Join(root, dir), 0755); err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(path.Join(root, p), d, 0755); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func buildGitRepo(root string) (*Repo, error) {
@@ -245,6 +311,28 @@ func buildGitRepo(root string) (*Repo, error) {
 }
 
 func main() {
+	// Get all source files in repo
+	repo, err := buildGitRepo(".")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create root
+	root := "/tmp/dabu-root"
+	if err := os.RemoveAll(root); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := os.Mkdir(root, 0755); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := repo.Instantiate(root, "experiments/dabu/builder/CMakeLists.txt"); err != nil {
+		log.Fatal(err)
+	}
+
+	// TODO: run cmake configure
+
 	/*
 		ninja, err := buildNinjaHelperBinary()
 		if err != nil {
@@ -261,10 +349,4 @@ func main() {
 			log.Fatal(err)
 		}
 	*/
-
-	// TODO: get all source files in repo
-	_, err := buildGitRepo(".")
-	if err != nil {
-		log.Fatal(err)
-	}
 }
