@@ -70,8 +70,17 @@ func build(dir string, edges []Edge, p string) error {
 	log.Printf("run command for edge: %v", target.Command)
 	cmd := exec.Command("sh", "-c", target.Command)
 	cmd.Dir = dir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 	return err
+}
+
+func cmakeConfigure(source string, build string) error {
+	cmake := exec.Command("cmake", "-S", source, "-B", build, "-GNinja")
+	cmake.Stdout = os.Stdout
+	cmake.Stderr = os.Stderr
+	return cmake.Run()
 }
 
 func buildNinjaHelperBinary() (string, error) {
@@ -220,7 +229,6 @@ func (n *RepoNode) addSource(p string, sid SourceId) {
 }
 
 func (n *RepoNode) getSource(p string) SourceId {
-	log.Printf("looking for source file %s", p)
 	dir, p := splitFirst(p)
 	if dir == "" {
 		// File is in the current directory
@@ -228,8 +236,6 @@ func (n *RepoNode) getSource(p string) SourceId {
 			if child.Name == p {
 				return child.Node.SId
 			}
-
-			log.Printf("not the right file: %s", child.Name)
 		}
 
 		// File not found
@@ -340,26 +346,45 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := repo.Instantiate(root, "experiments/dabu/ninja/CMakeLists.txt"); err != nil {
+	sourceDir := "experiments/dabu/cmake-hello"
+	if err := repo.Instantiate(root, path.Join(sourceDir, "CMakeLists.txt")); err != nil {
 		log.Fatal(err)
 	}
 
-	// TODO: run cmake configure
+	// Touch hello.cpp
+	f, err := os.Create(path.Join(root, sourceDir, "hello.cpp"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	f.Close()
 
-	/*
-		ninja, err := buildNinjaHelperBinary()
-		if err != nil {
-			log.Fatal(err)
-		}
+	// Make build dir
+	buildDir := path.Join(root, sourceDir, "build")
+	if err := os.MkdirAll(buildDir, 0755); err != nil {
+		log.Fatal(err)
+	}
 
-		buildDir := "experiments/dabu/ninja/build"
-		edges, err := ninjaEdges(ninja, buildDir)
-		if err != nil {
-			log.Fatal(err)
-		}
+	// Run cmake configure
+	if err := cmakeConfigure(path.Join(root, sourceDir), buildDir); err != nil {
+		log.Fatal(err)
+	}
 
-		if err := build(buildDir, edges, "dabu-ninja"); err != nil {
-			log.Fatal(err)
-		}
-	*/
+	ninja, err := buildNinjaHelperBinary()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	edges, err := ninjaEdges(ninja, buildDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// TODO: extract input files from edges
+	if err := repo.Instantiate(root, path.Join(sourceDir, "hello.cpp")); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := build(buildDir, edges, "hello"); err != nil {
+		log.Fatal(err)
+	}
 }
