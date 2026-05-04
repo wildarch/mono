@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"slices"
+	"strings"
 )
 
 type Edge struct {
@@ -162,12 +163,25 @@ type Repo struct {
 	Root    *RepoNode
 }
 
+func splitFirst(p string) (dir, sub string) {
+	dir = ""
+	before, after, ok := strings.Cut(p, "/")
+	if !ok {
+		sub = p
+	} else {
+		dir = before
+		sub = after
+	}
+
+	return
+}
+
 func (n *RepoNode) addSource(p string, sid SourceId) {
-	dir, file := path.Split(p)
+	dir, p := splitFirst(p)
 	if dir == "" {
 		// Put into this directory
 		for _, child := range n.Children {
-			if child.Name == file {
+			if child.Name == p {
 				// Update existing file
 				child.Node.SId = sid
 				return
@@ -175,7 +189,7 @@ func (n *RepoNode) addSource(p string, sid SourceId) {
 		}
 
 		// Make a new file in the directory
-		entry := RepoDirEntry{file, &RepoNode{SId: sid}}
+		entry := RepoDirEntry{p, &RepoNode{SId: sid}}
 		n.Children = append(n.Children, entry)
 		// Ensure deterministic sort order
 		slices.SortFunc(n.Children, func(a, b RepoDirEntry) int {
@@ -184,20 +198,17 @@ func (n *RepoNode) addSource(p string, sid SourceId) {
 		return
 	}
 
-	// Drop trailing slash
-	dir = dir[:len(dir)-1]
-
 	// Find the directory
 	for _, child := range n.Children {
 		if child.Name == dir {
-			child.Node.addSource(file, sid)
+			child.Node.addSource(p, sid)
 			return
 		}
 	}
 
 	// Make a new directory and recurse into it
 	dirNode := &RepoNode{}
-	dirNode.addSource(file, sid)
+	dirNode.addSource(p, sid)
 
 	// Attach to the current node
 	entry := RepoDirEntry{dir, dirNode}
@@ -210,31 +221,31 @@ func (n *RepoNode) addSource(p string, sid SourceId) {
 
 func (n *RepoNode) getSource(p string) SourceId {
 	log.Printf("looking for source file %s", p)
-	dir, file := path.Split(p)
-	log.Printf("dir %s file %s", dir, file)
+	dir, p := splitFirst(p)
 	if dir == "" {
 		// File is in the current directory
 		for _, child := range n.Children {
-			if child.Name == file {
+			if child.Name == p {
 				return child.Node.SId
 			}
+
+			log.Printf("not the right file: %s", child.Name)
 		}
 
 		// File not found
+		log.Printf("file not found: %s", p)
 		return noSID()
 	}
-
-	// Drop trailing slash
-	dir = dir[:len(dir)-1]
 
 	// Find the directory
 	for _, child := range n.Children {
 		if child.Name == dir {
-			return child.Node.getSource(file)
+			return child.Node.getSource(p)
 		}
 	}
 
 	// Directory not found
+	log.Printf("directory not found: %s", dir)
 	return noSID()
 }
 
@@ -262,10 +273,12 @@ func (r *Repo) Instantiate(root string, p string) error {
 		return err
 	}
 
-	if err := os.WriteFile(path.Join(root, p), d, 0755); err != nil {
+	out := path.Join(root, p)
+	if err := os.WriteFile(out, d, 0755); err != nil {
 		return err
 	}
 
+	log.Printf("wrote %s", out)
 	return nil
 }
 
@@ -327,7 +340,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := repo.Instantiate(root, "experiments/dabu/builder/CMakeLists.txt"); err != nil {
+	if err := repo.Instantiate(root, "experiments/dabu/ninja/CMakeLists.txt"); err != nil {
 		log.Fatal(err)
 	}
 
