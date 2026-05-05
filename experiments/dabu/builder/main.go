@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -156,8 +157,9 @@ type RepoDirEntry struct {
 }
 
 type BuildRule struct {
-	Inputs  []RepoNode
-	Outputs []RepoNode
+	Inputs  []*RepoNode
+	Outputs []*RepoNode
+	Dir     string
 	Command []string
 }
 
@@ -170,6 +172,95 @@ type RepoNode struct {
 type Repo struct {
 	Sources map[SourceId][]byte
 	Root    *RepoNode
+}
+
+func expandPhony(input string, edges []Edge) []string {
+	for _, edge := range edges {
+		if !edge.Phony {
+			continue
+		}
+
+		found := false
+		for _, out := range edge.Outputs {
+			if out == input {
+				// This edge generates the output we want
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			continue
+		}
+
+		results := make([]string, 0)
+		for _, input := range edge.Inputs {
+			results = append(results, expandPhony(input, edges)...)
+		}
+
+		return results
+	}
+
+	return []string{input}
+}
+
+func (r *Repo) AddNinjaRules(root string, buildDir string, edges []Edge) error {
+	for _, edge := range edges {
+		if edge.Phony {
+			// Skip phony
+			continue
+		}
+
+		rule := &BuildRule{Dir: buildDir}
+		rule.Command = []string{"sh", "-c", edge.Command}
+		log.Printf("command: %s", edge.Command)
+
+		// map inputs
+		for _, p := range edge.Inputs {
+			for _, p := range expandPhony(p, edges) {
+				if path.IsAbs(p) {
+					if strings.HasPrefix(p, root) {
+						// Source file
+						rel, err := filepath.Rel(root, p)
+						if err != nil {
+							return err
+						}
+
+						p = rel
+					} else {
+						// Absolute path to something in the external build environment
+						log.Printf("ignoring absolute path %s", p)
+						continue
+					}
+				} else {
+					// Relative to build dir
+					p = path.Join(buildDir, p)
+				}
+
+				if p == buildDir {
+					continue
+				}
+
+				input := r.Root.getNode(p)
+				if input == nil {
+					return fmt.Errorf("no such input: %s", p)
+				}
+
+				rule.Inputs = append(rule.Inputs, input)
+			}
+		}
+
+		// map outputs
+		for _, p := range edge.Outputs {
+			p = path.Join(buildDir, p)
+			log.Printf("output: %s", p)
+			node := &RepoNode{Rule: rule}
+			r.Root.addNode(p, node)
+			rule.Outputs = append(rule.Outputs, node)
+		}
+	}
+
+	return nil
 }
 
 func splitFirst(p string) (dir, sub string) {
@@ -185,20 +276,20 @@ func splitFirst(p string) (dir, sub string) {
 	return
 }
 
-func (n *RepoNode) addSource(p string, sid SourceId) {
+func (n *RepoNode) addNode(p string, node *RepoNode) {
 	dir, p := splitFirst(p)
 	if dir == "" {
 		// Put into this directory
 		for _, child := range n.Children {
 			if child.Name == p {
 				// Update existing file
-				child.Node.SId = sid
+				child.Node = node
 				return
 			}
 		}
 
 		// Make a new file in the directory
-		entry := RepoDirEntry{p, &RepoNode{SId: sid}}
+		entry := RepoDirEntry{p, node}
 		n.Children = append(n.Children, entry)
 		// Ensure deterministic sort order
 		slices.SortFunc(n.Children, func(a, b RepoDirEntry) int {
@@ -210,14 +301,14 @@ func (n *RepoNode) addSource(p string, sid SourceId) {
 	// Find the directory
 	for _, child := range n.Children {
 		if child.Name == dir {
-			child.Node.addSource(p, sid)
+			child.Node.addNode(p, node)
 			return
 		}
 	}
 
 	// Make a new directory and recurse into it
 	dirNode := &RepoNode{}
-	dirNode.addSource(p, sid)
+	dirNode.addNode(p, node)
 
 	// Attach to the current node
 	entry := RepoDirEntry{dir, dirNode}
@@ -228,31 +319,29 @@ func (n *RepoNode) addSource(p string, sid SourceId) {
 	})
 }
 
-func (n *RepoNode) getSource(p string) SourceId {
+func (n *RepoNode) getNode(p string) *RepoNode {
 	dir, p := splitFirst(p)
 	if dir == "" {
 		// File is in the current directory
 		for _, child := range n.Children {
 			if child.Name == p {
-				return child.Node.SId
+				return child.Node
 			}
 		}
 
 		// File not found
-		log.Printf("file not found: %s", p)
-		return noSID()
+		return nil
 	}
 
 	// Find the directory
 	for _, child := range n.Children {
 		if child.Name == dir {
-			return child.Node.getSource(p)
+			return child.Node.getNode(p)
 		}
 	}
 
 	// Directory not found
-	log.Printf("directory not found: %s", dir)
-	return noSID()
+	return nil
 }
 
 func (r *Repo) AddSource(p string, d []byte) {
@@ -260,18 +349,19 @@ func (r *Repo) AddSource(p string, d []byte) {
 	h.Write(d)
 	sid := [32]byte(h.Sum(nil))
 	r.Sources[sid] = d
-	r.Root.addSource(p, sid)
+	node := &RepoNode{SId: sid}
+	r.Root.addNode(p, node)
 }
 
 func (r *Repo) Instantiate(root string, p string) error {
-	sid := r.Root.getSource(p)
-	if isNoSID(sid) {
+	node := r.Root.getNode(p)
+	if node == nil || node.SId == noSID() {
 		return fmt.Errorf("no such source file '%s'", p)
 	}
 
-	d, found := r.Sources[sid]
+	d, found := r.Sources[node.SId]
 	if !found {
-		return fmt.Errorf("no source data for sid %x", sid)
+		return fmt.Errorf("no source data for sid %x", node.SId)
 	}
 
 	dir, _ := path.Split(p)
@@ -379,12 +469,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// TODO: extract input files from edges
-	if err := repo.Instantiate(root, path.Join(sourceDir, "hello.cpp")); err != nil {
+	if err := repo.AddNinjaRules(root, path.Join(sourceDir, "build"), edges); err != nil {
 		log.Fatal(err)
 	}
 
-	if err := build(buildDir, edges, "hello"); err != nil {
-		log.Fatal(err)
-	}
+	/*
+		// TODO: extract input files from edges
+		if err := repo.Instantiate(root, path.Join(sourceDir, "hello.cpp")); err != nil {
+			log.Fatal(err)
+		}
+
+		if err := build(buildDir, edges, "hello"); err != nil {
+			log.Fatal(err)
+		}
+	*/
 }
