@@ -5,7 +5,6 @@ import (
 	"cmp"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -22,59 +21,6 @@ type Edge struct {
 	Command string
 	Inputs  []string
 	Outputs []string
-}
-
-func build(dir string, edges []Edge, p string) error {
-	// Find our target edge
-	var target Edge
-	targetFound := false
-	for _, e := range edges {
-		if slices.Contains(e.Outputs, p) {
-			target = e
-			targetFound = true
-			break
-		}
-	}
-
-	if !targetFound {
-		abs := p
-		if !path.IsAbs(p) {
-			abs = path.Join(dir, p)
-		}
-
-		_, err := os.Stat(abs)
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("file %s does not exist, and there is no rule to build it", abs)
-		}
-
-		// File exists, so assume it is a source file rather than intermediate.
-		log.Printf("source file %s", p)
-		return nil
-	}
-
-	if !target.Phony {
-		log.Printf("building file %s", p)
-	}
-
-	// First build all the inputs
-	for _, input := range target.Inputs {
-		if err := build(dir, edges, input); err != nil {
-			return err
-		}
-	}
-
-	if target.Phony {
-		// No command to run
-		return nil
-	}
-
-	log.Printf("run command for edge: %v", target.Command)
-	cmd := exec.Command("sh", "-c", target.Command)
-	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	return err
 }
 
 func cmakeConfigure(source string, build string) error {
@@ -164,6 +110,7 @@ type BuildRule struct {
 }
 
 type RepoNode struct {
+	Path     string
 	Rule     *BuildRule     // If built from other files
 	Children []RepoDirEntry // If directory
 	SId      SourceId       // If source file
@@ -211,8 +158,9 @@ func (r *Repo) AddNinjaRules(root string, buildDir string, edges []Edge) error {
 			continue
 		}
 
-		rule := &BuildRule{Dir: buildDir}
-		rule.Command = []string{"sh", "-c", edge.Command}
+		rule := &BuildRule{
+			Dir:     buildDir,
+			Command: []string{"sh", "-c", edge.Command}}
 		log.Printf("command: %s", edge.Command)
 
 		// map inputs
@@ -254,7 +202,7 @@ func (r *Repo) AddNinjaRules(root string, buildDir string, edges []Edge) error {
 		for _, p := range edge.Outputs {
 			p = path.Join(buildDir, p)
 			log.Printf("output: %s", p)
-			node := &RepoNode{Rule: rule}
+			node := &RepoNode{Rule: rule, Path: p}
 			r.Root.addNode(p, node)
 			rule.Outputs = append(rule.Outputs, node)
 		}
@@ -349,33 +297,61 @@ func (r *Repo) AddSource(p string, d []byte) {
 	h.Write(d)
 	sid := [32]byte(h.Sum(nil))
 	r.Sources[sid] = d
-	node := &RepoNode{SId: sid}
+	node := &RepoNode{Path: p, SId: sid}
 	r.Root.addNode(p, node)
 }
 
-func (r *Repo) Instantiate(root string, p string) error {
-	node := r.Root.getNode(p)
-	if node == nil || node.SId == noSID() {
-		return fmt.Errorf("no such source file '%s'", p)
-	}
-
-	d, found := r.Sources[node.SId]
-	if !found {
-		return fmt.Errorf("no source data for sid %x", node.SId)
-	}
-
-	dir, _ := path.Split(p)
-	if err := os.MkdirAll(path.Join(root, dir), 0755); err != nil {
+func (r *Repo) instantiate(root string, node *RepoNode) error {
+	// Ensure the target directory exists
+	dir, _ := path.Split(path.Join(root, node.Path))
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 
-	out := path.Join(root, p)
-	if err := os.WriteFile(out, d, 0755); err != nil {
-		return err
+	if node.SId != noSID() {
+		// Is a source file
+		d, found := r.Sources[node.SId]
+		if !found {
+			return fmt.Errorf("no source data for sid %x", node.SId)
+		}
+
+		out := path.Join(root, node.Path)
+		if err := os.WriteFile(out, d, 0755); err != nil {
+			return err
+		}
+
+		log.Printf("wrote source file %s", out)
+	} else if node.Rule != nil {
+		// Can be built
+		rule := node.Rule
+		for _, input := range rule.Inputs {
+			if err := r.instantiate(root, input); err != nil {
+				return err
+			}
+		}
+
+		log.Printf("building %s: %s (working dir %s)", node.Path, strings.Join(node.Rule.Command, " "), rule.Dir)
+		cmd := exec.Command(rule.Command[0], rule.Command[1:]...)
+		cmd.Dir = path.Join(root, rule.Dir)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("not a source file and no build rule to generate file '%s'", node.Path)
 	}
 
-	log.Printf("wrote %s", out)
 	return nil
+}
+
+func (r *Repo) Build(root string, p string) error {
+	node := r.Root.getNode(p)
+	if node == nil {
+		return fmt.Errorf("no such target: %s", p)
+	}
+
+	return r.instantiate(root, node)
 }
 
 func buildGitRepo(root string) (*Repo, error) {
@@ -437,16 +413,19 @@ func main() {
 	}
 
 	sourceDir := "experiments/dabu/cmake-hello"
-	if err := repo.Instantiate(root, path.Join(sourceDir, "CMakeLists.txt")); err != nil {
+	cmakeLists := path.Join(sourceDir, "CMakeLists.txt")
+	if err := repo.Build(root, cmakeLists); err != nil {
 		log.Fatal(err)
 	}
 
-	// Touch hello.cpp
+	// HACK: Touch hello.cpp
 	f, err := os.Create(path.Join(root, sourceDir, "hello.cpp"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	f.Close()
+
+	log.Printf("Configuring Ninja rules")
 
 	// Make build dir
 	buildDir := path.Join(root, sourceDir, "build")
@@ -473,14 +452,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	/*
-		// TODO: extract input files from edges
-		if err := repo.Instantiate(root, path.Join(sourceDir, "hello.cpp")); err != nil {
-			log.Fatal(err)
-		}
+	log.Printf("Start build phase")
 
-		if err := build(buildDir, edges, "hello"); err != nil {
-			log.Fatal(err)
-		}
-	*/
+	helloPath := path.Join(sourceDir, "build/hello")
+	if err := repo.Build(root, helloPath); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("instantiated at %s", path.Join(root, helloPath))
 }
