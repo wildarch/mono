@@ -5,8 +5,10 @@ import (
 	"cmp"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
@@ -117,8 +119,8 @@ type RepoNode struct {
 }
 
 type Repo struct {
-	Sources map[SourceId][]byte
-	Root    *RepoNode
+	Root      *RepoNode
+	sourceCAS string
 }
 
 func expandPhony(input string, edges []Edge) []string {
@@ -292,13 +294,38 @@ func (n *RepoNode) getNode(p string) *RepoNode {
 	return nil
 }
 
-func (r *Repo) AddSource(p string, d []byte) {
+func (r *Repo) sourceCASPath(sid SourceId) string {
+	return path.Join(r.sourceCAS, fmt.Sprintf("%x", sid))
+}
+
+func (r *Repo) AddSource(p string, d []byte) error {
 	h := sha256.New()
 	h.Write(d)
 	sid := [32]byte(h.Sum(nil))
-	r.Sources[sid] = d
+	if err := os.WriteFile(r.sourceCASPath(sid), d, 0755); err != nil {
+		return err
+	}
+
 	node := &RepoNode{Path: p, SId: sid}
 	r.Root.addNode(p, node)
+	return nil
+}
+
+func createOrReplaceSymlink(oldname string, newname string) error {
+	err := os.Symlink(oldname, newname)
+	if err == nil {
+		return nil
+	} else if errors.Is(err, fs.ErrExist) {
+		// EXIST: Need to remove existing file/link first
+		if err := os.Remove(newname); err != nil {
+			return err
+		}
+
+		return createOrReplaceSymlink(oldname, newname)
+	} else {
+		// Some other error
+		return err
+	}
 }
 
 func (r *Repo) instantiate(root string, node *RepoNode) error {
@@ -310,17 +337,12 @@ func (r *Repo) instantiate(root string, node *RepoNode) error {
 
 	if node.SId != noSID() {
 		// Is a source file
-		d, found := r.Sources[node.SId]
-		if !found {
-			return fmt.Errorf("no source data for sid %x", node.SId)
-		}
-
 		out := path.Join(root, node.Path)
-		if err := os.WriteFile(out, d, 0755); err != nil {
+		if err := createOrReplaceSymlink(r.sourceCASPath(node.SId), out); err != nil {
 			return err
 		}
 
-		log.Printf("wrote source file %s", out)
+		log.Printf("linked source file %s", out)
 	} else if node.Rule != nil {
 		// Can be built
 		rule := node.Rule
@@ -354,21 +376,17 @@ func (r *Repo) Build(root string, p string) error {
 	return r.instantiate(root, node)
 }
 
-func buildGitRepo(root string) (*Repo, error) {
-	repo := &Repo{
-		Sources: map[SourceId][]byte{},
-		Root:    &RepoNode{}}
-
+func addGitRepo(root string, repo *Repo) error {
 	// Get list of files from git
 	git := exec.Command("git", "ls-files")
 	git.Dir = root
 	out, err := git.StdoutPipe()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := git.Start(); err != nil {
-		return nil, err
+		return err
 	}
 
 	scanner := bufio.NewScanner(out)
@@ -376,29 +394,41 @@ func buildGitRepo(root string) (*Repo, error) {
 		file := scanner.Text()
 		f, err := os.Open(file)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		defer f.Close()
 		data, err := io.ReadAll(f)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		repo.AddSource(file, data)
+		if err := repo.AddSource(file, data); err != nil {
+			return err
+		}
 	}
 
 	if err := git.Wait(); err != nil {
-		return nil, err
+		return err
 	}
 
-	return repo, nil
+	return nil
 }
 
 func main() {
+	// Store source files here
+	sourceCAS := "/tmp/dabu-src"
+	if err := os.MkdirAll(sourceCAS, 0755); err != nil {
+		log.Fatal(err)
+	}
+
+	repo := &Repo{
+		Root:      &RepoNode{},
+		sourceCAS: sourceCAS,
+	}
+
 	// Get all source files in repo
-	repo, err := buildGitRepo(".")
-	if err != nil {
+	if err := addGitRepo(".", repo); err != nil {
 		log.Fatal(err)
 	}
 
@@ -413,17 +443,14 @@ func main() {
 	}
 
 	sourceDir := "experiments/dabu/cmake-hello"
-	cmakeLists := path.Join(sourceDir, "CMakeLists.txt")
-	if err := repo.Build(root, cmakeLists); err != nil {
+	if err := repo.Build(root, path.Join(sourceDir, "CMakeLists.txt")); err != nil {
 		log.Fatal(err)
 	}
 
-	// HACK: Touch hello.cpp
-	f, err := os.Create(path.Join(root, sourceDir, "hello.cpp"))
-	if err != nil {
+	// HACK: build hello.cpp before configuring
+	if err := repo.Build(root, path.Join(sourceDir, "hello.cpp")); err != nil {
 		log.Fatal(err)
 	}
-	f.Close()
 
 	log.Printf("Configuring Ninja rules")
 
