@@ -22,6 +22,7 @@ git clone git@github.com:wildarch/mono.git
 # 5. Run commands below
 sudo apt install ansible
 ansible-galaxy install -r ansible/requirements.yml
+export ANSIBLE_BECOME_EXE=sudo.ws # Only on Ubuntu 26.04 (sudo-rs and ansible are incompatible)
 ansible-playbook ansible/thinkpad.yml -K
 
 # 6. Configure git identity

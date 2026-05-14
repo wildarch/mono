@@ -18,5 +18,5 @@
   become: true
   ansible.builtin.copy:
     content: |
-      deb [arch=amd64 signed-by=/usr/share/keyrings/eduvpn-v4.gpg] https://app.eduvpn.org/linux/v4/deb/ noble main
+      deb [arch=amd64 signed-by=/usr/share/keyrings/eduvpn-v4.gpg] https://app.eduvpn.org/linux/v4/deb/ resolute main
     dest: /etc/apt/sources.list.d/eduvpn-v4.list

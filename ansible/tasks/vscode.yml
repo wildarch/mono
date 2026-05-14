@@ -21,8 +21,6 @@
     - --install-extension
     - james-yu.latex-workshop
     - --install-extension
-    - valentjn.vscode-ltex
-    - --install-extension
     - llvm-vs-code-extensions.vscode-clangd
     - --install-extension
     - ms-vscode-remote.remote-containers

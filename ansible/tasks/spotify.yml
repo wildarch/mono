@@ -2,11 +2,19 @@
 # Adds the Spotify APT key and the Spotify APT repository
 #
 # After this the spotify package may be installed using apt
-- name: Add Spotify APT key
+- name: Download and dearmor Spotify APT key
+  block:
+    - name: Download Spotify GPG key
+      get_url:
+        url: https://download.spotify.com/debian/pubkey_5384CE82BA52C83A.asc
+        dest: /tmp/spotify.asc
+        mode: '0644'
+
+- name: Dearmor GPG key and save to trusted.gpg.d
   become: true
-  apt_key:
-    url: https://download.spotify.com/debian/pubkey_C85668DF69375001.gpg
-    state: present
+  shell: gpg --dearmor < /tmp/spotify.asc > /etc/apt/trusted.gpg.d/spotify.gpg
+  args:
+    creates: /etc/apt/trusted.gpg.d/spotify.gpg
 
 - name: Add Spotify APT repository
   become: true
