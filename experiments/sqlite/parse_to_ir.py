@@ -565,6 +565,8 @@ def convert_decl(node):
             return {
                 "kind": K_DECL,
                 "name": node.name,
+                "quals": list(node.quals) if node.quals else [],
+                "storage": list(node.storage) if node.storage else [],
                 "type": convert_type(inner_type),
                 "init": None,
                 "bitsize": convert_expr(node.bitsize),
@@ -574,6 +576,8 @@ def convert_decl(node):
         return {
             "kind": K_DECL,
             "name": node.name,
+            "quals": list(node.quals) if node.quals else [],
+            "storage": list(node.storage) if node.storage else [],
             "type": convert_type(inner_type),
             "init": convert_expr(node.init),
             "bitsize": convert_expr(node.bitsize),
@@ -642,6 +646,7 @@ def convert_param_list(node):
             result.append({
                 "kind": "TypenameParam",
                 "name": p.name,
+                "quals": list(p.quals) if p.quals else [],
                 "type": convert_type(p.type),
             })
         else:

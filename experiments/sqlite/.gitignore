@@ -1,1 +1,4 @@
 /sqlite3.c
+/sqlite3_preprocessed.c
+/sqlite3_roundtrip.c
+/sqlite3.c.json

@@ -1,0 +1,1 @@
+cpp -P experiments/sqlite/sqlite3.c -I /home/daan/workspace/pycparser/utils/fake_libc_include > experiments/sqlite/sqlite3_preprocessed.c
