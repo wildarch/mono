@@ -182,6 +182,7 @@ class TypeConverter(c_ast.NodeVisitor):
 
     def visit_PtrDecl(self, node):
         return {
+            "quals": node.quals,
             "kind": K_PTR_DECL,
             "type": self.convert(node.type),
         }
@@ -209,6 +210,7 @@ class TypeConverter(c_ast.NodeVisitor):
         return {
             "kind": K_TYPE_DECL,
             "declname": node.declname,
+            "quals": node.quals,
             "type": self.visit_IdentifierType(node.type)
                     if isinstance(node.type, c_ast.IdentifierType)
                     else self.convert(node.type),
@@ -565,7 +567,7 @@ def convert_decl(node):
             return {
                 "kind": K_DECL,
                 "name": node.name,
-                "quals": list(node.quals) if node.quals else [],
+                #"quals": list(node.quals) if node.quals else [],
                 "storage": list(node.storage) if node.storage else [],
                 "type": convert_type(inner_type),
                 "init": None,
@@ -576,7 +578,7 @@ def convert_decl(node):
         return {
             "kind": K_DECL,
             "name": node.name,
-            "quals": list(node.quals) if node.quals else [],
+            #"quals": list(node.quals) if node.quals else [],
             "storage": list(node.storage) if node.storage else [],
             "type": convert_type(inner_type),
             "init": convert_expr(node.init),
@@ -646,7 +648,7 @@ def convert_param_list(node):
             result.append({
                 "kind": "TypenameParam",
                 "name": p.name,
-                "quals": list(p.quals) if p.quals else [],
+                #"quals": list(p.quals) if p.quals else [],
                 "type": convert_type(p.type),
             })
         else:

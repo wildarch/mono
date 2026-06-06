@@ -54,7 +54,7 @@ def emit_type(type_node, name=None):
         # Emit the base type first
         base_str = emit_type(type_node["type"])
         if quals:
-            base_str = f"{base_str} {' '.join(quals)}"
+            base_str = f"{' '.join(quals)} {base_str}"
         if name:
             return f"{base_str} {name}"
         if declname:
@@ -62,18 +62,19 @@ def emit_type(type_node, name=None):
         return base_str
 
     if kind == "PtrDecl":
+        quals = type_node.get("quals", [])
         inner_type = type_node["type"]
         # Check if the inner type is a FuncDecl or ArrayDecl — those need
         # parentheses around the whole "name" part.
         inner_kind = inner_type.get("kind") if inner_type else None
         if inner_kind in ("FuncDecl", "ArrayDecl"):
             if name:
-                return emit_type(inner_type, f"(*{name})")
-            return emit_type(inner_type, "(*)")
+                return emit_type(inner_type, f"(* {' '.join(quals)} {name})")
+            return emit_type(inner_type, f"(* {' '.join(quals)} )")
         else:
             if name:
-                return emit_type(inner_type, f"*{name}")
-            return emit_type(inner_type, "*")
+                return emit_type(inner_type, f"* {' '.join(quals)} {name}")
+            return emit_type(inner_type, f"* {' '.join(quals)}")
 
     if kind == "ArrayDecl":
         dim_str = ""
@@ -635,13 +636,16 @@ def main():
     args = parser.parse_args()
 
     input_file = args.input_file
-    if not os.path.exists(input_file):
+    if input_file != '-' and not os.path.exists(input_file):
         print(f"Error: {input_file} not found.", file=sys.stderr)
         sys.exit(1)
 
     print(f"Reading IR from {input_file}", file=sys.stderr)
-    with open(input_file, 'r') as f:
-        ir = json.load(f)
+    if input_file == '-':
+        ir = json.load(sys.stdin)
+    else:
+        with open(input_file, 'r') as f:
+            ir = json.load(f)
 
     print("Emitting C code...", file=sys.stderr)
     c_code = emit_file(ir)
