@@ -11,8 +11,7 @@ void InFlightDiagnostic::ensureReported() {
     return;
   }
 
-  std::cerr << loc.filename << ":" << loc.start.line << ":" << loc.start.column
-            << ": error: " << buffer.str() << "\n";
+  std::cerr << loc << ": error: " << buffer.str() << "\n";
   buffer.clear();
   reported = true;
 }
