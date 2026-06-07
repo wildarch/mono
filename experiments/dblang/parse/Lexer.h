@@ -8,6 +8,47 @@
 
 namespace dblang {
 
+#define DBLANG_KEYWORDS(XX)                                                    \
+  /* token kind, "keyword" */                                                  \
+  XX(AUTO, "auto")                                                             \
+  XX(BREAK, "break")                                                           \
+  XX(CASE, "case")                                                             \
+  XX(CHAR_KW, "char")                                                          \
+  XX(CONST, "const")                                                           \
+  XX(CONTINUE, "continue")                                                     \
+  XX(DEFAULT, "default")                                                       \
+  XX(DO, "do")                                                                 \
+  XX(DOUBLE, "double")                                                         \
+  XX(ELSE, "else")                                                             \
+  XX(ENUM, "enum")                                                             \
+  XX(EXTERN, "extern")                                                         \
+  XX(FLOAT_KW, "float")                                                        \
+  XX(FOR, "for")                                                               \
+  XX(GOTO, "goto")                                                             \
+  XX(IF, "if")                                                                 \
+  XX(INLINE, "inline")                                                         \
+  XX(INT_KW, "int")                                                            \
+  XX(LONG, "long")                                                             \
+  XX(REGISTER, "register")                                                     \
+  XX(RESTRICT, "restrict")                                                     \
+  XX(RETURN, "return")                                                         \
+  XX(SHORT, "short")                                                           \
+  XX(SIGNED, "signed")                                                         \
+  XX(SIZEOF, "sizeof")                                                         \
+  XX(STATIC, "static")                                                         \
+  XX(STRUCT, "struct")                                                         \
+  XX(SWITCH, "switch")                                                         \
+  XX(TYPEDEF, "typedef")                                                       \
+  XX(UNION, "union")                                                           \
+  XX(UNSIGNED, "unsigned")                                                     \
+  XX(VOID, "void")                                                             \
+  XX(VOLATILE, "volatile")                                                     \
+  XX(WHILE, "while")                                                           \
+  XX(BOOL, "_Bool")                                                            \
+  XX(COMPLEX, "_Complex")                                                      \
+  XX(IMAGINARY, "_Imaginary")
+
+// All kinds that are not keywords
 #define DBLANG_ENUM_TOKEN_KIND(XX)                                             \
   XX(INVALID)     /* SPECIAL: For inputs that could not be tokenized. */       \
   XX(END_OF_FILE) /* SPECIAL: End of file marker. */                           \
@@ -16,8 +57,6 @@ namespace dblang {
   XX(FLOAT)                                                                    \
   XX(STRING)                                                                   \
   XX(CHAR)                                                                     \
-  /* Keywords */                                                               \
-  XX(BREAK) /* break */                                                        \
   /* Punctuation */                                                            \
   XX(LPAREN)    /* ( */                                                        \
   XX(RPAREN)    /* ) */                                                        \
@@ -60,6 +99,9 @@ struct Token {
   enum Kind {
 #define CASE(X) X,
     DBLANG_ENUM_TOKEN_KIND(CASE)
+#undef CASE
+#define CASE(X, _Y) X,
+        DBLANG_KEYWORDS(CASE)
 #undef CASE
   };
 

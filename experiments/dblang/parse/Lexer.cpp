@@ -80,7 +80,11 @@ public:
 
 } // namespace
 
-void Lexer::initKeywords() { keywords["break"] = Token::BREAK; }
+void Lexer::initKeywords() {
+#define CASE(KIND, STR) keywords[STR] = Token::KIND;
+  DBLANG_KEYWORDS(CASE)
+#undef CASE
+}
 
 void Lexer::eatWhitespace() {
   while (cur()) {
@@ -337,6 +341,14 @@ const char *Token::kindName(Kind k) {
     return #X;
 
     DBLANG_ENUM_TOKEN_KIND(CASE)
+#undef CASE
+
+    // keywords
+#define CASE(X, _Y)                                                            \
+  case X:                                                                      \
+    return #X;
+
+    DBLANG_KEYWORDS(CASE)
 #undef CASE
   }
 }
