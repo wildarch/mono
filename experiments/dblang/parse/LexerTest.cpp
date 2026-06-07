@@ -1,4 +1,5 @@
 #include "parse/Lexer.h"
+#include "parse/Location.h"
 #include "util/FileSystem.h"
 #include "util/ReportError.h"
 #include "util/Result.h"
@@ -21,28 +22,57 @@ struct TestCase {
 
 static LogicalResult parseTests(std::string_view testsContent,
                                 std::vector<TestCase> &out) {
+  auto pos = InFilePos::startOfFile();
+
   std::string midSep(80, '-');
   std::string testSep(80, '=');
+  enum State {
+    Input,
+    Expected,
+  } state = Input;
 
-  // TODO
-  std::size_t testStart = 0;
-  while (testStart < testsContent.size()) {
-    auto mid = testsContent.find(midSep, testStart);
-    if (mid == std::string::npos) {
-      return reportError(Loc{TESTS_PATH}, "expected mid separator");
+  // parse line by line, looking for separators.
+  std::size_t inputStart = 0;
+  std::size_t inputEnd = 0;
+  std::size_t expectedStart = 0;
+  std::size_t offset = 0;
+  while (offset < testsContent.size()) {
+    auto newline = testsContent.find('\n', offset);
+    if (newline == std::string::npos) {
+      newline = testsContent.size();
     }
 
-    auto end = testsContent.find(testSep, mid);
-    if (end == std::string::npos) {
-      return reportError(Loc{TESTS_PATH}, "expected end separator");
+    auto line = testsContent.substr(offset, newline - offset);
+    if (line == midSep) {
+      if (state != Input) {
+        return reportError(Loc{TESTS_PATH, pos},
+                           "expected input/output separator (---)");
+      }
+
+      // Record where the input ends and where the expect block starts
+      inputEnd = offset;
+      expectedStart = newline + 1;
+      state = Expected;
+    } else if (line == testSep) {
+      if (state != Expected) {
+        return reportError(Loc{TESTS_PATH, pos},
+                           "expected test separator (===)");
+      }
+
+      auto input = testsContent.substr(inputStart, inputEnd - inputStart);
+      auto expected =
+          testsContent.substr(expectedStart, offset - expectedStart);
+      out.push_back(TestCase{input, expected});
+      state = Input;
+      inputStart = newline + 1;
     }
 
-    auto input = testsContent.substr(testStart, mid - testStart);
-    auto expectedStart = mid + 80;
-    auto expected = testsContent.substr(expectedStart, end - expectedStart);
-    out.push_back(TestCase{input, expected});
+    offset = newline + 1;
+    pos.line++;
+  }
 
-    testStart = end + 80;
+  if (state == Expected) {
+    return reportError(Loc{TESTS_PATH, pos}, "expected test separator (===)");
   }
 
   return LogicalResult::success();
