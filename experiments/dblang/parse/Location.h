@@ -19,4 +19,6 @@ struct Loc {
   InFilePos end;
 };
 
+std::ostream &operator<<(std::ostream &os, const Loc &loc);
+
 } // namespace dblang

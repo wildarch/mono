@@ -67,6 +67,8 @@ struct Token {
   std::string_view body = "";
 };
 
+std::ostream &operator<<(std::ostream &os, const Token &token);
+
 LogicalResult lex(std::string_view filename, std::string_view source,
                   std::vector<Token> &tokens);
 

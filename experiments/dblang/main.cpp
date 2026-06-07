@@ -41,4 +41,8 @@ int main(int argc, char **argv) {
   if (dblang::failed(dblang::lex(sourceFilename, sourceContents, tokens))) {
     return 1;
   }
+
+  for (const auto &token : tokens) {
+    std::cout << token << "\n";
+  }
 }

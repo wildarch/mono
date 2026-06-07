@@ -12,6 +12,7 @@ add_executable(
     main
     main.cpp
     parse/Lexer.cpp
+    parse/Location.cpp
     util/ReportError.cpp
 )
 target_compile_features(main PRIVATE cxx_std_17)

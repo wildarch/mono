@@ -239,6 +239,22 @@ LogicalResult Lexer::lex(std::vector<Token> &tokens) {
   }
 }
 
+std::ostream &operator<<(std::ostream &os, const Token &token) {
+  return os << token.loc << ": " << Token::kindName(token.type) << " '"
+            << token.body << "'";
+}
+
+const char *Token::kindName(Kind k) {
+  switch (k) {
+#define CASE(X)                                                                \
+  case X:                                                                      \
+    return #X;
+
+    DBLANG_ENUM_TOKEN_KIND(CASE)
+#undef CASE
+  }
+}
+
 LogicalResult lex(std::string_view filename, std::string_view source,
                   std::vector<Token> &tokens) {
   Lexer lexer(filename, source);
