@@ -31,24 +31,29 @@ namespace dblang {
   XX(DOT)       /* . */                                                        \
   XX(SEMI)      /* ; */                                                        \
   /* Operators */                                                              \
-  XX(PLUS)      /* + */                                                        \
-  XX(MINUS)     /* - */                                                        \
-  XX(TIMES)     /* * */                                                        \
-  XX(DIVIDE)    /* / */                                                        \
-  XX(ASSIGN)    /* = */                                                        \
-  XX(NOT)       /* ! */                                                        \
-  XX(BITNOT)    /* ~ */                                                        \
-  XX(BITAND)    /* & */                                                        \
-  XX(BITOR)     /* | */                                                        \
-  XX(TERNARY)   /* ? */                                                        \
-  XX(MOD)       /* % */                                                        \
-  XX(XOR)       /* % */                                                        \
-  XX(ARROW)     /* -> */                                                       \
-  XX(ACCUM)     /* += */                                                       \
-  XX(EQUAL)     /* == */                                                       \
-  XX(NOT_EQUAL) /* != */                                                       \
-  XX(LEQ)       /* <= */                                                       \
-  XX(GEQ)       /* >= */                                                       \
+  XX(PLUS)        /* + */                                                      \
+  XX(MINUS)       /* - */                                                      \
+  XX(ASTERISK)    /* * */                                                      \
+  XX(SLASH)       /* / */                                                      \
+  XX(ASSIGN)      /* = */                                                      \
+  XX(EXCLAMATION) /* ! */                                                      \
+  XX(TILDE)       /* ~ */                                                      \
+  XX(AMPERSAND)   /* & */                                                      \
+  XX(PIPE)        /* | */                                                      \
+  XX(QMARK)       /* ? */                                                      \
+  XX(PERCENT)     /* % */                                                      \
+  XX(CARET)       /* ^ */                                                      \
+  XX(ARROW)       /* -> */                                                     \
+  XX(DAMPERSAND)  /* && */                                                     \
+  XX(DPIPE)       /* || */                                                     \
+  XX(EQUAL)       /* == */                                                     \
+  XX(NOT_EQUAL)   /* != */                                                     \
+  XX(LEQ)         /* <= */                                                     \
+  XX(GEQ)         /* >= */                                                     \
+  XX(INC)         /* ++ */                                                     \
+  XX(DEC)         /* -- */                                                     \
+  XX(LSHIFT)      /* << */                                                     \
+  XX(RSHIFT)      /* >> */                                                     \
   /* Literals */                                                               \
   XX(TRUE)                                                                     \
   XX(FALSE)
@@ -63,7 +68,7 @@ struct Token {
   static const char *kindName(Kind k);
 
   Loc loc;
-  Kind type;
+  Kind kind;
   std::string_view body = "";
 };
 

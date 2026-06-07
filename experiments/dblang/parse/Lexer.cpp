@@ -113,6 +113,30 @@ Token Lexer::nextToken() {
     return lexString();
   }
 
+  // Operators of length 2
+  auto two = peek(2);
+  Loc locTwo{filename, pos, InFilePos{pos.line, pos.column + 2}};
+#define TWO(c, t)                                                              \
+  if (two == c) {                                                              \
+    eat();                                                                     \
+    eat();                                                                     \
+    return Token{locTwo, Token::t, *two};                                      \
+  }
+
+  TWO("->", ARROW)
+  TWO("&&", DAMPERSAND)
+  TWO("||", DPIPE)
+  TWO("==", EQUAL)
+  TWO("!=", NOT_EQUAL)
+  TWO("<=", LEQ)
+  TWO(">=", GEQ)
+  TWO("++", INC)
+  TWO("--", DEC)
+  TWO("<<", LSHIFT)
+  TWO(">>", RSHIFT)
+#undef TWO
+
+  // Operators and punctuation (length 1)
   auto one = buffer.substr(offset, 1);
   Loc locOne{filename, locStart, InFilePos{locStart.line, locStart.column + 1}};
 #define ONE(c, t)                                                              \
@@ -134,16 +158,16 @@ Token Lexer::nextToken() {
   ONE(';', SEMI)
   ONE('+', PLUS)
   ONE('-', MINUS)
-  ONE('*', TIMES)
-  ONE('/', DIVIDE)
+  ONE('*', ASTERISK)
+  ONE('/', SLASH)
   ONE('=', ASSIGN)
-  ONE('!', NOT)
-  ONE('~', BITNOT)
-  ONE('&', BITAND)
-  ONE('|', BITOR)
-  ONE('?', TERNARY)
-  ONE('%', MOD)
-  ONE('^', XOR)
+  ONE('!', EXCLAMATION)
+  ONE('~', TILDE)
+  ONE('&', AMPERSAND)
+  ONE('|', PIPE)
+  ONE('?', QMARK)
+  ONE('%', PERCENT)
+  ONE('^', CARET)
 
   Loc invalidLoc{filename, locStart};
   reportError(invalidLoc, "unrecognized input: ") << *cur();
@@ -244,16 +268,16 @@ LogicalResult Lexer::lex(std::vector<Token> &tokens) {
   while (true) {
     auto token = nextToken();
     tokens.push_back(token);
-    if (token.type == Token::END_OF_FILE) {
+    if (token.kind == Token::END_OF_FILE) {
       return LogicalResult::success();
-    } else if (token.type == Token::INVALID) {
+    } else if (token.kind == Token::INVALID) {
       return LogicalResult::failure();
     }
   }
 }
 
 std::ostream &operator<<(std::ostream &os, const Token &token) {
-  return os << token.loc << ": " << Token::kindName(token.type) << " '"
+  return os << token.loc << ": " << Token::kindName(token.kind) << " '"
             << token.body << "'";
 }
 
