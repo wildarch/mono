@@ -2,6 +2,7 @@
 #include "parse/Location.h"
 #include "util/ReportError.h"
 #include "util/Result.h"
+#include <cassert>
 #include <optional>
 #include <string_view>
 #include <vector>
@@ -60,6 +61,10 @@ private:
   void eatWhitespace();
 
   Token nextToken();
+  Token lexIdent();
+  Token lexIntOrFloat();
+  Token lexChar();
+  Token lexString();
 
 public:
   Lexer(std::string_view filename, std::string_view source)
@@ -98,96 +103,14 @@ Token Lexer::nextToken() {
   auto locStart = pos;
   if (!cur()) {
     return Token{Loc{filename, locStart}, Token::END_OF_FILE};
-  }
-
-  // TODO: detect keywords
-
-  // Identifiers
-  if (isIdentifierStart(*cur())) {
-    // identifier
-    std::size_t start = offset;
-    while (cur() && isIdentifierContinue(*cur())) {
-      eat();
-    }
-
-    auto body = buffer.substr(start, offset - start);
-    return Token{locFromTo(locStart, pos), Token::IDENT, body};
-  }
-
-  // Integer/Float
-  if (isDigit(*cur())) {
-    // integer.
-    // TODO: floats and other weird formats too.
-    std::size_t start = offset;
-    while (cur() && isDigit(*cur())) {
-      eat();
-    }
-
-    auto body = buffer.substr(start, offset - start);
-    return Token{locFromTo(locStart, pos), Token::INT, body};
-  }
-
-  // Char
-  if (cur() == '\'') {
-    eat();
-    std::size_t start = offset;
-    bool escaped;
-    if (cur() == '\\') {
-      // eat the escape
-      escaped = true;
-      eat();
-    }
-
-    if (!cur()) {
-      // Unterminated
-      auto loc = locFromTo(locStart, pos);
-      reportError(loc, "unterminated character");
-      return Token{loc, Token::INVALID};
-    } else if (cur() == '\'' && !escaped) {
-      // got end of character too soon
-      auto loc = locFromTo(locStart, pos);
-      reportError(loc, "character literal of length 0");
-      return Token{loc, Token::INVALID};
-    } else {
-      // The character.
-      eat();
-    }
-
-    if (!tryEat('\'')) {
-      auto loc = locFromTo(locStart, pos);
-      reportError(loc, "character literal of length > 1");
-      return Token{loc, Token::INVALID};
-    }
-
-    auto loc = locFromTo(locStart, pos);
-    return Token{loc, Token::CHAR};
-  }
-
-  // String
-  if (*cur() == '"') {
-    std::size_t start = offset;
-    eat();
-    while (true) {
-      if (!cur()) {
-        auto loc = locFromTo(locStart, pos);
-        reportError(loc, "unterminated string");
-        return Token{loc, Token::INVALID};
-      } else if (cur() == '"') {
-        eat();
-        break;
-      } else if (cur() == '\\') {
-        eat();
-        // Also eat the next (escaped) character
-        if (cur()) {
-          eat();
-        }
-      } else {
-        eat();
-      }
-    }
-
-    auto body = buffer.substr(start, offset - start);
-    return Token{locFromTo(locStart, pos), Token::STRING, body};
+  } else if (isIdentifierStart(*cur())) {
+    return lexIdent();
+  } else if (isDigit(*cur())) {
+    return lexIntOrFloat();
+  } else if (cur() == '\'') {
+    return lexChar();
+  } else if (cur() == '"') {
+    return lexString();
   }
 
   auto one = buffer.substr(offset, 1);
@@ -225,6 +148,96 @@ Token Lexer::nextToken() {
   Loc invalidLoc{filename, locStart};
   reportError(invalidLoc, "unrecognized input: ") << *cur();
   return Token{invalidLoc, Token::INVALID};
+}
+
+Token Lexer::lexIdent() {
+  assert(isIdentifierStart(*cur()));
+  auto locStart = pos;
+  std::size_t start = offset;
+  while (cur() && isIdentifierContinue(*cur())) {
+    eat();
+  }
+
+  auto body = buffer.substr(start, offset - start);
+  return Token{locFromTo(locStart, pos), Token::IDENT, body};
+}
+
+Token Lexer::lexIntOrFloat() {
+  // TODO: floats and other weird formats too.
+  assert(isDigit(*cur()));
+  auto locStart = pos;
+  std::size_t start = offset;
+  while (cur() && isDigit(*cur())) {
+    eat();
+  }
+
+  auto body = buffer.substr(start, offset - start);
+  return Token{locFromTo(locStart, pos), Token::INT, body};
+}
+
+Token Lexer::lexChar() {
+  assert(*cur() == '\'');
+  auto locStart = pos;
+  eat();
+  std::size_t start = offset;
+  bool escaped;
+  if (cur() == '\\') {
+    // eat the escape
+    escaped = true;
+    eat();
+  }
+
+  if (!cur()) {
+    // Unterminated
+    auto loc = locFromTo(locStart, pos);
+    reportError(loc, "unterminated character");
+    return Token{loc, Token::INVALID};
+  } else if (cur() == '\'' && !escaped) {
+    // got end of character too soon
+    auto loc = locFromTo(locStart, pos);
+    reportError(loc, "character literal of length 0");
+    return Token{loc, Token::INVALID};
+  } else {
+    // The character.
+    eat();
+  }
+
+  if (!tryEat('\'')) {
+    auto loc = locFromTo(locStart, pos);
+    reportError(loc, "character literal of length > 1");
+    return Token{loc, Token::INVALID};
+  }
+
+  auto loc = locFromTo(locStart, pos);
+  return Token{loc, Token::CHAR};
+}
+
+Token Lexer::lexString() {
+  assert(*cur() == '"');
+  auto locStart = pos;
+  std::size_t start = offset;
+  eat();
+  while (true) {
+    if (!cur()) {
+      auto loc = locFromTo(locStart, pos);
+      reportError(loc, "unterminated string");
+      return Token{loc, Token::INVALID};
+    } else if (cur() == '"') {
+      eat();
+      break;
+    } else if (cur() == '\\') {
+      eat();
+      // Also eat the next (escaped) character
+      if (cur()) {
+        eat();
+      }
+    } else {
+      eat();
+    }
+  }
+
+  auto body = buffer.substr(start, offset - start);
+  return Token{locFromTo(locStart, pos), Token::STRING, body};
 }
 
 LogicalResult Lexer::lex(std::vector<Token> &tokens) {
