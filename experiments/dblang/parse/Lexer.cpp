@@ -5,6 +5,7 @@
 #include <cassert>
 #include <optional>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace dblang {
@@ -13,6 +14,7 @@ namespace {
 
 class Lexer {
 private:
+  std::unordered_map<std::string_view, Token::Kind> keywords;
   std::string_view filename;
   std::string_view buffer;
   std::size_t offset = 0;
@@ -58,6 +60,8 @@ private:
     return Loc{filename, start, end};
   }
 
+  void initKeywords();
+
   void eatWhitespace();
 
   Token nextToken();
@@ -68,11 +72,15 @@ private:
 
 public:
   Lexer(std::string_view filename, std::string_view source)
-      : filename(filename), buffer(source), pos(InFilePos::startOfFile()) {}
+      : filename(filename), buffer(source), pos(InFilePos::startOfFile()) {
+    initKeywords();
+  }
   LogicalResult lex(std::vector<Token> &tokens);
 };
 
 } // namespace
+
+void Lexer::initKeywords() { keywords["break"] = Token::BREAK; }
 
 void Lexer::eatWhitespace() {
   while (cur()) {
@@ -186,7 +194,16 @@ Token Lexer::lexIdent() {
   }
 
   auto body = buffer.substr(start, offset - start);
-  return Token{locFromTo(locStart, pos), Token::IDENT, body};
+
+  // Check if we have a keyword instead of an identifier.
+  auto it = keywords.find(body);
+  auto kind = Token::IDENT;
+  if (it != keywords.end()) {
+    // keyword!
+    kind = it->second;
+  }
+
+  return Token{locFromTo(locStart, pos), kind, body};
 }
 
 Token Lexer::lexIntOrFloat() {
@@ -264,14 +281,15 @@ Token Lexer::lexChar() {
   }
 
   auto loc = locFromTo(locStart, pos);
-  return Token{loc, Token::CHAR};
+  auto body = buffer.substr(start, offset - start - 1);
+  return Token{loc, Token::CHAR, body};
 }
 
 Token Lexer::lexString() {
   assert(*cur() == '"');
   auto locStart = pos;
-  std::size_t start = offset;
   eat();
+  std::size_t start = offset;
   while (true) {
     if (!cur()) {
       auto loc = locFromTo(locStart, pos);
@@ -291,7 +309,7 @@ Token Lexer::lexString() {
     }
   }
 
-  auto body = buffer.substr(start, offset - start);
+  auto body = buffer.substr(start, offset - start - 1);
   return Token{locFromTo(locStart, pos), Token::STRING, body};
 }
 

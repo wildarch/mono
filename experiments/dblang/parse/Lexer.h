@@ -17,6 +17,7 @@ namespace dblang {
   XX(STRING)                                                                   \
   XX(CHAR)                                                                     \
   /* Keywords */                                                               \
+  XX(BREAK) /* break */                                                        \
   /* Punctuation */                                                            \
   XX(LPAREN)    /* ( */                                                        \
   XX(RPAREN)    /* ) */                                                        \
@@ -53,10 +54,7 @@ namespace dblang {
   XX(INC)         /* ++ */                                                     \
   XX(DEC)         /* -- */                                                     \
   XX(LSHIFT)      /* << */                                                     \
-  XX(RSHIFT)      /* >> */                                                     \
-  /* Literals */                                                               \
-  XX(TRUE)                                                                     \
-  XX(FALSE)
+  XX(RSHIFT)      /* >> */
 
 struct Token {
   enum Kind {
