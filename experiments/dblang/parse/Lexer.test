@@ -20,3 +20,15 @@ experiments/dblang/parse/Lexer.test:2:13-14: SEMI ';'
 experiments/dblang/parse/Lexer.test:3:1-2: RBRACE '}'
 experiments/dblang/parse/Lexer.test:4:1: END_OF_FILE ''
 ================================================================================
+
+0xDEADBEEF
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-11: INT '0xDEADBEEF'
+experiments/dblang/parse/Lexer.test:3:1: END_OF_FILE ''
+================================================================================
+
+3.14
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-5: FLOAT '3.14'
+experiments/dblang/parse/Lexer.test:3:1: END_OF_FILE ''
+================================================================================

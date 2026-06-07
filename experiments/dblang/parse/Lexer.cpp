@@ -92,6 +92,9 @@ static bool isAlpha(char c) {
   return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z');
 }
 static bool isDigit(char c) { return '0' <= c && c <= '9'; }
+static bool isHex(char c) {
+  return ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
+}
 
 static bool isIdentifierStart(char c) { return isAlpha(c) || c == '_'; }
 static bool isIdentifierContinue(char c) {
@@ -187,7 +190,6 @@ Token Lexer::lexIdent() {
 }
 
 Token Lexer::lexIntOrFloat() {
-  // TODO: floats and other weird formats too.
   assert(isDigit(*cur()));
   auto locStart = pos;
   std::size_t start = offset;
@@ -196,6 +198,35 @@ Token Lexer::lexIntOrFloat() {
   }
 
   auto body = buffer.substr(start, offset - start);
+  if (body == "0" && cur() == 'x') {
+    // hex notation, e.g. 0xDEADBEEF
+    eat(); // the 'x'
+    while (cur() && isHex(*cur())) {
+      eat();
+    }
+
+    body = buffer.substr(start, offset - start);
+    if (body == "0x") {
+      auto loc = locFromTo(locStart, pos);
+      reportError(loc,
+                  "invalid hex integer (must have at least one hex digit)");
+      return Token{loc, Token::INVALID};
+    }
+
+    return Token{locFromTo(locStart, pos), Token::INT, body};
+  }
+
+  // float notation, e.g. 3.14
+  if (cur() == '.') {
+    eat(); // the '.'
+    while (cur() && isDigit(*cur())) {
+      eat();
+    }
+
+    body = buffer.substr(start, offset - start);
+    return Token{locFromTo(locStart, pos), Token::FLOAT, body};
+  }
+
   return Token{locFromTo(locStart, pos), Token::INT, body};
 }
 
