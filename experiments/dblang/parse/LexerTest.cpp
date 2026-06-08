@@ -133,10 +133,10 @@ int main(int argc, char **argv) {
     }
 
     std::cout << "wrote candidate test file to " << PROPOSE_PATH << "\n";
-    std::cout << "to compare, run:\n";
-    std::cout << "    vimdiff " << TESTS_PATH << " " << PROPOSE_PATH << "\n";
-    std::cout << "to accept the current diff:\n";
-    std::cout << "    cp " << PROPOSE_PATH << " " << TESTS_PATH << "\n";
+    std::cout << "    to compare, run:\n";
+    std::cout << "vimdiff " << TESTS_PATH << " " << PROPOSE_PATH << "\n";
+    std::cout << "    to accept the current diff:\n";
+    std::cout << "cp " << PROPOSE_PATH << " " << TESTS_PATH << "\n";
   }
 
   return 0;

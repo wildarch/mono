@@ -88,14 +88,29 @@ void Lexer::initKeywords() {
 
 void Lexer::eatWhitespace() {
   while (cur()) {
-    if (cur() == ' ') {
+    if (cur() == ' ' || cur() == '\t' || cur() == '\n' || cur() == '\r') {
       eat();
-    } else if (cur() == '\n') {
+    } else if (peek(2) == "//") {
+      // line comment
+      while (cur() && cur() != '\n') {
+        eat();
+      }
+    } else if (peek(2) == "/*") {
+      /* multi-line comment */
       eat();
-    }
-    // TODO: line comment
-    else {
-      return;
+      eat();
+      while (cur()) {
+        if (peek(2) == "*/") {
+          eat();
+          eat();
+          break;
+        } else {
+          eat();
+        }
+      }
+    } else {
+      // No (more) whitespace
+      break;
     }
   }
 }

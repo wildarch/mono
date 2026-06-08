@@ -93,3 +93,17 @@ break
 experiments/dblang/parse/Lexer.test:2:1-6: BREAK 'break'
 experiments/dblang/parse/Lexer.test:3:1: END_OF_FILE ''
 ================================================================================
+
+// this is a comment
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:3:1: END_OF_FILE ''
+================================================================================
+
+/*
+ * This is a multi-line comment.
+ *
+   It continues here
+ */
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:7:1: END_OF_FILE ''
+================================================================================
