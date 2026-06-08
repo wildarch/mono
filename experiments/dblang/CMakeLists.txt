@@ -12,21 +12,22 @@ add_library(
     dblang
     parse/Lexer.cpp
     parse/Location.cpp
-    util/ReportError.cpp
+    parse/Parser.cpp
     util/FileSystem.cpp
+    util/ReportError.cpp
 )
-target_compile_features(dblang PRIVATE cxx_std_17)
+target_compile_features(dblang PRIVATE cxx_std_20)
 
 add_executable(
     main
     main.cpp
 )
 target_link_libraries(main dblang)
-target_compile_features(main PRIVATE cxx_std_17)
+target_compile_features(main PRIVATE cxx_std_20)
 
 add_executable(
     LexerTest
     parse/LexerTest.cpp
 )
 target_link_libraries(LexerTest dblang)
-target_compile_features(LexerTest PRIVATE cxx_std_17)
+target_compile_features(LexerTest PRIVATE cxx_std_20)

@@ -1,4 +1,5 @@
 #include "parse/Lexer.h"
+#include "parse/Parser.h"
 #include "util/FileSystem.h"
 #include "util/Result.h"
 #include <iostream>
@@ -27,5 +28,9 @@ int main(int argc, char **argv) {
 
   for (const auto &token : tokens) {
     std::cout << token << "\n";
+  }
+
+  if (failed(parse(tokens))) {
+    return 1;
   }
 }
