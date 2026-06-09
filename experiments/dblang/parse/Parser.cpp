@@ -26,7 +26,10 @@ private:
 
   LogicalResult parseSpecifier();
   LogicalResult parseDeclaration();
-  LogicalResult parseFuncDef();
+  LogicalResult parseDeclarator();
+  LogicalResult parseNoPtrDeclarator();
+  LogicalResult parseInitializer();
+  LogicalResult parseParameterList();
 
 public:
   Parser(std::span<const Token> tokens) : tokens(tokens) {}
@@ -105,11 +108,35 @@ LogicalResult Parser::parseDeclaration() {
     } else if (succeeded(parseSpecifier())) {
       continue;
     } else {
-      return LogicalResult::failure();
+      break;
     }
   }
 
   // 2. declarators-and-initializers
+  bool first = true;
+  while (cur() && cur()->kind != Token::SEMI) {
+    if (first) {
+      first = false;
+    } else {
+      // comma separated
+      if (cur()->kind != Token::COMMA) {
+        return reportError(cur()->loc,
+                           "expected , to separate declarators (or ;)");
+      }
+
+      eat();
+    }
+
+    if (failed(parseDeclarator())) {
+      return reportError(cur()->loc, "invalid declaration");
+    }
+
+    if (cur() && cur()->kind == Token::EQUAL) {
+      if (failed(parseInitializer())) {
+        return reportError(cur()->loc, "invalid initializer");
+      }
+    }
+  }
 
   // ;
   if (cur() && cur()->kind == Token::SEMI) {
@@ -121,17 +148,84 @@ LogicalResult Parser::parseDeclaration() {
     return reportError(tokens.back().loc, "unexpected end of declaration");
   }
 }
-LogicalResult Parser::parseFuncDef() { return LogicalResult::failure(); }
+
+LogicalResult Parser::parseDeclarator() {
+  if (!cur()) {
+    return reportError(tokens.back().loc, "expected a declarator");
+  } else if (cur()->kind != Token::ASTERISK) {
+    return parseNoPtrDeclarator();
+  }
+
+  // Pointer declarator
+  eat();
+
+  std::vector<Token::Kind> quals;
+  while (cur() && isQualifier(cur()->kind)) {
+    quals.push_back(cur()->kind);
+    eat();
+  }
+
+  return parseDeclarator();
+}
+LogicalResult Parser::parseNoPtrDeclarator() {
+  if (!cur()) {
+    return reportError(tokens.back().loc, "expected a declarator");
+  }
+
+  if (cur()->kind == Token::IDENT) {
+    eat();
+    return LogicalResult::success();
+  } else if (cur()->kind == Token::LPAREN) {
+    eat();
+
+    if (failed(parseDeclarator())) {
+      return LogicalResult::failure();
+    }
+
+    if (cur()->kind != Token::RPAREN) {
+      return reportError(tokens.back().loc, "unclosed paren for declarator");
+    }
+    eat();
+    return LogicalResult::success();
+  } else {
+    // array or function
+    if (failed(parseNoPtrDeclarator())) {
+      return LogicalResult::failure();
+    }
+
+    if (cur() && cur()->kind == Token::LSBRACKET) {
+      // array
+      return reportError(cur()->loc, "not implemented: array declarators");
+    } else if (cur() && cur()->kind == Token::LPAREN) {
+      // function
+      eat();
+
+      if (failed(parseParameterList())) {
+        return LogicalResult::failure();
+      }
+
+      if (cur()->kind != Token::RPAREN) {
+        return reportError(tokens.back().loc,
+                           "unclosed paren for function params");
+      }
+      eat();
+      return LogicalResult::success();
+    } else {
+      return reportError(cur()->loc, "invalid declarator");
+    }
+  }
+}
+LogicalResult Parser::parseInitializer() {
+  return reportError(cur()->loc, "not implemented: initializer");
+}
+LogicalResult Parser::parseParameterList() {
+  return reportError(cur()->loc, "not implemented: parameter list");
+}
 
 LogicalResult Parser::parseFile() {
   while (cur()) {
-    if (succeeded(parseDeclaration())) {
-      continue;
-    } else if (succeeded(parseFuncDef())) {
-      continue;
-    } else {
-      return reportError(cur()->loc,
-                         "expected declaration or function definition");
+    if (failed(parseDeclaration())) {
+      return reportError(cur()->loc, "expected declaration");
     }
   }
 
