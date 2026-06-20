@@ -1,6 +1,7 @@
 #include "parse/Lexer.h"
 #include "util/ReportError.h"
 #include "util/Result.h"
+#include <cassert>
 #include <optional>
 #include <span>
 #include <vector>
@@ -27,7 +28,7 @@ private:
   LogicalResult parseSpecifier();
   LogicalResult parseDeclaration();
   LogicalResult parseDeclarator();
-  LogicalResult parseNoPtrDeclarator();
+  LogicalResult parseDeclaratorAtom();
   LogicalResult parseInitializer();
   LogicalResult parseParameterList();
 
@@ -150,54 +151,19 @@ LogicalResult Parser::parseDeclaration() {
 }
 
 LogicalResult Parser::parseDeclarator() {
-  if (!cur()) {
-    return reportError(tokens.back().loc, "expected a declarator");
-  } else if (cur()->kind != Token::ASTERISK) {
-    return parseNoPtrDeclarator();
+  if (failed(parseDeclaratorAtom())) {
+    return LogicalResult::failure();
   }
 
-  // Pointer declarator
-  eat();
-
-  std::vector<Token::Kind> quals;
-  while (cur() && isQualifier(cur()->kind)) {
-    quals.push_back(cur()->kind);
-    eat();
-  }
-
-  return parseDeclarator();
-}
-LogicalResult Parser::parseNoPtrDeclarator() {
-  if (!cur()) {
-    return reportError(tokens.back().loc, "expected a declarator");
-  }
-
-  if (cur()->kind == Token::IDENT) {
-    eat();
-    return LogicalResult::success();
-  } else if (cur()->kind == Token::LPAREN) {
-    eat();
-
-    if (failed(parseDeclarator())) {
-      return LogicalResult::failure();
-    }
-
-    if (cur()->kind != Token::RPAREN) {
-      return reportError(tokens.back().loc, "unclosed paren for declarator");
-    }
-    eat();
-    return LogicalResult::success();
-  } else {
-    // array or function
-    if (failed(parseNoPtrDeclarator())) {
-      return LogicalResult::failure();
-    }
-
-    if (cur() && cur()->kind == Token::LSBRACKET) {
+  // Check for array of function decl
+  while (cur() &&
+         (cur()->kind == Token::LSBRACKET || cur()->kind == Token::LPAREN)) {
+    if (cur()->kind == Token::LSBRACKET) {
       // array
       return reportError(cur()->loc, "not implemented: array declarators");
-    } else if (cur() && cur()->kind == Token::LPAREN) {
+    } else {
       // function
+      assert(cur()->kind == Token::LPAREN);
       eat();
 
       if (failed(parseParameterList())) {
@@ -210,10 +176,47 @@ LogicalResult Parser::parseNoPtrDeclarator() {
       }
       eat();
       return LogicalResult::success();
-    } else {
-      return reportError(cur()->loc, "invalid declarator");
     }
   }
+
+  return LogicalResult::success();
+}
+LogicalResult Parser::parseDeclaratorAtom() {
+  if (!cur()) {
+    return reportError(tokens.back().loc, "expected a declarator");
+  }
+
+  if (cur()->kind == Token::IDENT) {
+    // <identifier>
+    eat();
+    return LogicalResult::success();
+  } else if (cur()->kind == Token::LPAREN) {
+    // (<declarator>)
+    eat();
+
+    if (failed(parseDeclarator())) {
+      return LogicalResult::failure();
+    }
+
+    if (cur()->kind != Token::RPAREN) {
+      return reportError(tokens.back().loc, "unclosed paren for declarator");
+    }
+    eat();
+    return LogicalResult::success();
+  } else if (cur()->kind == Token::ASTERISK) {
+    // * <quals> <declarator>
+    eat();
+
+    std::vector<Token::Kind> quals;
+    while (cur() && isQualifier(cur()->kind)) {
+      quals.push_back(cur()->kind);
+      eat();
+    }
+
+    return parseDeclarator();
+  }
+
+  return reportError(cur()->loc, "expected a declarator");
 }
 LogicalResult Parser::parseInitializer() {
   return reportError(cur()->loc, "not implemented: initializer");
