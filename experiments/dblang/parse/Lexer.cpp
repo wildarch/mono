@@ -335,12 +335,13 @@ Token Lexer::lexString() {
 LogicalResult Lexer::lex(std::vector<Token> &tokens) {
   while (true) {
     auto token = nextToken();
-    tokens.push_back(token);
     if (token.kind == Token::END_OF_FILE) {
       return LogicalResult::success();
     } else if (token.kind == Token::INVALID) {
       return LogicalResult::failure();
     }
+
+    tokens.push_back(token);
   }
 }
 

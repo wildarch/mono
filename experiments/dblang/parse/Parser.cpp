@@ -2,9 +2,12 @@
 #include "util/ReportError.h"
 #include "util/Result.h"
 #include <cassert>
+#include <charconv>
+#include <iostream>
 #include <optional>
 #include <random>
 #include <span>
+#include <system_error>
 #include <vector>
 
 namespace dblang {
@@ -28,7 +31,7 @@ private:
 
   LogicalResult parseSpecifier();
   LogicalResult parseDeclaration();
-  LogicalResult parseDeclarator();
+  LogicalResult parseDeclarator(bool &isFuncDef);
   LogicalResult parseDeclaratorAtom();
   LogicalResult parseInitializer();
   LogicalResult parseParameterList();
@@ -42,6 +45,7 @@ private:
   LogicalResult parseStatementEndSemi();
 
   LogicalResult parseExpression();
+  LogicalResult parseInt();
 
 public:
   Parser(std::span<const Token> tokens) : tokens(tokens) {}
@@ -139,8 +143,14 @@ LogicalResult Parser::parseDeclaration() {
       eat();
     }
 
-    if (failed(parseDeclarator())) {
+    bool isFuncDef;
+    if (failed(parseDeclarator(isFuncDef))) {
       return reportError(cur()->loc, "invalid declaration");
+    }
+
+    if (isFuncDef) {
+      // Don't end with a semi (and we don't chain function defs).
+      return LogicalResult::success();
     }
 
     if (cur() && cur()->kind == Token::EQUAL) {
@@ -161,12 +171,13 @@ LogicalResult Parser::parseDeclaration() {
   }
 }
 
-LogicalResult Parser::parseDeclarator() {
+LogicalResult Parser::parseDeclarator(bool &isFuncDef) {
+  isFuncDef = false;
   if (failed(parseDeclaratorAtom())) {
     return LogicalResult::failure();
   }
 
-  // Check for array of function decl
+  // Check for array or function decl
   while (cur() &&
          (cur()->kind == Token::LSBRACKET || cur()->kind == Token::LPAREN)) {
     if (cur()->kind == Token::LSBRACKET) {
@@ -191,6 +202,7 @@ LogicalResult Parser::parseDeclarator() {
 
       if (cur() && cur()->kind == Token::LBRACE) {
         // Function definition rather than declaration.
+        isFuncDef = true;
         if (failed(parseBlock())) {
           return LogicalResult::failure();
         }
@@ -207,6 +219,7 @@ LogicalResult Parser::parseDeclaratorAtom() {
     return reportError(tokens.back().loc, "expected a declarator");
   }
 
+  bool isFuncDef;
   if (cur()->kind == Token::IDENT) {
     // <identifier>
     eat();
@@ -215,7 +228,7 @@ LogicalResult Parser::parseDeclaratorAtom() {
     // (<declarator>)
     eat();
 
-    if (failed(parseDeclarator())) {
+    if (failed(parseDeclarator(isFuncDef))) {
       return LogicalResult::failure();
     }
 
@@ -234,7 +247,7 @@ LogicalResult Parser::parseDeclaratorAtom() {
       eat();
     }
 
-    return parseDeclarator();
+    return parseDeclarator(isFuncDef);
   }
 
   return reportError(cur()->loc, "expected a declarator");
@@ -278,7 +291,8 @@ LogicalResult Parser::parseParameter() {
 
   // 2. declarator
   // TODO: handle optional identifier.
-  if (failed(parseDeclarator())) {
+  bool isFuncDef;
+  if (failed(parseDeclarator(isFuncDef))) {
     return reportError(cur()->loc, "invalid declaration");
   }
 
@@ -351,7 +365,25 @@ LogicalResult Parser::parseStatementEndSemi() {
 }
 
 LogicalResult Parser::parseExpression() {
+  if (cur()->kind == Token::INT) {
+    return parseInt();
+  }
+
   return reportError(cur()->loc, "unsupported expression");
+}
+
+LogicalResult Parser::parseInt() {
+  assert(cur()->kind == Token::INT);
+  auto body = cur()->body;
+  int64_t value;
+  auto [ptr, ec] = std::from_chars(body.begin(), body.end(), value);
+  assert(ptr == body.end());
+  if (ec != std::errc()) {
+    return reportError(cur()->loc, "invalid integer value");
+  }
+
+  eat();
+  return LogicalResult::success();
 }
 
 LogicalResult Parser::parseFile() {
