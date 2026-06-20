@@ -120,7 +120,7 @@ static bool isAlpha(char c) {
 }
 static bool isDigit(char c) { return '0' <= c && c <= '9'; }
 static bool isHex(char c) {
-  return ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
+  return isDigit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
 }
 
 static bool isIdentifierStart(char c) { return isAlpha(c) || c == '_'; }

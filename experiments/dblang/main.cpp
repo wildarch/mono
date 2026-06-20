@@ -26,9 +26,9 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  for (const auto &token : tokens) {
-    std::cout << token << "\n";
-  }
+  // for (const auto &token : tokens) {
+  //   std::cout << token << "\n";
+  // }
 
   if (failed(parse(tokens))) {
     return 1;

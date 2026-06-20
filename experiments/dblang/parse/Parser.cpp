@@ -30,6 +30,7 @@ private:
   void eat() { offset++; }
 
   LogicalResult parseSpecifier();
+  LogicalResult parseSpecifierStruct();
   LogicalResult parseDeclaration();
   LogicalResult parseDeclarator(bool &isFuncDef);
   LogicalResult parseDeclaratorAtom();
@@ -106,8 +107,38 @@ LogicalResult Parser::parseSpecifier() {
   case Token::SHORT:
   case Token::LONG:
     return reportError(cur()->loc, "unsupported type");
+  // typedef'd previously
+  case Token::IDENT:
+    // TODO: check for ref
+    return LogicalResult::failure();
+  // TODO: atomic
+  case Token::STRUCT:
+    return parseSpecifierStruct();
+  case Token::UNION:
+    return reportError(cur()->loc, "unsupported: union");
+  case Token::ENUM:
+    return reportError(cur()->loc, "unsupported: enum");
   default:
     return LogicalResult::failure();
+  }
+
+  return LogicalResult::success();
+}
+
+LogicalResult Parser::parseSpecifierStruct() {
+  assert(cur()->kind == Token::STRUCT);
+  eat(); // struct
+
+  if (!cur()) {
+    return reportError(tokens.back().loc,
+                       "unexpected end of struct declaration");
+  } else if (cur()->kind == Token::IDENT) {
+    eat();
+  }
+
+  // may also include a struct decl.
+  if (cur() && cur()->kind == Token::LBRACE) {
+    return reportError(cur()->loc, "not supported: struct definition");
   }
 
   return LogicalResult::success();

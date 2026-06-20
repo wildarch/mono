@@ -20,9 +20,9 @@ experiments/dblang/parse/Lexer.test:2:13-14: SEMI ';'
 experiments/dblang/parse/Lexer.test:3:1-2: RBRACE '}'
 ================================================================================
 
-0xDEADBEEF
+0x0123456789ABCDEFabcdef
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-11: INT '0xDEADBEEF'
+experiments/dblang/parse/Lexer.test:2:1-25: INT '0x0123456789ABCDEFabcdef'
 ================================================================================
 
 3.14
