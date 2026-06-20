@@ -3,6 +3,7 @@
 #include "util/Result.h"
 #include <cassert>
 #include <optional>
+#include <random>
 #include <span>
 #include <vector>
 
@@ -31,6 +32,16 @@ private:
   LogicalResult parseDeclaratorAtom();
   LogicalResult parseInitializer();
   LogicalResult parseParameterList();
+  LogicalResult parseParameter();
+
+  // Also called 'compound statement'
+  LogicalResult parseBlock();
+  LogicalResult parseStatement();
+  LogicalResult parseReturn();
+  // Utility for checking the statment ends with ';'
+  LogicalResult parseStatementEndSemi();
+
+  LogicalResult parseExpression();
 
 public:
   Parser(std::span<const Token> tokens) : tokens(tokens) {}
@@ -164,17 +175,27 @@ LogicalResult Parser::parseDeclarator() {
     } else {
       // function
       assert(cur()->kind == Token::LPAREN);
-      eat();
+      eat(); // (
 
-      if (failed(parseParameterList())) {
-        return LogicalResult::failure();
+      if (cur() && cur()->kind != Token::RPAREN) {
+        if (failed(parseParameterList())) {
+          return LogicalResult::failure();
+        }
       }
 
-      if (cur()->kind != Token::RPAREN) {
-        return reportError(tokens.back().loc,
-                           "unclosed paren for function params");
+      if (!cur()) {
+        return reportError(tokens.back().loc, "unexpected end of declarator");
       }
-      eat();
+
+      eat(); // )
+
+      if (cur() && cur()->kind == Token::LBRACE) {
+        // Function definition rather than declaration.
+        if (failed(parseBlock())) {
+          return LogicalResult::failure();
+        }
+      }
+
       return LogicalResult::success();
     }
   }
@@ -222,7 +243,115 @@ LogicalResult Parser::parseInitializer() {
   return reportError(cur()->loc, "not implemented: initializer");
 }
 LogicalResult Parser::parseParameterList() {
-  return reportError(cur()->loc, "not implemented: parameter list");
+  // NOTE: we don't support identifier-list format: all types must be explicit
+  if (failed(parseParameter())) {
+    return LogicalResult::failure();
+  }
+
+  while (cur() && cur()->kind == Token::COMMA) {
+    eat();
+
+    if (failed(parseParameter())) {
+      return LogicalResult::failure();
+    }
+  }
+
+  return LogicalResult::success();
+}
+
+LogicalResult Parser::parseParameter() {
+  // parameters are declarations with a single identifier. The identifier is
+  // optional.
+  // 1. specifiers-and-qualifiers
+  std::vector<Token::Kind> quals;
+  while (cur()) {
+    if (isQualifier(cur()->kind)) {
+      quals.push_back(cur()->kind);
+      eat();
+      continue;
+    } else if (succeeded(parseSpecifier())) {
+      continue;
+    } else {
+      break;
+    }
+  }
+
+  // 2. declarator
+  // TODO: handle optional identifier.
+  if (failed(parseDeclarator())) {
+    return reportError(cur()->loc, "invalid declaration");
+  }
+
+  return LogicalResult::success();
+}
+
+LogicalResult Parser::parseBlock() {
+  assert(cur()->kind == Token::LBRACE);
+  auto openLoc = cur()->loc;
+  eat();
+
+  while (cur() && cur()->kind != Token::RBRACE) {
+    // Parse statements
+    // TODO: can also include declarations
+    if (failed(parseStatement())) {
+      return LogicalResult::failure();
+    }
+  }
+
+  if (!cur()) {
+    return reportError(openLoc, "unclosed block");
+  }
+
+  eat();
+  return LogicalResult::success();
+}
+
+LogicalResult Parser::parseStatement() {
+  // TODO: handle labels
+  switch (cur()->kind) {
+  case Token::LBRACE:
+    // compound statement
+    return parseBlock();
+  case Token::IF:
+  case Token::SWITCH:
+  case Token::WHILE:
+  case Token::DO:
+  case Token::FOR:
+  case Token::BREAK:
+  case Token::CONTINUE:
+    return reportError(cur()->loc, "not implemented");
+  case Token::RETURN:
+    return parseReturn();
+  case Token::GOTO:
+    return reportError(cur()->loc, "not implemented");
+  default:
+    return parseExpression();
+  }
+}
+
+LogicalResult Parser::parseReturn() {
+  assert(cur()->kind == Token::RETURN);
+  eat();
+  if (failed(parseExpression())) {
+    return LogicalResult::failure();
+  }
+
+  return parseStatementEndSemi();
+}
+
+LogicalResult Parser::parseStatementEndSemi() {
+  if (!cur()) {
+    return reportError(tokens.back().loc, "unexpected end of statement");
+  } else if (cur()->kind != Token::SEMI) {
+    return reportError(tokens.back().loc, "expected ';' at end of statement");
+  }
+
+  eat(); // ;
+  return LogicalResult::success();
+}
+
+LogicalResult Parser::parseExpression() {
+  return reportError(cur()->loc, "unsupported expression");
 }
 
 LogicalResult Parser::parseFile() {
