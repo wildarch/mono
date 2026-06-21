@@ -130,6 +130,7 @@ private:
 
   LogicalResult parseSpecifierOrQualifier(Declaration &decl);
   LogicalResult parseSpecifierStruct(TypeSpec &spec);
+  LogicalResult parseSpecifierEnum(TypeSpec &spec);
   LogicalResult parseDeclaration(Declaration &decl);
   LogicalResult parseDeclarator(Declarator *&decl);
   LogicalResult parseDeclaratorAtom(Declarator *&decl);
@@ -252,6 +253,8 @@ LogicalResult Parser::parseSpecifierOrQualifier(Declaration &decl) {
     return LogicalResult::success();
   case Token::STRUCT:
     return parseSpecifierStruct(decl.specs.emplace_back());
+  case Token::ENUM:
+    return parseSpecifierEnum(decl.specs.emplace_back());
   case Token::IDENT: {
     // Check if known typedef
     auto name = cur()->body;
@@ -315,6 +318,64 @@ LogicalResult Parser::parseSpecifierStruct(TypeSpec &spec) {
     return LogicalResult::success();
   }
 
+  return LogicalResult::success();
+}
+
+LogicalResult Parser::parseSpecifierEnum(TypeSpec &spec) {
+  assert(cur()->kind == Token::ENUM);
+  eat(); // enum
+  spec.kind = TypeSpec::ENUM;
+
+  if (!cur()) {
+    return reportError(tokens.back().loc, "unexpected end of enum declaration");
+  } else if (cur()->kind == Token::IDENT) {
+    spec.name = cur()->body;
+    eat();
+  }
+
+  // MUST include enum options (C does not do forward decls for enums)
+  if (!cur() || cur()->kind != Token::LBRACE) {
+    {
+      return reportError(tokens.back().loc,
+                         "unexpected end of enum declaration");
+    }
+  }
+
+  eat(); // {
+
+  auto parseEnumOption = [&]() -> LogicalResult {
+    if (!cur()) {
+      return reportError(tokens.back().loc, "unexpected end of enum");
+    } else if (cur()->kind != Token::IDENT) {
+      return reportError(cur()->loc, "expected identifier");
+    }
+
+    eat(); // ident
+
+    if (cur() && cur()->kind == Token::EQUAL) {
+      eat(); // =
+      return reportError(cur()->loc, "not supported: expression parse");
+    }
+
+    return LogicalResult::success();
+  };
+
+  if (failed(parseEnumOption())) {
+    return LogicalResult::failure();
+  }
+
+  while (cur() && cur()->kind == Token::COMMA) {
+    eat(); // ,
+    if (failed(parseEnumOption())) {
+      return LogicalResult::failure();
+    }
+  }
+
+  if (!cur() || cur()->kind != Token::RBRACE) {
+    return reportError(tokens.back().loc, "unexpected end of enum");
+  }
+
+  eat(); // }
   return LogicalResult::success();
 }
 
