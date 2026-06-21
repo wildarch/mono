@@ -1,23 +1,122 @@
 #include "parse/Lexer.h"
 #include "util/ReportError.h"
 #include "util/Result.h"
+#include <algorithm>
 #include <cassert>
 #include <charconv>
 #include <iostream>
 #include <optional>
-#include <random>
 #include <span>
+#include <string_view>
 #include <system_error>
+#include <type_traits>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace dblang {
 
 namespace {
 
+struct TypeSpec {
+  enum Kind {
+    VOID,
+    BOOL,
+    CHAR,
+    INT,
+    FLOAT,
+    DOUBLE,
+    LONG,
+    SHORT,
+    UNSIGNED,
+    SIGNED,
+    ATOMIC,
+    TYPEDEF, /* to a previous typedef. */
+    STRUCT,
+    UNION,
+    ENUM,
+  } kind;
+  std::string_view name; // for struct, union, enum
+};
+
+enum class StorageClass {
+  TYPEDEF,
+  REGISTER,
+  STATIC,
+  EXTERN,
+  THREAD_LOCAL,
+};
+
+enum class TypeQualifier {
+  CONST,
+  VOLATILE,
+  RESTRICT,
+  ATOMIC,
+};
+
+struct Declarator {
+  enum Kind {
+    IDENT,
+    PTR,
+    ARRAY,
+    FUNC,
+  } kind;
+};
+
+template <Declarator::Kind KIND, typename T>
+struct DeclaratorBase : public Declarator {
+  DeclaratorBase() { this->kind = KIND; }
+
+  static T *dynCast(Declarator *self) {
+    if (self->kind == KIND) {
+      return static_cast<T *>(self);
+    }
+
+    return nullptr;
+  }
+
+  static const T *dynCast(const Declarator *self) {
+    if (self->kind == KIND) {
+      return static_cast<const T *>(self);
+    }
+
+    return nullptr;
+  }
+};
+
+struct DeclaratorIdent : DeclaratorBase<Declarator::IDENT, DeclaratorIdent> {
+  std::string_view ident;
+  DeclaratorIdent(std::string_view ident) : ident(ident) {}
+};
+
+struct DeclaratorPtr : DeclaratorBase<Declarator::PTR, DeclaratorPtr> {
+  Declarator *inner;
+  DeclaratorPtr(Declarator *inner) : inner(inner) {}
+};
+
+struct Declaration {
+  std::vector<TypeSpec> specs;
+  std::vector<StorageClass> storage;
+  std::vector<TypeQualifier> quals;
+  std::vector<Declarator *> declarators;
+  // TODO: function specifiers
+  // TODO: alignment specifiers.
+};
+
+struct DeclaratorFunc : DeclaratorBase<Declarator::FUNC, DeclaratorFunc> {
+  Declarator *ret;
+  std::vector<Declaration> params;
+  DeclaratorFunc(Declarator *ret, std::vector<Declaration> &&params)
+      : ret(ret), params(std::move(params)) {}
+};
+
 class Parser {
 private:
   std::span<const Token> tokens;
   std::size_t offset = 0;
+
+  // TODO: Map to type
+  std::unordered_set<std::string> typedefs;
 
   std::optional<Token> cur() {
     if (offset < tokens.size()) {
@@ -29,14 +128,14 @@ private:
 
   void eat() { offset++; }
 
-  LogicalResult parseSpecifier();
-  LogicalResult parseSpecifierStruct();
-  LogicalResult parseDeclaration();
-  LogicalResult parseDeclarator(bool &isFuncDef);
-  LogicalResult parseDeclaratorAtom();
+  LogicalResult parseSpecifierOrQualifier(Declaration &decl);
+  LogicalResult parseSpecifierStruct(TypeSpec &spec);
+  LogicalResult parseDeclaration(Declaration &decl);
+  LogicalResult parseDeclarator(Declarator *&decl);
+  LogicalResult parseDeclaratorAtom(Declarator *&decl);
   LogicalResult parseInitializer();
-  LogicalResult parseParameterList();
-  LogicalResult parseParameter();
+  LogicalResult parseParameterList(std::vector<Declaration> &params);
+  LogicalResult parseParameter(Declaration &decl);
 
   // Also called 'compound statement'
   LogicalResult parseBlock();
@@ -47,6 +146,20 @@ private:
 
   LogicalResult parseExpression();
   LogicalResult parseInt();
+
+  // TODO: proper allocator
+  Declarator *buildDeclaratorIdent(std::string_view ident) {
+    return new DeclaratorIdent(ident);
+  }
+  Declarator *buildDeclaratorPtr(Declarator *inner) {
+    return new DeclaratorPtr(inner);
+  }
+  Declarator *buildDeclaratorFunc(Declarator *ret,
+                                  std::vector<Declaration> &&params) {
+    return new DeclaratorFunc(ret, std::move(params));
+  }
+
+  LogicalResult finish(const Declaration &decl);
 
 public:
   Parser(std::span<const Token> tokens) : tokens(tokens) {}
@@ -67,94 +180,148 @@ static bool isQualifier(Token::Kind kind) {
   }
 }
 
-LogicalResult Parser::parseSpecifier() {
-  if (!cur()) {
-    return LogicalResult::failure();
-  }
-
+LogicalResult Parser::parseSpecifierOrQualifier(Declaration &decl) {
   switch (cur()->kind) {
+  // Qualifiers
+  case Token::CONST:
+    eat();
+    decl.quals.push_back(TypeQualifier::CONST);
+    return LogicalResult::success();
+  case Token::VOLATILE:
+    eat();
+    decl.quals.push_back(TypeQualifier::VOLATILE);
+    return LogicalResult::success();
+  case Token::RESTRICT:
+    eat();
+    decl.quals.push_back(TypeQualifier::RESTRICT);
+    return LogicalResult::success();
+  // Specifiers
   case Token::VOID:
     eat();
-    break;
-    // storage class
+    decl.specs.push_back(TypeSpec{TypeSpec::VOID});
+    return LogicalResult::success();
+  // Storage class
   case Token::TYPEDEF:
     eat();
-    break;
+    decl.specs.push_back(TypeSpec{TypeSpec::TYPEDEF});
+    return LogicalResult::success();
   case Token::STATIC:
     eat();
-    break;
+    decl.storage.push_back(StorageClass::STATIC);
+    return LogicalResult::success();
   case Token::EXTERN:
     eat();
-    break;
-    // arithmetic types
+    decl.storage.push_back(StorageClass::EXTERN);
+    return LogicalResult::success();
+  // Arithmetic type
   case Token::BOOL:
     eat();
-    break;
+    decl.specs.push_back(TypeSpec{TypeSpec::BOOL});
+    return LogicalResult::success();
   case Token::CHAR_KW:
     eat();
-    break;
+    decl.specs.push_back(TypeSpec{TypeSpec::CHAR});
+    return LogicalResult::success();
   case Token::INT_KW:
     eat();
-    break;
+    decl.specs.push_back(TypeSpec{TypeSpec::INT});
+    return LogicalResult::success();
   case Token::FLOAT_KW:
     eat();
-    break;
+    decl.specs.push_back(TypeSpec{TypeSpec::FLOAT});
+    return LogicalResult::success();
   case Token::DOUBLE:
     eat();
-    break;
-  case Token::SIGNED:
-  case Token::UNSIGNED:
+    decl.specs.push_back(TypeSpec{TypeSpec::DOUBLE});
+    return LogicalResult::success();
   case Token::SHORT:
+    eat();
+    decl.specs.push_back(TypeSpec{TypeSpec::SHORT});
+    return LogicalResult::success();
   case Token::LONG:
-    return reportError(cur()->loc, "unsupported type");
-  // typedef'd previously
-  case Token::IDENT:
-    // TODO: check for ref
-    return LogicalResult::failure();
-  // TODO: atomic
+    eat();
+    decl.specs.push_back(TypeSpec{TypeSpec::LONG});
+    return LogicalResult::success();
+  case Token::SIGNED:
+    eat();
+    decl.specs.push_back(TypeSpec{TypeSpec::SIGNED});
+    return LogicalResult::success();
+  case Token::UNSIGNED:
+    eat();
+    decl.specs.push_back(TypeSpec{TypeSpec::UNSIGNED});
+    return LogicalResult::success();
   case Token::STRUCT:
-    return parseSpecifierStruct();
-  case Token::UNION:
-    return reportError(cur()->loc, "unsupported: union");
-  case Token::ENUM:
-    return reportError(cur()->loc, "unsupported: enum");
+    return parseSpecifierStruct(decl.specs.emplace_back());
+  case Token::IDENT: {
+    // Check if known typedef
+    auto name = cur()->body;
+    eat();
+    if (typedefs.contains(std::string(name))) {
+      decl.specs.push_back(TypeSpec{TypeSpec::TYPEDEF, name});
+    }
+
+    return LogicalResult::success();
+  }
+  // Atomic
+  case Token::ATOMIC:
+    eat();
+    decl.specs.push_back(TypeSpec{TypeSpec::ATOMIC});
+
+    if (cur() && cur()->kind == Token::LPAREN) {
+      // _Atomic(..)
+      eat();
+
+      // HACK: pretend like there is no wrapping going on here
+      while (cur()->kind != Token::RPAREN) {
+        if (failed(parseSpecifierOrQualifier(decl))) {
+          return LogicalResult::failure();
+        }
+      }
+
+      eat(); // )
+    }
+
+    return LogicalResult::success();
   default:
     return LogicalResult::failure();
   }
-
-  return LogicalResult::success();
 }
-
-LogicalResult Parser::parseSpecifierStruct() {
+LogicalResult Parser::parseSpecifierStruct(TypeSpec &spec) {
   assert(cur()->kind == Token::STRUCT);
   eat(); // struct
+  spec.kind = TypeSpec::STRUCT;
 
   if (!cur()) {
     return reportError(tokens.back().loc,
                        "unexpected end of struct declaration");
   } else if (cur()->kind == Token::IDENT) {
+    spec.name = cur()->body;
     eat();
   }
 
   // may also include a struct decl.
   if (cur() && cur()->kind == Token::LBRACE) {
-    return reportError(cur()->loc, "not supported: struct definition");
+    eat(); // {
+    while (cur() && cur()->kind != Token::RBRACE) {
+      Declaration decl;
+      parseDeclaration(decl);
+    }
+
+    if (!cur()) {
+      return reportError(tokens.back().loc, "unexpected end of struct fields");
+    }
+
+    eat(); // }
+    return LogicalResult::success();
   }
 
   return LogicalResult::success();
 }
 
-LogicalResult Parser::parseDeclaration() {
+LogicalResult Parser::parseDeclaration(Declaration &decl) {
   // 1. specifiers-and-qualifiers
-  std::vector<Token::Kind> quals;
   while (cur()) {
-    if (isQualifier(cur()->kind)) {
-      quals.push_back(cur()->kind);
-      eat();
-      continue;
-    } else if (succeeded(parseSpecifier())) {
-      continue;
-    } else {
+    if (failed(parseSpecifierOrQualifier(decl))) {
       break;
     }
   }
@@ -174,12 +341,12 @@ LogicalResult Parser::parseDeclaration() {
       eat();
     }
 
-    bool isFuncDef;
-    if (failed(parseDeclarator(isFuncDef))) {
+    auto &d = decl.declarators.emplace_back(nullptr);
+    if (failed(parseDeclarator(d))) {
       return reportError(cur()->loc, "invalid declaration");
     }
 
-    if (isFuncDef) {
+    if (DeclaratorFunc::dynCast(d)) {
       // Don't end with a semi (and we don't chain function defs).
       return LogicalResult::success();
     }
@@ -202,9 +369,8 @@ LogicalResult Parser::parseDeclaration() {
   }
 }
 
-LogicalResult Parser::parseDeclarator(bool &isFuncDef) {
-  isFuncDef = false;
-  if (failed(parseDeclaratorAtom())) {
+LogicalResult Parser::parseDeclarator(Declarator *&decl) {
+  if (failed(parseDeclaratorAtom(decl))) {
     return LogicalResult::failure();
   }
 
@@ -219,8 +385,9 @@ LogicalResult Parser::parseDeclarator(bool &isFuncDef) {
       assert(cur()->kind == Token::LPAREN);
       eat(); // (
 
+      std::vector<Declaration> params;
       if (cur() && cur()->kind != Token::RPAREN) {
-        if (failed(parseParameterList())) {
+        if (failed(parseParameterList(params))) {
           return LogicalResult::failure();
         }
       }
@@ -233,19 +400,20 @@ LogicalResult Parser::parseDeclarator(bool &isFuncDef) {
 
       if (cur() && cur()->kind == Token::LBRACE) {
         // Function definition rather than declaration.
-        isFuncDef = true;
+        // TODO: include in decl
         if (failed(parseBlock())) {
           return LogicalResult::failure();
         }
       }
 
+      decl = buildDeclaratorFunc(decl, std::move(params));
       return LogicalResult::success();
     }
   }
 
   return LogicalResult::success();
 }
-LogicalResult Parser::parseDeclaratorAtom() {
+LogicalResult Parser::parseDeclaratorAtom(Declarator *&decl) {
   if (!cur()) {
     return reportError(tokens.back().loc, "expected a declarator");
   }
@@ -253,19 +421,22 @@ LogicalResult Parser::parseDeclaratorAtom() {
   bool isFuncDef;
   if (cur()->kind == Token::IDENT) {
     // <identifier>
+    auto ident = cur()->body;
     eat();
+    decl = buildDeclaratorIdent(ident);
     return LogicalResult::success();
   } else if (cur()->kind == Token::LPAREN) {
     // (<declarator>)
     eat();
 
-    if (failed(parseDeclarator(isFuncDef))) {
+    if (failed(parseDeclarator(decl))) {
       return LogicalResult::failure();
     }
 
     if (cur()->kind != Token::RPAREN) {
       return reportError(tokens.back().loc, "unclosed paren for declarator");
     }
+
     eat();
     return LogicalResult::success();
   } else if (cur()->kind == Token::ASTERISK) {
@@ -278,7 +449,15 @@ LogicalResult Parser::parseDeclaratorAtom() {
       eat();
     }
 
-    return parseDeclarator(isFuncDef);
+    assert(quals.empty());
+
+    Declarator *inner;
+    if (failed(parseDeclarator(inner))) {
+      return LogicalResult::failure();
+    }
+
+    decl = buildDeclaratorPtr(inner);
+    return LogicalResult::success();
   }
 
   return reportError(cur()->loc, "expected a declarator");
@@ -286,16 +465,18 @@ LogicalResult Parser::parseDeclaratorAtom() {
 LogicalResult Parser::parseInitializer() {
   return reportError(cur()->loc, "not implemented: initializer");
 }
-LogicalResult Parser::parseParameterList() {
+LogicalResult Parser::parseParameterList(std::vector<Declaration> &params) {
   // NOTE: we don't support identifier-list format: all types must be explicit
-  if (failed(parseParameter())) {
+  auto &decl = params.emplace_back();
+  if (failed(parseParameter(decl))) {
     return LogicalResult::failure();
   }
 
   while (cur() && cur()->kind == Token::COMMA) {
     eat();
 
-    if (failed(parseParameter())) {
+    auto &decl = params.emplace_back();
+    if (failed(parseParameter(decl))) {
       return LogicalResult::failure();
     }
   }
@@ -303,19 +484,12 @@ LogicalResult Parser::parseParameterList() {
   return LogicalResult::success();
 }
 
-LogicalResult Parser::parseParameter() {
+LogicalResult Parser::parseParameter(Declaration &decl) {
   // parameters are declarations with a single identifier. The identifier is
   // optional.
   // 1. specifiers-and-qualifiers
-  std::vector<Token::Kind> quals;
   while (cur()) {
-    if (isQualifier(cur()->kind)) {
-      quals.push_back(cur()->kind);
-      eat();
-      continue;
-    } else if (succeeded(parseSpecifier())) {
-      continue;
-    } else {
+    if (failed(parseSpecifierOrQualifier(decl))) {
       break;
     }
   }
@@ -323,7 +497,8 @@ LogicalResult Parser::parseParameter() {
   // 2. declarator
   // TODO: handle optional identifier.
   bool isFuncDef;
-  if (failed(parseDeclarator(isFuncDef))) {
+  auto &d = decl.declarators.emplace_back();
+  if (failed(parseDeclarator(d))) {
     return reportError(cur()->loc, "invalid declaration");
   }
 
@@ -417,10 +592,42 @@ LogicalResult Parser::parseInt() {
   return LogicalResult::success();
 }
 
+static std::string_view nameOf(const Declarator *decl) {
+  if (auto ident = DeclaratorIdent::dynCast(decl)) {
+    return ident->ident;
+  } else if (auto ptr = DeclaratorPtr::dynCast(decl)) {
+    return nameOf(ptr->inner);
+  } else {
+    auto func = DeclaratorFunc::dynCast(decl);
+    assert(!!func);
+    return nameOf(func->ret);
+  }
+}
+
+LogicalResult Parser::finish(const Declaration &decl) {
+  // Check for typedef
+  bool isTypeDef = std::ranges::any_of(decl.specs, [](const auto &spec) {
+    return spec.kind == TypeSpec::TYPEDEF;
+  });
+  if (isTypeDef) {
+    for (const auto *deor : decl.declarators) {
+      auto name = nameOf(deor);
+      typedefs.insert(std::string(name));
+    }
+  }
+
+  return LogicalResult::success();
+}
+
 LogicalResult Parser::parseFile() {
   while (cur()) {
-    if (failed(parseDeclaration())) {
+    Declaration decl;
+    if (failed(parseDeclaration(decl))) {
       return reportError(cur()->loc, "expected declaration");
+    }
+
+    if (failed(finish(decl))) {
+      return LogicalResult::failure();
     }
   }
 

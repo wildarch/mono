@@ -46,7 +46,8 @@ namespace dblang {
   XX(WHILE, "while")                                                           \
   XX(BOOL, "_Bool")                                                            \
   XX(COMPLEX, "_Complex")                                                      \
-  XX(IMAGINARY, "_Imaginary")
+  XX(IMAGINARY, "_Imaginary")                                                  \
+  XX(ATOMIC, "_Atomic")
 
 // All kinds that are not keywords
 #define DBLANG_ENUM_TOKEN_KIND(XX)                                             \
