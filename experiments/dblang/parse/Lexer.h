@@ -71,6 +71,7 @@ namespace dblang {
   XX(COMMA)     /* , */                                                        \
   XX(DOT)       /* . */                                                        \
   XX(SEMI)      /* ; */                                                        \
+  XX(ELLIPSIS)  /* ... */                                                      \
   /* Operators */                                                              \
   XX(PLUS)        /* + */                                                      \
   XX(MINUS)       /* - */                                                      \

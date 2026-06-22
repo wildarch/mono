@@ -143,6 +143,16 @@ Token Lexer::nextToken() {
     return lexString();
   }
 
+  // Ellipsis
+  auto three = peek(3);
+  Loc locThree{filename, pos, InFilePos{pos.line, pos.column + 3}};
+  if (three == "...") {
+    eat();
+    eat();
+    eat();
+    return Token{locThree, Token::ELLIPSIS, *three};
+  }
+
   // Operators of length 2
   auto two = peek(2);
   Loc locTwo{filename, pos, InFilePos{pos.line, pos.column + 2}};

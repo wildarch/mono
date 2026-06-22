@@ -94,6 +94,12 @@ struct DeclaratorPtr : DeclaratorBase<Declarator::PTR, DeclaratorPtr> {
   DeclaratorPtr(Declarator *inner) : inner(inner) {}
 };
 
+struct DeclaratorArray : DeclaratorBase<Declarator::ARRAY, DeclaratorArray> {
+  Declarator *base;
+  // TODO: expression
+  DeclaratorArray(Declarator *base) : base(base) {}
+};
+
 struct Declaration {
   std::vector<TypeSpec> specs;
   std::vector<StorageClass> storage;
@@ -118,22 +124,25 @@ private:
   // TODO: Map to type
   std::unordered_set<std::string> typedefs;
 
-  std::optional<Token> cur() {
-    if (offset < tokens.size()) {
-      return tokens[offset];
+  std::optional<Token> peek(std::size_t ahead) const {
+    if (offset + ahead < tokens.size()) {
+      return tokens[offset + ahead];
     } else {
       return std::nullopt;
     }
   }
+
+  std::optional<Token> cur() const { return peek(0); }
 
   void eat() { offset++; }
 
   LogicalResult parseSpecifierOrQualifier(Declaration &decl);
   LogicalResult parseSpecifierStruct(TypeSpec &spec);
   LogicalResult parseSpecifierEnum(TypeSpec &spec);
+  LogicalResult parseSpecifierUnion(TypeSpec &spec);
   LogicalResult parseDeclaration(Declaration &decl);
-  LogicalResult parseDeclarator(Declarator *&decl);
-  LogicalResult parseDeclaratorAtom(Declarator *&decl);
+  LogicalResult parseDeclarator(Declarator *&decl, bool allowAnonymous);
+  LogicalResult parseDeclaratorAtom(Declarator *&decl, bool allowAnonymous);
   LogicalResult parseInitializer();
   LogicalResult parseParameterList(std::vector<Declaration> &params);
   LogicalResult parseParameter(Declaration &decl);
@@ -148,16 +157,9 @@ private:
   LogicalResult parseExpression();
   LogicalResult parseInt();
 
-  // TODO: proper allocator
-  Declarator *buildDeclaratorIdent(std::string_view ident) {
-    return new DeclaratorIdent(ident);
-  }
-  Declarator *buildDeclaratorPtr(Declarator *inner) {
-    return new DeclaratorPtr(inner);
-  }
-  Declarator *buildDeclaratorFunc(Declarator *ret,
-                                  std::vector<Declaration> &&params) {
-    return new DeclaratorFunc(ret, std::move(params));
+  template <typename T, typename... Args> T *build(Args &&...args) {
+    // TODO: proper allocator that can free things
+    return new T(std::forward<Args>(args)...);
   }
 
   LogicalResult finish(const Declaration &decl);
@@ -255,14 +257,17 @@ LogicalResult Parser::parseSpecifierOrQualifier(Declaration &decl) {
     return parseSpecifierStruct(decl.specs.emplace_back());
   case Token::ENUM:
     return parseSpecifierEnum(decl.specs.emplace_back());
+  case Token::UNION:
+    return parseSpecifierUnion(decl.specs.emplace_back());
   case Token::IDENT: {
     // Check if known typedef
     auto name = cur()->body;
-    eat();
-    if (typedefs.contains(std::string(name))) {
-      decl.specs.push_back(TypeSpec{TypeSpec::TYPEDEF, name});
+    if (!typedefs.contains(std::string(name))) {
+      return LogicalResult::failure();
     }
 
+    eat();
+    decl.specs.push_back(TypeSpec{TypeSpec::TYPEDEF, name});
     return LogicalResult::success();
   }
   // Atomic
@@ -307,7 +312,9 @@ LogicalResult Parser::parseSpecifierStruct(TypeSpec &spec) {
     eat(); // {
     while (cur() && cur()->kind != Token::RBRACE) {
       Declaration decl;
-      parseDeclaration(decl);
+      if (failed(parseDeclaration(decl))) {
+        return LogicalResult::failure();
+      }
     }
 
     if (!cur()) {
@@ -379,6 +386,40 @@ LogicalResult Parser::parseSpecifierEnum(TypeSpec &spec) {
   return LogicalResult::success();
 }
 
+LogicalResult Parser::parseSpecifierUnion(TypeSpec &spec) {
+  assert(cur()->kind == Token::UNION);
+  eat(); // union
+  spec.kind = TypeSpec::UNION;
+
+  if (!cur()) {
+    return reportError(tokens.back().loc,
+                       "unexpected end of union declaration");
+  } else if (cur()->kind == Token::IDENT) {
+    spec.name = cur()->body;
+    eat();
+  }
+
+  // may also include a union decl.
+  if (cur() && cur()->kind == Token::LBRACE) {
+    eat(); // {
+    while (cur() && cur()->kind != Token::RBRACE) {
+      Declaration decl;
+      if (failed(parseDeclaration(decl))) {
+        return LogicalResult::failure();
+      }
+    }
+
+    if (!cur()) {
+      return reportError(tokens.back().loc, "unexpected end of union fields");
+    }
+
+    eat(); // }
+    return LogicalResult::success();
+  }
+
+  return LogicalResult::success();
+}
+
 LogicalResult Parser::parseDeclaration(Declaration &decl) {
   // 1. specifiers-and-qualifiers
   while (cur()) {
@@ -403,7 +444,7 @@ LogicalResult Parser::parseDeclaration(Declaration &decl) {
     }
 
     auto &d = decl.declarators.emplace_back(nullptr);
-    if (failed(parseDeclarator(d))) {
+    if (failed(parseDeclarator(d, false))) {
       return reportError(cur()->loc, "invalid declaration");
     }
 
@@ -412,7 +453,8 @@ LogicalResult Parser::parseDeclaration(Declaration &decl) {
       return LogicalResult::success();
     }
 
-    if (cur() && cur()->kind == Token::EQUAL) {
+    if (cur() && cur()->kind == Token::ASSIGN) {
+      eat();
       if (failed(parseInitializer())) {
         return reportError(cur()->loc, "invalid initializer");
       }
@@ -430,8 +472,8 @@ LogicalResult Parser::parseDeclaration(Declaration &decl) {
   }
 }
 
-LogicalResult Parser::parseDeclarator(Declarator *&decl) {
-  if (failed(parseDeclaratorAtom(decl))) {
+LogicalResult Parser::parseDeclarator(Declarator *&decl, bool allowAnonymous) {
+  if (failed(parseDeclaratorAtom(decl, allowAnonymous))) {
     return LogicalResult::failure();
   }
 
@@ -440,7 +482,24 @@ LogicalResult Parser::parseDeclarator(Declarator *&decl) {
          (cur()->kind == Token::LSBRACKET || cur()->kind == Token::LPAREN)) {
     if (cur()->kind == Token::LSBRACKET) {
       // array
-      return reportError(cur()->loc, "not implemented: array declarators");
+      eat(); // [
+
+      if (cur() && cur()->kind != Token::RSBRACKET) {
+        // Expression for array size
+        if (failed(parseExpression())) {
+          return LogicalResult::failure();
+        }
+      }
+
+      if (!cur()) {
+        return reportError(tokens.back().loc, "unexpected end of declarator");
+      } else if (cur()->kind != Token::RSBRACKET) {
+        return reportError(tokens.back().loc, "expected array closer ']'");
+      }
+
+      eat(); // ]
+      decl = build<DeclaratorArray>(decl);
+      return LogicalResult::success();
     } else {
       // function
       assert(cur()->kind == Token::LPAREN);
@@ -467,14 +526,15 @@ LogicalResult Parser::parseDeclarator(Declarator *&decl) {
         }
       }
 
-      decl = buildDeclaratorFunc(decl, std::move(params));
+      decl = build<DeclaratorFunc>(decl, std::move(params));
       return LogicalResult::success();
     }
   }
 
   return LogicalResult::success();
 }
-LogicalResult Parser::parseDeclaratorAtom(Declarator *&decl) {
+LogicalResult Parser::parseDeclaratorAtom(Declarator *&decl,
+                                          bool allowAnonymous) {
   if (!cur()) {
     return reportError(tokens.back().loc, "expected a declarator");
   }
@@ -484,13 +544,13 @@ LogicalResult Parser::parseDeclaratorAtom(Declarator *&decl) {
     // <identifier>
     auto ident = cur()->body;
     eat();
-    decl = buildDeclaratorIdent(ident);
+    decl = build<DeclaratorIdent>(ident);
     return LogicalResult::success();
   } else if (cur()->kind == Token::LPAREN) {
     // (<declarator>)
     eat();
 
-    if (failed(parseDeclarator(decl))) {
+    if (failed(parseDeclarator(decl, allowAnonymous))) {
       return LogicalResult::failure();
     }
 
@@ -510,23 +570,33 @@ LogicalResult Parser::parseDeclaratorAtom(Declarator *&decl) {
       eat();
     }
 
-    assert(quals.empty());
+    // assert(quals.empty());
 
     Declarator *inner;
-    if (failed(parseDeclarator(inner))) {
+    if (failed(parseDeclarator(inner, allowAnonymous))) {
       return LogicalResult::failure();
     }
 
-    decl = buildDeclaratorPtr(inner);
+    decl = build<DeclaratorPtr>(inner);
+    return LogicalResult::success();
+  } else if (allowAnonymous) {
+    decl = build<DeclaratorIdent>("<anonymous>");
     return LogicalResult::success();
   }
 
   return reportError(cur()->loc, "expected a declarator");
 }
 LogicalResult Parser::parseInitializer() {
-  return reportError(cur()->loc, "not implemented: initializer");
+  // TODO: initializers
+  return parseExpression();
 }
 LogicalResult Parser::parseParameterList(std::vector<Declaration> &params) {
+  if (cur()->kind == Token::VOID && peek(1) && peek(1)->kind == Token::RPAREN) {
+    // (void)
+    eat();
+    return LogicalResult::success();
+  }
+
   // NOTE: we don't support identifier-list format: all types must be explicit
   auto &decl = params.emplace_back();
   if (failed(parseParameter(decl))) {
@@ -535,6 +605,12 @@ LogicalResult Parser::parseParameterList(std::vector<Declaration> &params) {
 
   while (cur() && cur()->kind == Token::COMMA) {
     eat();
+
+    if (cur() && cur()->kind == Token::ELLIPSIS) {
+      // TODO: store ellipsis
+      eat();
+      continue;
+    }
 
     auto &decl = params.emplace_back();
     if (failed(parseParameter(decl))) {
@@ -556,10 +632,9 @@ LogicalResult Parser::parseParameter(Declaration &decl) {
   }
 
   // 2. declarator
-  // TODO: handle optional identifier.
   bool isFuncDef;
   auto &d = decl.declarators.emplace_back();
-  if (failed(parseDeclarator(d))) {
+  if (failed(parseDeclarator(d, true))) {
     return reportError(cur()->loc, "invalid declaration");
   }
 
@@ -632,11 +707,15 @@ LogicalResult Parser::parseStatementEndSemi() {
 }
 
 LogicalResult Parser::parseExpression() {
-  if (cur()->kind == Token::INT) {
+  switch (cur()->kind) {
+  case Token::INT:
     return parseInt();
+  case Token::STRING:
+    eat();
+    return LogicalResult::success();
+  default:
+    return reportError(cur()->loc, "unsupported expression");
   }
-
-  return reportError(cur()->loc, "unsupported expression");
 }
 
 LogicalResult Parser::parseInt() {
@@ -658,6 +737,8 @@ static std::string_view nameOf(const Declarator *decl) {
     return ident->ident;
   } else if (auto ptr = DeclaratorPtr::dynCast(decl)) {
     return nameOf(ptr->inner);
+  } else if (auto arr = DeclaratorArray::dynCast(decl)) {
+    return nameOf(arr->base);
   } else {
     auto func = DeclaratorFunc::dynCast(decl);
     assert(!!func);
