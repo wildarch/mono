@@ -171,7 +171,9 @@ private:
   LogicalResult finish(const Declaration &decl);
 
 public:
-  Parser(std::span<const Token> tokens) : tokens(tokens) {}
+  Parser(std::span<const Token> tokens) : tokens(tokens) {
+    typedefs.insert("size_t");
+  }
 
   LogicalResult parseFile();
 };
@@ -212,7 +214,7 @@ LogicalResult Parser::parseSpecifierOrQualifier(Declaration &decl) {
   // Storage class
   case Token::TYPEDEF:
     eat();
-    decl.specs.push_back(TypeSpec{TypeSpec::TYPEDEF});
+    decl.storage.push_back(StorageClass::TYPEDEF);
     return LogicalResult::success();
   case Token::STATIC:
     eat();
@@ -426,7 +428,22 @@ LogicalResult Parser::parseSpecifierUnion(TypeSpec &spec) {
   return LogicalResult::success();
 }
 
+static bool isFunc(const Declarator &decl) {
+  switch (decl.kind) {
+  case Declarator::IDENT:
+    return false;
+  case Declarator::PTR:
+    return isFunc(*DeclaratorPtr::dynCast(&decl)->inner);
+  case Declarator::ARRAY:
+    return isFunc(*DeclaratorArray::dynCast(&decl)->base);
+  case Declarator::FUNC:
+    return true;
+  }
+}
+
 LogicalResult Parser::parseDeclaration(Declaration &decl) {
+  auto start = cur()->loc;
+
   // 1. specifiers-and-qualifiers
   while (cur()) {
     if (failed(parseSpecifierOrQualifier(decl))) {
@@ -454,7 +471,7 @@ LogicalResult Parser::parseDeclaration(Declaration &decl) {
       return reportError(cur()->loc, "invalid declaration");
     }
 
-    if (DeclaratorFunc::dynCast(d)) {
+    if (isFunc(*d)) {
       // Don't end with a semi (and we don't chain function defs).
       return LogicalResult::success();
     }
@@ -622,7 +639,7 @@ LogicalResult Parser::parseInitializer() {
         break;
       }
 
-      if (failed(parseExpression())) {
+      if (failed(parseInitializer())) {
         return LogicalResult::failure();
       }
     }
@@ -712,6 +729,10 @@ LogicalResult Parser::parseBlock() {
 LogicalResult Parser::parseStatement() {
   // TODO: handle labels
   switch (cur()->kind) {
+  case Token::SEMI:
+    // Empty statement
+    eat(); // ;
+    return LogicalResult::success();
   case Token::LBRACE:
     // compound statement
     return parseBlock();
@@ -761,6 +782,30 @@ LogicalResult Parser::parseStatementEndSemi() {
   }
 
   eat(); // ;
+  return LogicalResult::success();
+}
+
+LogicalResult Parser::parseType() {
+  Declaration dummy;
+  while (true) {
+    if (succeeded(parseSpecifierOrQualifier(dummy))) {
+      continue;
+    }
+
+    // HACK: eat pointers too
+    if (cur() && cur()->kind == Token::ASTERISK) {
+      eat();
+      continue;
+    }
+
+    break;
+  }
+
+  if (dummy.specs.empty() && dummy.quals.empty()) {
+    // Parsed nothing.
+    return LogicalResult::failure();
+  }
+
   return LogicalResult::success();
 }
 
@@ -833,14 +878,49 @@ LogicalResult Parser::parseExpression() {
   bool stopClimb = false;
   while (cur() && !stopClimb) {
     switch (cur()->kind) {
-    case Token::PLUS:
     case Token::ASSIGN:
+    case Token::PLUS_EQ:
+    case Token::PLUS:
+    case Token::DAMPERSAND:
+    case Token::DPIPE:
+    case Token::DOT:
+    case Token::MINUS:
+    case Token::ASTERISK:
+    case Token::EQUAL:
+    case Token::NOT_EQUAL:
+    case Token::LEQ:
+    case Token::GEQ:
+    case Token::LANGLE:
+    case Token::RANGLE:
     case Token::SLASH: {
       eat();
 
       if (failed(parseExpression())) {
         return LogicalResult::failure();
       }
+
+      break;
+    }
+    case Token::QMARK: {
+      eat(); // ?
+
+      if (failed(parseExpression())) {
+        return LogicalResult::failure();
+      }
+
+      if (!cur()) {
+        return reportError(tokens.back().loc, "unexpected end of ternary");
+      } else if (cur()->kind != Token::COLON) {
+        return reportError(cur()->loc, "expected ':' as part of ternary");
+      }
+
+      eat(); // :
+
+      if (failed(parseExpression())) {
+        return LogicalResult::failure();
+      }
+
+      break;
     }
     default:
       stopClimb = true;
@@ -865,22 +945,48 @@ LogicalResult Parser::parseExpressionAtom() {
     auto loc = cur()->loc;
     eat(); // (
 
-    // TODO: Could be a type (for a cast)
-    if (failed(parseExpression())) {
-      return LogicalResult::failure();
-    }
+    if (succeeded(parseType())) {
+      // type-cast
+      if (!cur()) {
+        return reportError(loc, "unclosed '('");
+      } else if (cur()->kind != Token::RPAREN) {
+        return reportError(cur()->loc, "invalid cast, expected ')'");
+      }
 
-    if (!cur()) {
-      return reportError(loc, "unclosed '('");
-    } else if (cur()->kind != Token::RPAREN) {
-      return reportError(cur()->loc, "invalid expression, expected ')'");
-    }
+      eat(); // )
 
-    eat(); // )
-    return LogicalResult::success();
+      if (failed(parseExpressionAtom())) {
+        return LogicalResult::failure();
+      }
+
+      return LogicalResult::success();
+    } else {
+      // A parenthesized expression
+
+      if (failed(parseExpression())) {
+        return LogicalResult::failure();
+      }
+
+      if (!cur()) {
+        return reportError(loc, "unclosed '('");
+      } else if (cur()->kind != Token::RPAREN) {
+        return reportError(cur()->loc, "invalid expression, expected ')'");
+      }
+
+      eat(); // )
+      return LogicalResult::success();
+    }
   }
   case Token::ASTERISK: {
     eat(); // *
+    if (failed(parseExpressionAtom())) {
+      return LogicalResult::failure();
+    }
+
+    return LogicalResult::success();
+  }
+  case Token::AMPERSAND: {
+    eat(); // &
     if (failed(parseExpressionAtom())) {
       return LogicalResult::failure();
     }
@@ -899,13 +1005,14 @@ LogicalResult Parser::parseExpressionAtom() {
 
 LogicalResult Parser::parseInt() {
   assert(cur()->kind == Token::INT);
+  /*
   auto body = cur()->body;
   int64_t value;
   auto [ptr, ec] = std::from_chars(body.begin(), body.end(), value);
-  assert(ptr == body.end());
-  if (ec != std::errc()) {
-    return reportError(cur()->loc, "invalid integer value");
+  if (ec != std::errc() || ptr != body.end()) {
+    return reportError(cur()->loc, "invalid integer value '") << body << "'";
   }
+  */
 
   eat();
   return LogicalResult::success();
@@ -927,8 +1034,8 @@ static std::string_view nameOf(const Declarator *decl) {
 
 LogicalResult Parser::finish(const Declaration &decl) {
   // Check for typedef
-  bool isTypeDef = std::ranges::any_of(decl.specs, [](const auto &spec) {
-    return spec.kind == TypeSpec::TYPEDEF;
+  bool isTypeDef = std::ranges::any_of(decl.storage, [](const auto &stor) {
+    return stor == StorageClass::TYPEDEF;
   });
   if (isTypeDef) {
     for (const auto *deor : decl.declarators) {
@@ -943,8 +1050,9 @@ LogicalResult Parser::finish(const Declaration &decl) {
 LogicalResult Parser::parseFile() {
   while (cur()) {
     Declaration decl;
+    auto loc = cur()->loc;
     if (failed(parseDeclaration(decl))) {
-      return reportError(cur()->loc, "expected declaration");
+      return reportError(loc, "expected declaration");
     }
 
     if (failed(finish(decl))) {

@@ -174,6 +174,7 @@ Token Lexer::nextToken() {
   TWO("--", DEC)
   TWO("<<", LSHIFT)
   TWO(">>", RSHIFT)
+  TWO("+=", PLUS_EQ)
 #undef TWO
 
   // Operators and punctuation (length 1)

@@ -95,7 +95,8 @@ namespace dblang {
   XX(INC)         /* ++ */                                                     \
   XX(DEC)         /* -- */                                                     \
   XX(LSHIFT)      /* << */                                                     \
-  XX(RSHIFT)      /* >> */
+  XX(RSHIFT)      /* >> */                                                     \
+  XX(PLUS_EQ)     /* += */
 
 struct Token {
   enum Kind {
