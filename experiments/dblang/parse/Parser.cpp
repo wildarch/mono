@@ -150,6 +150,8 @@ private:
 
   // Also called 'compound statement'
   LogicalResult parseBlock();
+  LogicalResult parseIf();
+  LogicalResult parseWhile();
   LogicalResult parseStatement();
   LogicalResult parseReturn();
   // Utility for checking the statment ends with ';'
@@ -710,6 +712,23 @@ LogicalResult Parser::parseBlock() {
   auto openLoc = cur()->loc;
   eat();
 
+  // Declarations
+  while (true) {
+    // HACK: check if we have a declaration coming up.
+    auto backupOffset = offset;
+    Declaration dummy;
+    if (failed(parseSpecifierOrQualifier(dummy))) {
+      offset = backupOffset;
+      break;
+    }
+
+    // Looks like a declaration, go right ahead.
+    Declaration decl;
+    if (failed(parseDeclaration(decl))) {
+      return LogicalResult::failure();
+    }
+  }
+
   while (cur() && cur()->kind != Token::RBRACE) {
     // Parse statements
     // TODO: can also include declarations
@@ -726,6 +745,72 @@ LogicalResult Parser::parseBlock() {
   return LogicalResult::success();
 }
 
+LogicalResult Parser::parseIf() {
+  assert(cur()->kind == Token::IF);
+  auto start = cur()->loc;
+  eat(); // if
+
+  if (!cur() || cur()->kind != Token::LPAREN) {
+    return reportError(start, "missing opening paren");
+  }
+
+  auto open = cur()->loc;
+  eat(); // (
+
+  if (failed(parseExpression())) {
+    return LogicalResult::failure();
+  }
+
+  if (!cur() || cur()->kind != Token::RPAREN) {
+    return reportError(open, "missing closing ')");
+  }
+
+  eat(); // )
+
+  if (failed(parseStatement())) {
+    return LogicalResult::failure();
+  }
+
+  if (cur() && cur()->kind == Token::ELSE) {
+    eat(); // else
+
+    if (failed(parseStatement())) {
+      return LogicalResult::failure();
+    }
+  }
+
+  return LogicalResult::success();
+}
+
+LogicalResult Parser::parseWhile() {
+  assert(cur()->kind == Token::WHILE);
+  auto start = cur()->loc;
+  eat(); // if
+
+  if (!cur() || cur()->kind != Token::LPAREN) {
+    return reportError(start, "missing opening paren");
+  }
+
+  auto open = cur()->loc;
+  eat(); // (
+
+  if (failed(parseExpression())) {
+    return LogicalResult::failure();
+  }
+
+  if (!cur() || cur()->kind != Token::RPAREN) {
+    return reportError(open, "missing closing ')");
+  }
+
+  eat(); // )
+
+  if (failed(parseStatement())) {
+    return LogicalResult::failure();
+  }
+
+  return LogicalResult::success();
+}
+
 LogicalResult Parser::parseStatement() {
   // TODO: handle labels
   switch (cur()->kind) {
@@ -737,8 +822,11 @@ LogicalResult Parser::parseStatement() {
     // compound statement
     return parseBlock();
   case Token::IF:
+    return parseIf();
   case Token::SWITCH:
+    return reportError(cur()->loc, "not implemented");
   case Token::WHILE:
+    return parseWhile();
   case Token::DO:
   case Token::FOR:
   case Token::BREAK:
@@ -754,9 +842,9 @@ LogicalResult Parser::parseStatement() {
     }
 
     if (!cur()) {
-      reportError(tokens.back().loc, "expected ';'");
+      return reportError(tokens.back().loc, "expected ';'");
     } else if (cur()->kind != Token::SEMI) {
-      reportError(cur()->loc, "expected ';'");
+      return reportError(cur()->loc, "expected ';'");
     }
 
     eat(); // ;
@@ -875,11 +963,18 @@ LogicalResult Parser::parseExpression() {
     }
   }
 
+  if (cur() && cur()->kind == Token::INC) {
+    // increment
+    eat();
+  }
+
   bool stopClimb = false;
   while (cur() && !stopClimb) {
     switch (cur()->kind) {
     case Token::ASSIGN:
     case Token::PLUS_EQ:
+    case Token::MINUS_EQ:
+    case Token::ARROW:
     case Token::PLUS:
     case Token::DAMPERSAND:
     case Token::DPIPE:
