@@ -152,6 +152,7 @@ private:
   LogicalResult parseBlock();
   LogicalResult parseIf();
   LogicalResult parseWhile();
+  LogicalResult parseSwitch();
   LogicalResult parseStatement();
   LogicalResult parseReturn();
   // Utility for checking the statment ends with ';'
@@ -811,6 +812,79 @@ LogicalResult Parser::parseWhile() {
   return LogicalResult::success();
 }
 
+LogicalResult Parser::parseSwitch() {
+  assert(cur()->kind == Token::SWITCH);
+  auto start = cur()->loc;
+  eat(); // if
+
+  if (!cur() || cur()->kind != Token::LPAREN) {
+    return reportError(start, "missing opening paren");
+  }
+
+  auto open = cur()->loc;
+  eat(); // (
+
+  if (failed(parseExpression())) {
+    return LogicalResult::failure();
+  }
+
+  if (!cur() || cur()->kind != Token::RPAREN) {
+    return reportError(open, "missing closing ')");
+  }
+
+  eat(); // )
+
+  if (!cur()) {
+    return reportError(tokens.back().loc, "expected '{");
+  } else if (cur()->kind != Token::LBRACE) {
+    return reportError(cur()->loc, "expected '{");
+  }
+
+  eat(); // {
+
+  while (cur() && cur()->kind != Token::RBRACE) {
+    if (cur()->kind == Token::CASE) {
+      eat(); // case
+
+      if (failed(parseExpression())) {
+        return LogicalResult::failure();
+      }
+
+      if (!cur()) {
+        return reportError(tokens.back().loc, "expected ':'");
+      } else if (cur()->kind != Token::COLON) {
+        return reportError(cur()->loc, "expected ':'");
+      }
+
+      eat(); // :
+      continue;
+    } else if (cur()->kind == Token::DEFAULT) {
+      eat(); // case
+
+      if (!cur()) {
+        return reportError(tokens.back().loc, "expected ':'");
+      } else if (cur()->kind != Token::COLON) {
+        return reportError(cur()->loc, "expected ':'");
+      }
+
+      eat(); // :
+      continue;
+    }
+
+    if (failed(parseStatement())) {
+      return LogicalResult::failure();
+    }
+  }
+
+  if (!cur()) {
+    return reportError(tokens.back().loc, "unexpected end of switch");
+  }
+
+  eat(); // }
+
+  return LogicalResult::success();
+}
+
 LogicalResult Parser::parseStatement() {
   // TODO: handle labels
   switch (cur()->kind) {
@@ -824,12 +898,15 @@ LogicalResult Parser::parseStatement() {
   case Token::IF:
     return parseIf();
   case Token::SWITCH:
-    return reportError(cur()->loc, "not implemented");
+    return parseSwitch();
   case Token::WHILE:
     return parseWhile();
   case Token::DO:
   case Token::FOR:
+    return reportError(cur()->loc, "not implemented");
   case Token::BREAK:
+    eat(); // ;
+    return parseStatementEndSemi();
   case Token::CONTINUE:
     return reportError(cur()->loc, "not implemented");
   case Token::RETURN:
@@ -866,7 +943,7 @@ LogicalResult Parser::parseStatementEndSemi() {
   if (!cur()) {
     return reportError(tokens.back().loc, "unexpected end of statement");
   } else if (cur()->kind != Token::SEMI) {
-    return reportError(tokens.back().loc, "expected ';' at end of statement");
+    return reportError(cur()->loc, "expected ';' at end of statement");
   }
 
   eat(); // ;
