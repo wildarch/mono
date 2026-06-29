@@ -113,8 +113,10 @@ struct Declaration {
 struct DeclaratorFunc : DeclaratorBase<Declarator::FUNC, DeclaratorFunc> {
   Declarator *ret;
   std::vector<Declaration> params;
-  DeclaratorFunc(Declarator *ret, std::vector<Declaration> &&params)
-      : ret(ret), params(std::move(params)) {}
+  bool haveBody;
+  DeclaratorFunc(Declarator *ret, std::vector<Declaration> &&params,
+                 bool haveBody)
+      : ret(ret), params(std::move(params)), haveBody(haveBody) {}
 };
 
 class Parser {
@@ -137,6 +139,7 @@ private:
 
   void eat() { offset++; }
 
+  LogicalResult parseAttribute();
   LogicalResult parseSpecifierOrQualifier(Declaration &decl);
   LogicalResult parseSpecifierStruct(TypeSpec &spec);
   LogicalResult parseSpecifierEnum(TypeSpec &spec);
@@ -152,6 +155,8 @@ private:
   LogicalResult parseBlock();
   LogicalResult parseIf();
   LogicalResult parseWhile();
+  LogicalResult parseDoWhile();
+  LogicalResult parseFor();
   LogicalResult parseSwitch();
   LogicalResult parseStatement();
   LogicalResult parseReturn();
@@ -160,11 +165,13 @@ private:
 
   LogicalResult parseType();
 
-  LogicalResult parseExpression();
+  LogicalResult parseExpression(bool stopAtComma = false);
   LogicalResult parseFunctionCall();
   LogicalResult parseArrayAccess();
   LogicalResult parseExpressionAtom();
   LogicalResult parseInt();
+  LogicalResult parseChar();
+  LogicalResult parseFloat();
 
   template <typename T, typename... Args> T *build(Args &&...args) {
     // TODO: proper allocator that can free things
@@ -194,6 +201,42 @@ static bool isQualifier(Token::Kind kind) {
   }
 }
 
+LogicalResult Parser::parseAttribute() {
+  auto start = cur()->loc;
+  eat();
+
+  if (!cur() || cur()->kind != Token::LPAREN) {
+    return reportError(start, "invalid attribute");
+  }
+
+  eat(); // (
+
+  if (!cur() || cur()->kind != Token::LPAREN) {
+    return reportError(start, "invalid attribute");
+  }
+
+  eat(); // (
+
+  if (!cur() || cur()->kind != Token::IDENT) {
+    return reportError(start, "invalid attribute");
+  }
+
+  eat(); // <ident>
+
+  if (!cur() || cur()->kind != Token::RPAREN) {
+    return reportError(start, "invalid attribute");
+  }
+
+  eat(); // )
+
+  if (!cur() || cur()->kind != Token::RPAREN) {
+    return reportError(start, "invalid attribute");
+  }
+
+  eat(); // )
+
+  return LogicalResult::success();
+}
 LogicalResult Parser::parseSpecifierOrQualifier(Declaration &decl) {
   switch (cur()->kind) {
   // Qualifiers
@@ -301,6 +344,9 @@ LogicalResult Parser::parseSpecifierOrQualifier(Declaration &decl) {
     }
 
     return LogicalResult::success();
+  // Attribute
+  case Token::ATTRIBUTE:
+    return parseAttribute();
   default:
     return LogicalResult::failure();
   }
@@ -431,16 +477,16 @@ LogicalResult Parser::parseSpecifierUnion(TypeSpec &spec) {
   return LogicalResult::success();
 }
 
-static bool isFunc(const Declarator &decl) {
+static bool isFuncWithBody(const Declarator &decl) {
   switch (decl.kind) {
   case Declarator::IDENT:
     return false;
   case Declarator::PTR:
-    return isFunc(*DeclaratorPtr::dynCast(&decl)->inner);
+    return isFuncWithBody(*DeclaratorPtr::dynCast(&decl)->inner);
   case Declarator::ARRAY:
-    return isFunc(*DeclaratorArray::dynCast(&decl)->base);
+    return isFuncWithBody(*DeclaratorArray::dynCast(&decl)->base);
   case Declarator::FUNC:
-    return true;
+    return DeclaratorFunc::dynCast(&decl)->haveBody;
   }
 }
 
@@ -474,7 +520,7 @@ LogicalResult Parser::parseDeclaration(Declaration &decl) {
       return reportError(cur()->loc, "invalid declaration");
     }
 
-    if (isFunc(*d)) {
+    if (isFuncWithBody(*d)) {
       // Don't end with a semi (and we don't chain function defs).
       return LogicalResult::success();
     }
@@ -553,15 +599,17 @@ LogicalResult Parser::parseDeclarator(Declarator *&decl, bool allowAnonymous) {
 
       eat(); // )
 
+      bool haveBody = false;
       if (cur() && cur()->kind == Token::LBRACE) {
         // Function definition rather than declaration.
+        haveBody = true;
         // TODO: include in decl
         if (failed(parseBlock())) {
           return LogicalResult::failure();
         }
       }
 
-      decl = build<DeclaratorFunc>(decl, std::move(params));
+      decl = build<DeclaratorFunc>(decl, std::move(params), haveBody);
       return LogicalResult::success();
     }
   }
@@ -655,7 +703,7 @@ LogicalResult Parser::parseInitializer() {
     return LogicalResult::success();
   }
 
-  return parseExpression();
+  return parseExpression(true);
 }
 LogicalResult Parser::parseParameterList(std::vector<Declaration> &params) {
   if (cur()->kind == Token::VOID && peek(1) && peek(1)->kind == Token::RPAREN) {
@@ -786,7 +834,7 @@ LogicalResult Parser::parseIf() {
 LogicalResult Parser::parseWhile() {
   assert(cur()->kind == Token::WHILE);
   auto start = cur()->loc;
-  eat(); // if
+  eat(); // while
 
   if (!cur() || cur()->kind != Token::LPAREN) {
     return reportError(start, "missing opening paren");
@@ -795,6 +843,93 @@ LogicalResult Parser::parseWhile() {
   auto open = cur()->loc;
   eat(); // (
 
+  if (failed(parseExpression())) {
+    return LogicalResult::failure();
+  }
+
+  if (!cur() || cur()->kind != Token::RPAREN) {
+    return reportError(open, "missing closing ')");
+  }
+
+  eat(); // )
+
+  if (failed(parseStatement())) {
+    return LogicalResult::failure();
+  }
+
+  return LogicalResult::success();
+}
+
+LogicalResult Parser::parseDoWhile() {
+  assert(cur()->kind == Token::DO);
+  auto start = cur()->loc;
+  eat(); // do
+
+  if (failed(parseStatement())) {
+    return LogicalResult::failure();
+  }
+
+  if (!cur() || cur()->kind != Token::WHILE) {
+    return reportError(start, "missing while");
+  }
+
+  eat(); // while
+
+  if (!cur() || cur()->kind != Token::LPAREN) {
+    return reportError(start, "missing opening paren");
+  }
+
+  auto open = cur()->loc;
+  eat(); // (
+
+  if (failed(parseExpression())) {
+    return LogicalResult::failure();
+  }
+
+  if (!cur() || cur()->kind != Token::RPAREN) {
+    return reportError(open, "missing closing ')");
+  }
+
+  eat(); // )
+
+  return parseStatementEndSemi();
+}
+
+LogicalResult Parser::parseFor() {
+  assert(cur()->kind == Token::FOR);
+  auto start = cur()->loc;
+  eat(); // for
+
+  if (!cur() || cur()->kind != Token::LPAREN) {
+    return reportError(start, "missing opening paren");
+  }
+
+  auto open = cur()->loc;
+  eat(); // (
+
+  // init
+  if (failed(parseExpression())) {
+    return LogicalResult::failure();
+  }
+
+  if (!cur() || cur()->kind != Token::SEMI) {
+    return reportError(start, "missing semi after init");
+  }
+
+  eat(); // ;
+
+  // cond
+  if (failed(parseExpression())) {
+    return LogicalResult::failure();
+  }
+
+  if (!cur() || cur()->kind != Token::SEMI) {
+    return reportError(start, "missing semi after condition");
+  }
+
+  eat(); // ;
+
+  // increment
   if (failed(parseExpression())) {
     return LogicalResult::failure();
   }
@@ -869,6 +1004,12 @@ LogicalResult Parser::parseSwitch() {
 
       eat(); // :
       continue;
+    } else if (cur()->kind == Token::ATTRIBUTE) {
+      if (failed(parseAttribute())) {
+        return LogicalResult::failure();
+      }
+
+      continue;
     }
 
     if (failed(parseStatement())) {
@@ -886,7 +1027,13 @@ LogicalResult Parser::parseSwitch() {
 }
 
 LogicalResult Parser::parseStatement() {
-  // TODO: handle labels
+  // Labels
+  if (cur()->kind == Token::IDENT && peek(1) && peek(1)->kind == Token::COLON) {
+    eat(); // IDENT
+    eat(); // :
+    return LogicalResult::success();
+  }
+
   switch (cur()->kind) {
   case Token::SEMI:
     // Empty statement
@@ -902,17 +1049,29 @@ LogicalResult Parser::parseStatement() {
   case Token::WHILE:
     return parseWhile();
   case Token::DO:
+    return parseDoWhile();
   case Token::FOR:
-    return reportError(cur()->loc, "not implemented");
+    return parseFor();
   case Token::BREAK:
     eat(); // ;
     return parseStatementEndSemi();
   case Token::CONTINUE:
-    return reportError(cur()->loc, "not implemented");
+    eat(); // ;
+    return parseStatementEndSemi();
   case Token::RETURN:
     return parseReturn();
-  case Token::GOTO:
-    return reportError(cur()->loc, "not implemented");
+  case Token::GOTO: {
+    eat(); // GOTO
+
+    if (!cur()) {
+      return reportError(tokens.back().loc, "unexpected end of goto");
+    } else if (cur()->kind != Token::IDENT) {
+      return reportError(cur()->loc, "expected a label");
+    }
+
+    eat(); // IDENT
+    return LogicalResult::success();
+  }
   default:
     if (failed(parseExpression())) {
       return LogicalResult::failure();
@@ -932,8 +1091,10 @@ LogicalResult Parser::parseStatement() {
 LogicalResult Parser::parseReturn() {
   assert(cur()->kind == Token::RETURN);
   eat();
-  if (failed(parseExpression())) {
-    return LogicalResult::failure();
+  if (cur() && cur()->kind != Token::SEMI) {
+    if (failed(parseExpression())) {
+      return LogicalResult::failure();
+    }
   }
 
   return parseStatementEndSemi();
@@ -1023,7 +1184,7 @@ LogicalResult Parser::parseArrayAccess() {
   return LogicalResult::success();
 }
 
-LogicalResult Parser::parseExpression() {
+LogicalResult Parser::parseExpression(bool stopAtComma) {
   if (failed(parseExpressionAtom())) {
     return LogicalResult::failure();
   }
@@ -1043,6 +1204,9 @@ LogicalResult Parser::parseExpression() {
   if (cur() && cur()->kind == Token::INC) {
     // increment
     eat();
+  } else if (cur() && cur()->kind == Token::DEC) {
+    // decrement
+    eat();
   }
 
   bool stopClimb = false;
@@ -1051,6 +1215,10 @@ LogicalResult Parser::parseExpression() {
     case Token::ASSIGN:
     case Token::PLUS_EQ:
     case Token::MINUS_EQ:
+    case Token::TIMES_EQ:
+    case Token::DIV_EQ:
+    case Token::AMPERSAND:
+    case Token::PIPE:
     case Token::ARROW:
     case Token::PLUS:
     case Token::DAMPERSAND:
@@ -1064,10 +1232,13 @@ LogicalResult Parser::parseExpression() {
     case Token::GEQ:
     case Token::LANGLE:
     case Token::RANGLE:
-    case Token::SLASH: {
+    case Token::SLASH:
+    case Token::LSHIFT:
+    case Token::PERCENT:
+    case Token::RSHIFT: {
       eat();
 
-      if (failed(parseExpression())) {
+      if (failed(parseExpression(stopAtComma))) {
         return LogicalResult::failure();
       }
 
@@ -1076,7 +1247,7 @@ LogicalResult Parser::parseExpression() {
     case Token::QMARK: {
       eat(); // ?
 
-      if (failed(parseExpression())) {
+      if (failed(parseExpression(stopAtComma))) {
         return LogicalResult::failure();
       }
 
@@ -1088,7 +1259,22 @@ LogicalResult Parser::parseExpression() {
 
       eat(); // :
 
-      if (failed(parseExpression())) {
+      if (failed(parseExpression(stopAtComma))) {
+        return LogicalResult::failure();
+      }
+
+      break;
+    }
+    case Token::COMMA: {
+      if (stopAtComma) {
+        stopClimb = true;
+        break;
+      }
+
+      // comma operator
+      eat();
+
+      if (failed(parseExpression(stopAtComma))) {
         return LogicalResult::failure();
       }
 
@@ -1107,6 +1293,10 @@ LogicalResult Parser::parseExpressionAtom() {
   switch (cur()->kind) {
   case Token::INT:
     return parseInt();
+  case Token::CHAR:
+    return parseChar();
+  case Token::FLOAT:
+    return parseFloat();
   case Token::STRING:
     // NOTE: looping here to handle e.g. "hello" "world" -> "helloworld"
     while (cur() && cur()->kind == Token::STRING) {
@@ -1165,6 +1355,30 @@ LogicalResult Parser::parseExpressionAtom() {
 
     return LogicalResult::success();
   }
+  case Token::EXCLAMATION: {
+    eat(); // !
+    if (failed(parseExpressionAtom())) {
+      return LogicalResult::failure();
+    }
+
+    return LogicalResult::success();
+  }
+  case Token::MINUS: {
+    eat(); // -
+    if (failed(parseExpressionAtom())) {
+      return LogicalResult::failure();
+    }
+
+    return LogicalResult::success();
+  }
+  case Token::PLUS: {
+    eat(); // +
+    if (failed(parseExpressionAtom())) {
+      return LogicalResult::failure();
+    }
+
+    return LogicalResult::success();
+  }
   case Token::IDENT:
   case Token::SIZEOF: {
     eat();
@@ -1187,6 +1401,18 @@ LogicalResult Parser::parseInt() {
   */
 
   eat();
+  return LogicalResult::success();
+}
+
+LogicalResult Parser::parseChar() {
+  assert(cur()->kind == Token::CHAR);
+  eat(); // '<char>'
+  return LogicalResult::success();
+}
+
+LogicalResult Parser::parseFloat() {
+  assert(cur()->kind == Token::FLOAT);
+  eat(); // x.xx
   return LogicalResult::success();
 }
 

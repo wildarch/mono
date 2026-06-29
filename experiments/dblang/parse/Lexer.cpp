@@ -176,6 +176,8 @@ Token Lexer::nextToken() {
   TWO(">>", RSHIFT)
   TWO("+=", PLUS_EQ)
   TWO("-=", MINUS_EQ)
+  TWO("*=", TIMES_EQ)
+  TWO("/=", DIV_EQ)
 #undef TWO
 
   // Operators and punctuation (length 1)
@@ -269,6 +271,21 @@ Token Lexer::lexIntOrFloat() {
     eat(); // the '.'
     while (cur() && isDigit(*cur())) {
       eat();
+    }
+
+    if (cur() == 'e') {
+      // exponent
+      eat();
+
+      if (cur() == '+' || cur() == '-') {
+        // exponent sign
+        eat();
+      }
+
+      while (cur() && isDigit(*cur())) {
+        // exponent digits
+        eat();
+      }
     }
 
     body = buffer.substr(start, offset - start);

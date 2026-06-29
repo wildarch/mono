@@ -47,7 +47,8 @@ namespace dblang {
   XX(BOOL, "_Bool")                                                            \
   XX(COMPLEX, "_Complex")                                                      \
   XX(IMAGINARY, "_Imaginary")                                                  \
-  XX(ATOMIC, "_Atomic")
+  XX(ATOMIC, "_Atomic")                                                        \
+  XX(ATTRIBUTE, "__attribute__")
 
 // All kinds that are not keywords
 #define DBLANG_ENUM_TOKEN_KIND(XX)                                             \
@@ -97,7 +98,9 @@ namespace dblang {
   XX(LSHIFT)      /* << */                                                     \
   XX(RSHIFT)      /* >> */                                                     \
   XX(PLUS_EQ)     /* += */                                                     \
-  XX(MINUS_EQ)    /* -= */
+  XX(MINUS_EQ)    /* -= */                                                     \
+  XX(TIMES_EQ)    /* *= */                                                     \
+  XX(DIV_EQ)      /* /= */
 
 struct Token {
   enum Kind {
