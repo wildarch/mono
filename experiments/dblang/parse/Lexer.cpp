@@ -3,6 +3,7 @@
 #include "util/ReportError.h"
 #include "util/Result.h"
 #include <cassert>
+#include <filesystem>
 #include <optional>
 #include <string_view>
 #include <unordered_map>
@@ -146,12 +147,18 @@ Token Lexer::nextToken() {
   // Ellipsis
   auto three = peek(3);
   Loc locThree{filename, pos, InFilePos{pos.line, pos.column + 3}};
-  if (three == "...") {
-    eat();
-    eat();
-    eat();
-    return Token{locThree, Token::ELLIPSIS, *three};
+#define THREE(c, t)                                                            \
+  if (three == c) {                                                            \
+    eat();                                                                     \
+    eat();                                                                     \
+    eat();                                                                     \
+    return Token{locThree, Token::t, *three};                                  \
   }
+
+  THREE("...", ELLIPSIS)
+  THREE("<<=", LSHIFT_EQ)
+  THREE(">>=", RSHIFT_EQ)
+#undef THREE
 
   // Operators of length 2
   auto two = peek(2);
@@ -178,6 +185,10 @@ Token Lexer::nextToken() {
   TWO("-=", MINUS_EQ)
   TWO("*=", TIMES_EQ)
   TWO("/=", DIV_EQ)
+  TWO("%=", REM_EQ)
+  TWO("&=", AND_EQ)
+  TWO("|=", OR_EQ)
+  TWO("^=", XOR_EQ)
 #undef TWO
 
   // Operators and punctuation (length 1)
@@ -248,7 +259,8 @@ Token Lexer::lexIntOrFloat() {
   }
 
   auto body = buffer.substr(start, offset - start);
-  if (body == "0" && cur() == 'x') {
+  bool isHexFormat = body == "0" && cur() == 'x';
+  if (isHexFormat) {
     // hex notation, e.g. 0xDEADBEEF
     eat(); // the 'x'
     while (cur() && isHex(*cur())) {
@@ -262,12 +274,10 @@ Token Lexer::lexIntOrFloat() {
                   "invalid hex integer (must have at least one hex digit)");
       return Token{loc, Token::INVALID};
     }
-
-    return Token{locFromTo(locStart, pos), Token::INT, body};
   }
 
   // float notation, e.g. 3.14
-  if (cur() == '.') {
+  if (!isHexFormat && cur() == '.') {
     eat(); // the '.'
     while (cur() && isDigit(*cur())) {
       eat();
@@ -291,6 +301,21 @@ Token Lexer::lexIntOrFloat() {
     body = buffer.substr(start, offset - start);
     return Token{locFromTo(locStart, pos), Token::FLOAT, body};
   }
+
+  if (!isHexFormat && cur() == 'e') {
+    // exponent
+    eat(); // e
+    while (cur() && isDigit(*cur())) {
+      eat();
+    }
+  }
+
+  while (cur() == 'u' || cur() == 'U' || cur() == 'l' || cur() == 'L') {
+    // suffix
+    eat();
+  }
+
+  body = buffer.substr(start, offset - start);
 
   return Token{locFromTo(locStart, pos), Token::INT, body};
 }

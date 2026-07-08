@@ -100,7 +100,13 @@ namespace dblang {
   XX(PLUS_EQ)     /* += */                                                     \
   XX(MINUS_EQ)    /* -= */                                                     \
   XX(TIMES_EQ)    /* *= */                                                     \
-  XX(DIV_EQ)      /* /= */
+  XX(DIV_EQ)      /* /= */                                                     \
+  XX(REM_EQ)      /* %= */                                                     \
+  XX(AND_EQ)      /* &= */                                                     \
+  XX(OR_EQ)       /* |= */                                                     \
+  XX(XOR_EQ)      /* ^= */                                                     \
+  XX(LSHIFT_EQ)   /* <<= */                                                    \
+  XX(RSHIFT_EQ)   /* >>= */
 
 struct Token {
   enum Kind {

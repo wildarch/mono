@@ -2,8 +2,10 @@
 #include "util/ReportError.h"
 #include "util/Result.h"
 #include <algorithm>
+#include <assert.h>
 #include <cassert>
 #include <charconv>
+#include <filesystem>
 #include <functional>
 #include <iostream>
 #include <optional>
@@ -106,6 +108,7 @@ struct Declaration {
   std::vector<StorageClass> storage;
   std::vector<TypeQualifier> quals;
   std::vector<Declarator *> declarators;
+  bool inline_ = false;
   // TODO: function specifiers
   // TODO: alignment specifiers.
 };
@@ -169,6 +172,7 @@ private:
   LogicalResult parseFunctionCall();
   LogicalResult parseArrayAccess();
   LogicalResult parseExpressionAtom();
+  LogicalResult parseExpressionSizeof();
   LogicalResult parseInt();
   LogicalResult parseChar();
   LogicalResult parseFloat();
@@ -203,7 +207,7 @@ static bool isQualifier(Token::Kind kind) {
 
 LogicalResult Parser::parseAttribute() {
   auto start = cur()->loc;
-  eat();
+  eat(); // __attribute__
 
   if (!cur() || cur()->kind != Token::LPAREN) {
     return reportError(start, "invalid attribute");
@@ -269,6 +273,14 @@ LogicalResult Parser::parseSpecifierOrQualifier(Declaration &decl) {
   case Token::EXTERN:
     eat();
     decl.storage.push_back(StorageClass::EXTERN);
+    return LogicalResult::success();
+  case Token::REGISTER:
+    eat();
+    decl.storage.push_back(StorageClass::REGISTER);
+    return LogicalResult::success();
+  case Token::INLINE:
+    eat();
+    decl.inline_ = true;
     return LogicalResult::success();
   // Arithmetic type
   case Token::BOOL:
@@ -580,7 +592,6 @@ LogicalResult Parser::parseDeclarator(Declarator *&decl, bool allowAnonymous) {
 
       eat(); // ]
       decl = build<DeclaratorArray>(decl);
-      return LogicalResult::success();
     } else {
       // function
       assert(cur()->kind == Token::LPAREN);
@@ -610,7 +621,6 @@ LogicalResult Parser::parseDeclarator(Declarator *&decl, bool allowAnonymous) {
       }
 
       decl = build<DeclaratorFunc>(decl, std::move(params), haveBody);
-      return LogicalResult::success();
     }
   }
 
@@ -747,7 +757,6 @@ LogicalResult Parser::parseParameter(Declaration &decl) {
   }
 
   // 2. declarator
-  bool isFuncDef;
   auto &d = decl.declarators.emplace_back();
   if (failed(parseDeclarator(d, true))) {
     return reportError(cur()->loc, "invalid declaration");
@@ -765,15 +774,18 @@ LogicalResult Parser::parseBlock() {
   while (true) {
     // HACK: check if we have a declaration coming up.
     auto backupOffset = offset;
-    Declaration dummy;
-    if (failed(parseSpecifierOrQualifier(dummy))) {
+    Declaration decl;
+    if (failed(parseSpecifierOrQualifier(decl))) {
       offset = backupOffset;
       break;
     }
 
     // Looks like a declaration, go right ahead.
-    Declaration decl;
     if (failed(parseDeclaration(decl))) {
+      return LogicalResult::failure();
+    }
+
+    if (failed(finish(decl))) {
       return LogicalResult::failure();
     }
   }
@@ -908,8 +920,10 @@ LogicalResult Parser::parseFor() {
   eat(); // (
 
   // init
-  if (failed(parseExpression())) {
-    return LogicalResult::failure();
+  if (cur() && cur()->kind != Token::SEMI) {
+    if (failed(parseExpression())) {
+      return LogicalResult::failure();
+    }
   }
 
   if (!cur() || cur()->kind != Token::SEMI) {
@@ -919,8 +933,10 @@ LogicalResult Parser::parseFor() {
   eat(); // ;
 
   // cond
-  if (failed(parseExpression())) {
-    return LogicalResult::failure();
+  if (cur() && cur()->kind != Token::SEMI) {
+    if (failed(parseExpression())) {
+      return LogicalResult::failure();
+    }
   }
 
   if (!cur() || cur()->kind != Token::SEMI) {
@@ -930,8 +946,10 @@ LogicalResult Parser::parseFor() {
   eat(); // ;
 
   // increment
-  if (failed(parseExpression())) {
-    return LogicalResult::failure();
+  if (cur() && cur()->kind != Token::RPAREN) {
+    if (failed(parseExpression())) {
+      return LogicalResult::failure();
+    }
   }
 
   if (!cur() || cur()->kind != Token::RPAREN) {
@@ -975,53 +993,9 @@ LogicalResult Parser::parseSwitch() {
     return reportError(cur()->loc, "expected '{");
   }
 
-  eat(); // {
-
-  while (cur() && cur()->kind != Token::RBRACE) {
-    if (cur()->kind == Token::CASE) {
-      eat(); // case
-
-      if (failed(parseExpression())) {
-        return LogicalResult::failure();
-      }
-
-      if (!cur()) {
-        return reportError(tokens.back().loc, "expected ':'");
-      } else if (cur()->kind != Token::COLON) {
-        return reportError(cur()->loc, "expected ':'");
-      }
-
-      eat(); // :
-      continue;
-    } else if (cur()->kind == Token::DEFAULT) {
-      eat(); // case
-
-      if (!cur()) {
-        return reportError(tokens.back().loc, "expected ':'");
-      } else if (cur()->kind != Token::COLON) {
-        return reportError(cur()->loc, "expected ':'");
-      }
-
-      eat(); // :
-      continue;
-    } else if (cur()->kind == Token::ATTRIBUTE) {
-      if (failed(parseAttribute())) {
-        return LogicalResult::failure();
-      }
-
-      continue;
-    }
-
-    if (failed(parseStatement())) {
-      return LogicalResult::failure();
-    }
+  if (failed(parseStatement())) {
+    return LogicalResult::failure();
   }
-
-  if (!cur()) {
-    return reportError(tokens.back().loc, "unexpected end of switch");
-  }
-
-  eat(); // }
 
   return LogicalResult::success();
 }
@@ -1072,6 +1046,41 @@ LogicalResult Parser::parseStatement() {
     eat(); // IDENT
     return LogicalResult::success();
   }
+  case Token::ATTRIBUTE: {
+    if (failed(parseAttribute())) {
+      return LogicalResult::failure();
+    }
+
+    return parseStatementEndSemi();
+  }
+  case Token::CASE: {
+    eat(); // case
+
+    if (failed(parseExpression())) {
+      return LogicalResult::failure();
+    }
+
+    if (!cur()) {
+      return reportError(tokens.back().loc, "expected ':'");
+    } else if (cur()->kind != Token::COLON) {
+      return reportError(cur()->loc, "expected ':'");
+    }
+
+    eat(); // :
+    return LogicalResult::success();
+  }
+  case Token::DEFAULT: {
+    eat(); // default
+
+    if (!cur()) {
+      return reportError(tokens.back().loc, "expected ':'");
+    } else if (cur()->kind != Token::COLON) {
+      return reportError(cur()->loc, "expected ':'");
+    }
+
+    eat(); // :
+    return LogicalResult::success();
+  }
   default:
     if (failed(parseExpression())) {
       return LogicalResult::failure();
@@ -1113,23 +1122,21 @@ LogicalResult Parser::parseStatementEndSemi() {
 
 LogicalResult Parser::parseType() {
   Declaration dummy;
-  while (true) {
-    if (succeeded(parseSpecifierOrQualifier(dummy))) {
-      continue;
+  while (cur()) {
+    if (failed(parseSpecifierOrQualifier(dummy))) {
+      break;
     }
-
-    // HACK: eat pointers too
-    if (cur() && cur()->kind == Token::ASTERISK) {
-      eat();
-      continue;
-    }
-
-    break;
   }
 
   if (dummy.specs.empty() && dummy.quals.empty()) {
     // Parsed nothing.
     return LogicalResult::failure();
+  }
+
+  // 2. declarator
+  auto &d = dummy.declarators.emplace_back();
+  if (failed(parseDeclarator(d, true))) {
+    return reportError(cur()->loc, "invalid declaration");
   }
 
   return LogicalResult::success();
@@ -1189,15 +1196,16 @@ LogicalResult Parser::parseExpression(bool stopAtComma) {
     return LogicalResult::failure();
   }
 
-  if (cur() && cur()->kind == Token::LPAREN) {
-    if (failed(parseFunctionCall())) {
-      return LogicalResult::failure();
-    }
-  }
-
-  if (cur() && cur()->kind == Token::LSBRACKET) {
-    if (failed(parseArrayAccess())) {
-      return LogicalResult::failure();
+  while (cur() &&
+         (cur()->kind == Token::LPAREN || cur()->kind == Token::LSBRACKET)) {
+    if (cur()->kind == Token::LPAREN) {
+      if (failed(parseFunctionCall())) {
+        return LogicalResult::failure();
+      }
+    } else {
+      if (failed(parseArrayAccess())) {
+        return LogicalResult::failure();
+      }
     }
   }
 
@@ -1217,6 +1225,12 @@ LogicalResult Parser::parseExpression(bool stopAtComma) {
     case Token::MINUS_EQ:
     case Token::TIMES_EQ:
     case Token::DIV_EQ:
+    case Token::REM_EQ:
+    case Token::AND_EQ:
+    case Token::OR_EQ:
+    case Token::XOR_EQ:
+    case Token::LSHIFT_EQ:
+    case Token::RSHIFT_EQ:
     case Token::AMPERSAND:
     case Token::PIPE:
     case Token::ARROW:
@@ -1235,7 +1249,8 @@ LogicalResult Parser::parseExpression(bool stopAtComma) {
     case Token::SLASH:
     case Token::LSHIFT:
     case Token::PERCENT:
-    case Token::RSHIFT: {
+    case Token::RSHIFT:
+    case Token::CARET: {
       eat();
 
       if (failed(parseExpression(stopAtComma))) {
@@ -1339,54 +1354,58 @@ LogicalResult Parser::parseExpressionAtom() {
       return LogicalResult::success();
     }
   }
-  case Token::ASTERISK: {
-    eat(); // *
+  case Token::ASTERISK:
+  case Token::AMPERSAND:
+  case Token::EXCLAMATION:
+  case Token::MINUS:
+  case Token::PLUS:
+  case Token::TILDE:
+  case Token::INC:
+  case Token::DEC: {
+    eat();
     if (failed(parseExpressionAtom())) {
       return LogicalResult::failure();
     }
 
     return LogicalResult::success();
   }
-  case Token::AMPERSAND: {
-    eat(); // &
-    if (failed(parseExpressionAtom())) {
-      return LogicalResult::failure();
-    }
-
-    return LogicalResult::success();
-  }
-  case Token::EXCLAMATION: {
-    eat(); // !
-    if (failed(parseExpressionAtom())) {
-      return LogicalResult::failure();
-    }
-
-    return LogicalResult::success();
-  }
-  case Token::MINUS: {
-    eat(); // -
-    if (failed(parseExpressionAtom())) {
-      return LogicalResult::failure();
-    }
-
-    return LogicalResult::success();
-  }
-  case Token::PLUS: {
-    eat(); // +
-    if (failed(parseExpressionAtom())) {
-      return LogicalResult::failure();
-    }
-
-    return LogicalResult::success();
-  }
-  case Token::IDENT:
-  case Token::SIZEOF: {
+  case Token::IDENT: {
     eat();
     return LogicalResult::success();
   }
+  case Token::SIZEOF:
+    return parseExpressionSizeof();
   default:
     return reportError(cur()->loc, "unsupported expression");
   }
+}
+
+LogicalResult Parser::parseExpressionSizeof() {
+  assert(cur()->kind == Token::SIZEOF);
+  eat();
+
+  if (!cur()) {
+    return reportError(tokens.back().loc, "unexpected end of sizeof");
+  } else if (cur()->kind != Token::LPAREN) {
+    return reportError(cur()->loc, "expected '('");
+  }
+
+  eat(); // (
+
+  if (succeeded(parseType())) {
+    // OK, type
+  } else if (failed(parseExpression())) {
+    return LogicalResult::failure();
+  }
+
+  if (!cur()) {
+    return reportError(tokens.back().loc, "unexpected end of sizeof");
+  } else if (cur()->kind != Token::RPAREN) {
+    return reportError(cur()->loc, "expected ')'");
+  }
+
+  eat(); // (
+  return LogicalResult::success();
 }
 
 LogicalResult Parser::parseInt() {
