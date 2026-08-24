@@ -12,7 +12,8 @@
 using namespace dblang;
 
 static const char *TESTS_PATH = "experiments/dblang/parse/Chunker.test";
-static const char *PROPOSE_PATH = "experiments/dblang/parse/Chunker.test.propose";
+static const char *PROPOSE_PATH =
+    "experiments/dblang/parse/Chunker.test.propose";
 
 struct TestCase {
   std::string_view input;
@@ -78,11 +79,9 @@ static LogicalResult parseTests(std::string_view testsContent,
   return LogicalResult::success();
 }
 
-static LogicalResult runTest(TestCase &test) {
+static void runTest(TestCase &test) {
   std::vector<Chunk> chunks;
-  if (failed(chunk(TESTS_PATH, test.input, chunks))) {
-    return LogicalResult::failure();
-  }
+  chunk(TESTS_PATH, test.input, chunks);
 
   std::stringstream ss;
   for (const auto &chunk : chunks) {
@@ -90,7 +89,6 @@ static LogicalResult runTest(TestCase &test) {
   }
 
   test.actual = ss.str();
-  return LogicalResult::success();
 }
 
 int main(int argc, char **argv) {

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "parse/Location.h"
-#include "util/Result.h"
 #include <string_view>
 #include <vector>
 
@@ -15,9 +14,10 @@ struct Chunk {
 /**
  * Split the input into individual top-level definitions.
  *
- * Every definition starts with the keyword "def", which must be at the start of a line.
+ * Every definition starts with the keyword "def", which must be at the start of
+ * a line.
  */
-LogicalResult chunk(std::string_view filename, std::string_view source,
-                    std::vector<Chunk> &chunks);
+void chunk(std::string_view filename, std::string_view source,
+           std::vector<Chunk> &chunks);
 
 } // namespace dblang
