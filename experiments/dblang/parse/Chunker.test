@@ -44,3 +44,104 @@ experiments/dblang/parse/Chunker.test lines 14-15 characters 1-1:
 def MyString = string { "I am a string that contains the keyword def" }
 
 ================================================================================
+def MyFunc = func() {
+    def not_a_new_chunk
+    return 0
+}
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Chunker.test:1:1-1:
+
+experiments/dblang/parse/Chunker.test lines 1-5 characters 1-1:
+def MyFunc = func() {
+    def not_a_new_chunk
+    return 0
+}
+
+================================================================================
+// Header comment
+def MyFunc = func() {
+    return 0
+}
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Chunker.test lines 1-2 characters 1-1:
+// Header comment
+
+experiments/dblang/parse/Chunker.test lines 2-5 characters 1-1:
+def MyFunc = func() {
+    return 0
+}
+
+================================================================================
+def MyStruct = struct {
+    field1: T1,
+}
+def MyEnum = enum {
+    OPTION_ONE,
+}
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Chunker.test:1:1-1:
+
+experiments/dblang/parse/Chunker.test lines 1-4 characters 1-1:
+def MyStruct = struct {
+    field1: T1,
+}
+
+experiments/dblang/parse/Chunker.test lines 4-7 characters 1-1:
+def MyEnum = enum {
+    OPTION_ONE,
+}
+
+================================================================================
+def MyFunc = func() {
+    default: return 0
+}
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Chunker.test:1:1-1:
+
+experiments/dblang/parse/Chunker.test lines 1-4 characters 1-1:
+def MyFunc = func() {
+    default: return 0
+}
+
+================================================================================
+def A = struct {}
+def B = struct {}
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Chunker.test:1:1-1:
+
+experiments/dblang/parse/Chunker.test lines 1-2 characters 1-1:
+def A = struct {}
+
+experiments/dblang/parse/Chunker.test lines 2-3 characters 1-1:
+def B = struct {}
+
+================================================================================
+def A = struct {}\r
+def B = struct {}\r
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Chunker.test:1:1-1:
+
+experiments/dblang/parse/Chunker.test lines 1-2 characters 1-1:
+def A = struct {}\r
+
+experiments/dblang/parse/Chunker.test lines 2-3 characters 1-1:
+def B = struct {}\r
+
+================================================================================
+def First = struct {}
+def Second = struct {}
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Chunker.test:1:1-1:
+
+experiments/dblang/parse/Chunker.test lines 1-2 characters 1-1:
+def First = struct {}
+
+experiments/dblang/parse/Chunker.test lines 2-3 characters 1-1:
+def Second = struct {}
+
+================================================================================
+def A = struct {}
+def\tB = struct {}
+--------------------------------------------------------------------------------
+TODO expected output
+================================================================================
