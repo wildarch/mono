@@ -11,6 +11,7 @@ include_directories(.)
 add_library(
     dblang
     parse/Lexer.cpp
+    parse/Chunker.cpp
     parse/Location.cpp
     parse/Parser.cpp
     util/FileSystem.cpp
@@ -31,3 +32,10 @@ add_executable(
 )
 target_link_libraries(LexerTest dblang)
 target_compile_features(LexerTest PRIVATE cxx_std_20)
+
+add_executable(
+    ChunkerTest
+    parse/ChunkerTest.cpp
+)
+target_link_libraries(ChunkerTest dblang)
+target_compile_features(ChunkerTest PRIVATE cxx_std_20)

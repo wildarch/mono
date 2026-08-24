@@ -12,6 +12,11 @@ struct Chunk {
   std::string_view text;
 };
 
+/**
+ * Split the input into individual top-level definitions.
+ *
+ * Every definition starts with the keyword "def", which must be at the start of a line.
+ */
 LogicalResult chunk(std::string_view filename, std::string_view source,
                     std::vector<Chunk> &chunks);
 

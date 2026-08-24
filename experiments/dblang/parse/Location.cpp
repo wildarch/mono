@@ -4,26 +4,20 @@
 namespace dblang {
 
 std::ostream &operator<<(std::ostream &os, const Loc &loc) {
+  // os << loc.filename << " lines " << loc.start.line << "-" << loc.end.line <<
+  // " characters " << loc.start.column << "-" << loc.end.column;
   os << loc.filename;
   if (loc.start.line) {
-    os << ":" << loc.start.line;
-    if (loc.start.column) {
-      os << ":" << loc.start.column;
-    }
-
-    // Only print loc end if we had a start.
-    if (loc.end.line) {
-      if (loc.end.line == loc.start.line) {
-        // Only have to print the column extent
-        os << "-";
-        os << loc.end.column;
-      } else {
-        os << "-";
-        os << loc.end.line;
-        if (loc.end.column) {
-          os << ":" << loc.end.column;
-        }
-      }
+    // Have line info
+    if (loc.end.line == loc.start.line) {
+      // Single line, use short format <line>:<start.column>-<end.column>
+      os << ":" << loc.start.line << ":" << loc.start.column << "-"
+         << loc.end.column;
+    } else {
+      // long format lines <start.line>-<end.line>, characters
+      // <start.column>-<end.column>.
+      os << " lines " << loc.start.line << "-" << loc.end.line << " characters "
+         << loc.start.column << "-" << loc.end.column;
     }
   }
 

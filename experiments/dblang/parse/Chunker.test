@@ -1,0 +1,36 @@
+def MyStruct = struct {
+    field1: T1,
+    field2: T2,
+}
+def MyEnum = enum {
+    OPTION_ONE,
+    OPTION_TWO,
+}
+def MyAlias = alias { <type expr> }
+def MyFunc = func(p1: T1, p2: T2) -> T3 { ... }
+def MyConst = const { <expr> }
+def MyGlob = global { <type expr> }
+
+def MyString = string { "I am a string that contains the keyword def" }
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Chunker.test lines 1-4 characters 1-2:
+def MyStruct = struct {
+    field1: T1,
+    field2: T2,
+}
+experiments/dblang/parse/Chunker.test lines 5-8 characters 1-2:
+def MyEnum = enum {
+    OPTION_ONE,
+    OPTION_TWO,
+}
+experiments/dblang/parse/Chunker.test:9:1-36:
+def MyAlias = alias { <type expr> }
+experiments/dblang/parse/Chunker.test:10:1-48:
+def MyFunc = func(p1: T1, p2: T2) -> T3 { ... }
+experiments/dblang/parse/Chunker.test:11:1-31:
+def MyConst = const { <expr> }
+experiments/dblang/parse/Chunker.test:12:1-36:
+def MyGlob = global { <type expr> }
+experiments/dblang/parse/Chunker.test:14:1-72:
+def MyString = string { "I am a string that contains the keyword def" }
+================================================================================
