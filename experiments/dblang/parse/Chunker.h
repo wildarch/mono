@@ -12,7 +12,10 @@ struct Chunk {
 };
 
 /**
- * Split the input into individual top-level definitions.
+ * Split a file into individual top-level definitions.
+ *
+ * The first chunk (always present) contains the file header, that is everything
+ * before the first definition.
  *
  * Every definition starts with the keyword "def", which must be at the start of
  * a line.

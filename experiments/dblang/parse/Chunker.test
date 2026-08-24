@@ -13,24 +13,32 @@ def MyGlob = global { <type expr> }
 
 def MyString = string { "I am a string that contains the keyword def" }
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Chunker.test lines 1-4 characters 1-2:
+experiments/dblang/parse/Chunker.test:1:1-1:
+
+experiments/dblang/parse/Chunker.test lines 1-5 characters 1-1:
 def MyStruct = struct {
     field1: T1,
     field2: T2,
 }
-experiments/dblang/parse/Chunker.test lines 5-8 characters 1-2:
+
+experiments/dblang/parse/Chunker.test lines 5-9 characters 1-1:
 def MyEnum = enum {
     OPTION_ONE,
     OPTION_TWO,
 }
-experiments/dblang/parse/Chunker.test:9:1-36:
+
+experiments/dblang/parse/Chunker.test lines 9-10 characters 1-1:
 def MyAlias = alias { <type expr> }
-experiments/dblang/parse/Chunker.test:10:1-48:
+
+experiments/dblang/parse/Chunker.test lines 10-11 characters 1-1:
 def MyFunc = func(p1: T1, p2: T2) -> T3 { ... }
-experiments/dblang/parse/Chunker.test:11:1-31:
+
+experiments/dblang/parse/Chunker.test lines 11-12 characters 1-1:
 def MyConst = const { <expr> }
-experiments/dblang/parse/Chunker.test lines 12-13 characters 1-1:
+
+experiments/dblang/parse/Chunker.test lines 12-14 characters 1-1:
 def MyGlob = global { <type expr> }
+
 
 experiments/dblang/parse/Chunker.test lines 14-15 characters 1-1:
 def MyString = string { "I am a string that contains the keyword def" }

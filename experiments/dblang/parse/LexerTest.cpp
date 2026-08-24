@@ -12,7 +12,7 @@
 using namespace dblang;
 
 static const char *TESTS_PATH = "experiments/dblang/parse/Lexer.test";
-static const char *PROPOSE_PATH = "/tmp/Lexer.test";
+static const char *PROPOSE_PATH = "experiments/dblang/parse/Lexer.test.propose";
 
 struct TestCase {
   std::string_view input;

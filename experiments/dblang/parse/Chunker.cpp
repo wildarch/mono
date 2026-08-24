@@ -15,19 +15,18 @@ void chunk(std::string_view filename, std::string_view source,
   };
 
   // Offset and start of the current chunk
-  std::size_t chunkStartOffset;
+  std::size_t chunkStartOffset = 0;
   auto chunkStartPos = InFilePos::startOfFile();
-  // Check if we start immediately with a def
-  if (source.starts_with("def ")) {
-    chunkStartOffset = 0;
-  } else {
-    // Reset when we see the first actual def
-    chunkStartOffset = source.size();
-  }
 
   // Where we are currently scanning in the file
   std::size_t offset = 0;
   auto pos = InFilePos::startOfFile();
+
+  if (source.starts_with("def ")) {
+    // No header present, but we should still produce a header chunk.
+    addChunk(0, 0, pos, pos);
+  }
+
   while (offset < source.size()) {
     auto cur = source[offset];
     if (cur != '\n') {
@@ -35,11 +34,6 @@ void chunk(std::string_view filename, std::string_view source,
       pos.column++;
       continue;
     }
-
-    // Record position before the going to the next line in case the next line
-    // starts a new def
-    auto chunkEndOffset = offset;
-    auto chunkEndPos = pos;
 
     // Newline
     offset++;
@@ -49,8 +43,8 @@ void chunk(std::string_view filename, std::string_view source,
     // Does this line begin a new definition?
     if (source.substr(offset, 4) == "def ") {
       // end previous def (if any).
-      if (chunkStartOffset < chunkEndOffset) {
-        addChunk(chunkStartOffset, chunkEndOffset, chunkStartPos, chunkEndPos);
+      if (chunkStartOffset < offset) {
+        addChunk(chunkStartOffset, offset, chunkStartPos, pos);
       }
 
       // Record the start of the next definitions
