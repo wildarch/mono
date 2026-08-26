@@ -156,8 +156,6 @@ Token Lexer::nextToken() {
   }
 
   THREE("...", ELLIPSIS)
-  THREE("<<=", LSHIFT_EQ)
-  THREE(">>=", RSHIFT_EQ)
 #undef THREE
 
   // Operators of length 2
@@ -177,18 +175,8 @@ Token Lexer::nextToken() {
   TWO("!=", NOT_EQUAL)
   TWO("<=", LEQ)
   TWO(">=", GEQ)
-  TWO("++", INC)
-  TWO("--", DEC)
   TWO("<<", LSHIFT)
   TWO(">>", RSHIFT)
-  TWO("+=", PLUS_EQ)
-  TWO("-=", MINUS_EQ)
-  TWO("*=", TIMES_EQ)
-  TWO("/=", DIV_EQ)
-  TWO("%=", REM_EQ)
-  TWO("&=", AND_EQ)
-  TWO("|=", OR_EQ)
-  TWO("^=", XOR_EQ)
 #undef TWO
 
   // Operators and punctuation (length 1)

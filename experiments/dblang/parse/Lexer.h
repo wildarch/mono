@@ -93,20 +93,8 @@ namespace dblang {
   XX(NOT_EQUAL)   /* != */                                                     \
   XX(LEQ)         /* <= */                                                     \
   XX(GEQ)         /* >= */                                                     \
-  XX(INC)         /* ++ */                                                     \
-  XX(DEC)         /* -- */                                                     \
   XX(LSHIFT)      /* << */                                                     \
-  XX(RSHIFT)      /* >> */                                                     \
-  XX(PLUS_EQ)     /* += */                                                     \
-  XX(MINUS_EQ)    /* -= */                                                     \
-  XX(TIMES_EQ)    /* *= */                                                     \
-  XX(DIV_EQ)      /* /= */                                                     \
-  XX(REM_EQ)      /* %= */                                                     \
-  XX(AND_EQ)      /* &= */                                                     \
-  XX(OR_EQ)       /* |= */                                                     \
-  XX(XOR_EQ)      /* ^= */                                                     \
-  XX(LSHIFT_EQ)   /* <<= */                                                    \
-  XX(RSHIFT_EQ)   /* >>= */
+  XX(RSHIFT)      /* >> */
 
 struct Token {
   enum Kind {

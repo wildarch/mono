@@ -1209,28 +1209,10 @@ LogicalResult Parser::parseExpression(bool stopAtComma) {
     }
   }
 
-  if (cur() && cur()->kind == Token::INC) {
-    // increment
-    eat();
-  } else if (cur() && cur()->kind == Token::DEC) {
-    // decrement
-    eat();
-  }
-
   bool stopClimb = false;
   while (cur() && !stopClimb) {
     switch (cur()->kind) {
     case Token::ASSIGN:
-    case Token::PLUS_EQ:
-    case Token::MINUS_EQ:
-    case Token::TIMES_EQ:
-    case Token::DIV_EQ:
-    case Token::REM_EQ:
-    case Token::AND_EQ:
-    case Token::OR_EQ:
-    case Token::XOR_EQ:
-    case Token::LSHIFT_EQ:
-    case Token::RSHIFT_EQ:
     case Token::AMPERSAND:
     case Token::PIPE:
     case Token::ARROW:
@@ -1359,9 +1341,7 @@ LogicalResult Parser::parseExpressionAtom() {
   case Token::EXCLAMATION:
   case Token::MINUS:
   case Token::PLUS:
-  case Token::TILDE:
-  case Token::INC:
-  case Token::DEC: {
+  case Token::TILDE: {
     eat();
     if (failed(parseExpressionAtom())) {
       return LogicalResult::failure();
