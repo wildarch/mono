@@ -81,7 +81,8 @@ static LogicalResult parseTests(std::string_view testsContent,
 static LogicalResult runTest(TestCase &test) {
   std::vector<Token> tokens;
   // TODO: allow setting start location in file.
-  if (failed(lex(TESTS_PATH, test.input, tokens))) {
+  Loc loc{.filename = TESTS_PATH, .start = InFilePos::startOfFile()};
+  if (failed(lex(test.input, loc, tokens))) {
     return LogicalResult::failure();
   }
 

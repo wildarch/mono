@@ -6,6 +6,6 @@
 
 namespace dblang {
 
-LogicalResult parse(std::span<const Token> tokens);
+LogicalResult parseDef(std::span<const Token> tokens);
 
 } // namespace dblang

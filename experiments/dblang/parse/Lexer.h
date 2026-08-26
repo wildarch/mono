@@ -115,7 +115,7 @@ struct Token {
 
 std::ostream &operator<<(std::ostream &os, const Token &token);
 
-LogicalResult lex(std::string_view filename, std::string_view source,
+LogicalResult lex(std::string_view source, Loc sourceLoc,
                   std::vector<Token> &tokens);
 
 } // namespace dblang

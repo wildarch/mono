@@ -10,8 +10,9 @@ include_directories(.)
 
 add_library(
     dblang
-    parse/Lexer.cpp
+    ir/StringPool.cpp
     parse/Chunker.cpp
+    parse/Lexer.cpp
     parse/Location.cpp
     parse/Parser.cpp
     util/FileSystem.cpp

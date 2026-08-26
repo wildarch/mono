@@ -72,8 +72,8 @@ private:
   Token lexString();
 
 public:
-  Lexer(std::string_view filename, std::string_view source)
-      : filename(filename), buffer(source), pos(InFilePos::startOfFile()) {
+  Lexer(std::string_view source, Loc loc)
+      : filename(loc.filename), buffer(source), pos(loc.start) {
     initKeywords();
   }
   LogicalResult lex(std::vector<Token> &tokens);
@@ -411,9 +411,9 @@ const char *Token::kindName(Kind k) {
   }
 }
 
-LogicalResult lex(std::string_view filename, std::string_view source,
+LogicalResult lex(std::string_view source, Loc sourceLoc,
                   std::vector<Token> &tokens) {
-  Lexer lexer(filename, source);
+  Lexer lexer(source, sourceLoc);
   return lexer.lex(tokens);
 }
 
