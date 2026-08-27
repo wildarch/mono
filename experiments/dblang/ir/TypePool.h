@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ir/StringPool.h"
 #include "ir/Type.h"
 #include "ir/TypeImpl.h"
 #include "util/BumpAllocator.h"
@@ -24,31 +25,16 @@ namespace dblang::ir {
  */
 class TypePool {
 public:
-  /// A single field of a struct type.
-  using Field = impl::TypeImplStruct::Field;
-
   TypePool() = default;
 
-  /// A primitive type (bool, char, iX, uX, f32, f64, isize, usize).
-  Type primitive(impl::TypeKind kind);
-
-  /// A type known only by its name in the source.
-  Type unresolved(InternedString name);
-
-  /// A fixed-size array type.
-  Type array(Type elemType, std::size_t size);
-
-  /// A pointer type.
-  Type pointer(Type pointee);
-
-  /// A function reference type.
-  Type function(std::span<const Type> params, std::span<const Type> returns);
-
-  /// A struct type with the given fields.
-  Type struct_(std::span<const Field> fields);
-
-  /// An enum type with the given alternatives.
-  Type enum_(std::span<const InternedString> alts);
+  Type getPrimitive(impl::TypeKind kind);
+  Type getUnresolved(InternedString name);
+  Type getArray(Type elemType, std::size_t size);
+  Type getPointer(Type pointee);
+  Type getFunction(std::span<const Type> params, std::span<const Type> returns);
+  Type getStruct(std::span<const InternedString> fieldNames,
+                 std::span<const Type> fieldTypes);
+  Type getEnum(std::span<const InternedString> alts);
 
 private:
   /// Structural hash of a \c TypeImpl, for the dedup set.

@@ -1,5 +1,5 @@
+#include "parse/Chunker.h"
 #include "parse/Lexer.h"
-#include "parse/Parser.h"
 #include "util/FileSystem.h"
 #include "util/Result.h"
 #include <iostream>
@@ -20,17 +20,25 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // Source file -> tokens
+  std::vector<Chunk> chunks;
+  chunk(sourceFilename, sourceContents, chunks);
+
   std::vector<Token> tokens;
-  if (failed(lex(sourceFilename, sourceContents, tokens))) {
-    return 1;
+  for (const auto &chunk : chunks) {
+    if (failed(lex(sourceContents, chunk.loc, tokens))) {
+      return 1;
+    }
   }
 
-  // for (const auto &token : tokens) {
-  //   std::cout << token << "\n";
-  // }
+  // Source file -> tokens
 
+  for (const auto &token : tokens) {
+    std::cout << token << "\n";
+  }
+
+  /*
   if (failed(parse(tokens))) {
     return 1;
   }
+  */
 }

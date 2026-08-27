@@ -1,25 +1,27 @@
 #include "ir/TypePool.h"
+#include "ir/StringPool.h"
 #include "ir/TypeImpl.h"
 #include <alloca.h>
+#include <cassert>
 #include <cstring>
 
 namespace dblang::ir {
 
 using namespace impl;
 
-Type TypePool::primitive(TypeKind kind) {
+Type TypePool::getPrimitive(TypeKind kind) {
   // Primitive types carry no extra data; the kind alone identifies them.
   TypeImpl impl;
   impl.kind = kind;
   return dedupe(sizeof(TypeImpl), alignof(TypeImpl), &impl);
 }
 
-Type TypePool::unresolved(InternedString name) {
+Type TypePool::getUnresolved(InternedString name) {
   TypeImplUnresolved impl{TypeKind::UNRESOLVED, name};
   return dedupe(sizeof(TypeImplUnresolved), alignof(TypeImplUnresolved), &impl);
 }
 
-Type TypePool::array(Type elemType, std::size_t size) {
+Type TypePool::getArray(Type elemType, std::size_t size) {
   TypeImplArray impl;
   impl.kind = TypeKind::ARRAY;
   impl.size = size;
@@ -27,15 +29,15 @@ Type TypePool::array(Type elemType, std::size_t size) {
   return dedupe(sizeof(TypeImplArray), alignof(TypeImplArray), &impl);
 }
 
-Type TypePool::pointer(Type pointee) {
+Type TypePool::getPointer(Type pointee) {
   TypeImplPointer impl;
   impl.kind = TypeKind::POINTER;
   impl.pointee = pointee;
   return dedupe(sizeof(TypeImplPointer), alignof(TypeImplPointer), &impl);
 }
 
-Type TypePool::function(std::span<const Type> params,
-                        std::span<const Type> returns) {
+Type TypePool::getFunction(std::span<const Type> params,
+                           std::span<const Type> returns) {
   const std::size_t nParams = params.size();
   const std::size_t nReturn = returns.size();
   auto size = TypeImplFunction::computeAllocationSize(nParams, nReturn);
@@ -43,31 +45,35 @@ Type TypePool::function(std::span<const Type> params,
   impl->kind = TypeKind::FUNCTION;
   impl->nParams = nParams;
   impl->nReturn = nReturn;
-  for (std::size_t i = 0; i < nParams; ++i)
+  for (std::size_t i = 0; i < nParams; i++)
     impl->types[i] = params[i];
-  for (std::size_t i = 0; i < nReturn; ++i)
+  for (std::size_t i = 0; i < nReturn; i++)
     impl->types[nParams + i] = returns[i];
   return dedupe(size, alignof(TypeImplFunction), impl);
 }
 
-Type TypePool::struct_(std::span<const Field> fields) {
-  const std::size_t nFields = fields.size();
+Type TypePool::getStruct(std::span<const InternedString> fieldNames,
+                         std::span<const Type> fieldTypes) {
+  assert(fieldNames.size() == fieldTypes.size());
+  const std::size_t nFields = fieldNames.size();
   auto size = TypeImplStruct::computeAllocationSize(nFields);
   auto *impl = static_cast<TypeImplStruct *>(alloca(size));
   impl->kind = TypeKind::STRUCT;
   impl->nFields = nFields;
-  for (std::size_t i = 0; i < nFields; ++i)
-    impl->fields[i] = fields[i];
+  for (std::size_t i = 0; i < nFields; i++) {
+    impl->fields[i].name = fieldNames[i];
+    impl->fields[i].type = fieldTypes[i];
+  }
   return dedupe(size, alignof(TypeImplStruct), impl);
 }
 
-Type TypePool::enum_(std::span<const InternedString> alts) {
+Type TypePool::getEnum(std::span<const InternedString> alts) {
   const std::size_t nAlts = alts.size();
   auto size = TypeImplEnum::computeAllocationSize(nAlts);
   auto *impl = static_cast<TypeImplEnum *>(alloca(size));
   impl->kind = TypeKind::ENUM;
   impl->nAlts = nAlts;
-  for (std::size_t i = 0; i < nAlts; ++i)
+  for (std::size_t i = 0; i < nAlts; i++)
     impl->alts[i] = alts[i];
   return dedupe(size, alignof(TypeImplEnum), impl);
 }
