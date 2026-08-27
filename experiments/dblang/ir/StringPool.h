@@ -10,17 +10,18 @@ class InternedString {
   friend class StringPool;
 
 private:
-  std::string_view _s;
-  InternedString(std::string_view s);
+  // is 16 bytes, maybe store a pointer instead to keep to 8 bytes?
+  const std::string *_s;
+  InternedString(const std::string *s) : _s(s) {}
 
 public:
   /// Dereference to the underlying string view.
-  std::string_view operator*() const { return _s; }
+  std::string_view operator*() const { return *_s; }
 
   /// Cheap equivalence: interned strings with equal content share storage, so
   /// comparing the data pointers alone is sufficient.
   bool operator==(const InternedString &other) const {
-    return _s.data() == other._s.data();
+    return _s->data() == other._s->data();
   }
   bool operator!=(const InternedString &other) const {
     return !(*this == other);
@@ -51,3 +52,15 @@ public:
 };
 
 } // namespace dblang::ir
+
+namespace std {
+
+template <> struct hash<dblang::ir::InternedString> {
+  std::size_t operator()(const dblang::ir::InternedString &s) const {
+    // Interned strings with equal content share storage, so hashing the
+    // underlying string view is a valid (and cheap) content hash.
+    return std::hash<std::string_view>{}(*s);
+  }
+};
+
+} // namespace std

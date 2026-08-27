@@ -11,6 +11,7 @@ include_directories(.)
 add_library(
     dblang
     ir/StringPool.cpp
+    ir/TypeImpl.cpp
     parse/Chunker.cpp
     parse/Lexer.cpp
     parse/Location.cpp
