@@ -42,6 +42,7 @@ enum class TypeKind {
 
 /// Combine a hash value into a running seed (Fowler-Noll-Vo style).
 inline void hashCombine(std::size_t &seed, std::size_t value) {
+  // TODO: move to a separate util file
   seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
@@ -196,9 +197,5 @@ struct TypeImplFunction : public TypeImpl {
     return seed;
   }
 };
-
-// Dispatch on the concrete kind. The derived structs are all defined above,
-// so we can downcast and delegate to their structural comparison/hash.
-// Implemented in TypeImpl.cpp.
 
 } // namespace dblang::ir::impl

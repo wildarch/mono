@@ -12,6 +12,7 @@ add_library(
     dblang
     ir/StringPool.cpp
     ir/TypeImpl.cpp
+    ir/TypePool.cpp
     parse/Chunker.cpp
     parse/Lexer.cpp
     parse/Location.cpp
@@ -41,3 +42,10 @@ add_executable(
 )
 target_link_libraries(ChunkerTest dblang)
 target_compile_features(ChunkerTest PRIVATE cxx_std_20)
+
+add_executable(
+    BumpAllocatorTest
+    util/BumpAllocatorTest.cpp
+)
+target_link_libraries(BumpAllocatorTest dblang)
+target_compile_features(BumpAllocatorTest PRIVATE cxx_std_20)
