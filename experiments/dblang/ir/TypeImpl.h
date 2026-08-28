@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ir/Def.h"
 #include "ir/StringPool.h"
 #include "ir/Type.h"
 
@@ -33,9 +34,8 @@ enum class TypeKind {
   ISIZE,
   USIZE,
   // Compound/nested types
-  STRUCT, // TODO: maybe remove and have reference to 'Def' instead
-  ENUM,   // TODO: maybe remove and have reference to 'Def' instead
-  ARRAY,  // fixed-size array
+  DEF,
+  ARRAY, // fixed-size array
   POINTER,
   FUNCTION, // function reference
 };
@@ -77,63 +77,15 @@ struct TypeImplUnresolved : public TypeImpl {
   }
 };
 
-struct TypeImplStruct : public TypeImpl {
-  std::size_t nFields;
+struct TypeImplDef : public TypeImpl {
+  const Def *def;
 
-  struct Field {
-    InternedString name;
-    Type type;
-  };
-  Field fields[];
-
-  static constexpr std::size_t computeAllocationSize(std::size_t nFields) {
-    return sizeof(TypeImplStruct) + nFields * sizeof(Field);
-  }
-
-  bool operator==(const TypeImplStruct &other) const {
-    if (kind != other.kind || nFields != other.nFields)
-      return false;
-    for (std::size_t i = 0; i < nFields; ++i) {
-      if (fields[i].name != other.fields[i].name ||
-          fields[i].type != other.fields[i].type)
-        return false;
-    }
-    return true;
+  bool operator==(const TypeImplDef &other) const {
+    return kind == other.kind && def == other.def;
   }
   std::size_t hash() const {
     std::size_t seed = std::hash<TypeKind>{}(kind);
-    hashCombine(seed, nFields);
-    for (std::size_t i = 0; i < nFields; ++i) {
-      hashCombine(seed, std::hash<InternedString>{}(fields[i].name));
-      hashCombine(seed, fields[i].type.hash());
-    }
-    return seed;
-  }
-};
-
-struct TypeImplEnum : public TypeImpl {
-  std::size_t nAlts;
-  using Alt = InternedString;
-  Alt alts[];
-
-  static constexpr std::size_t computeAllocationSize(std::size_t nFields) {
-    return sizeof(TypeImplEnum) + nFields * sizeof(Alt);
-  }
-
-  bool operator==(const TypeImplEnum &other) const {
-    if (kind != other.kind || nAlts != other.nAlts)
-      return false;
-    for (std::size_t i = 0; i < nAlts; ++i) {
-      if (alts[i] != other.alts[i])
-        return false;
-    }
-    return true;
-  }
-  std::size_t hash() const {
-    std::size_t seed = std::hash<TypeKind>{}(kind);
-    hashCombine(seed, nAlts);
-    for (std::size_t i = 0; i < nAlts; ++i)
-      hashCombine(seed, std::hash<InternedString>{}(alts[i]));
+    hashCombine(seed, std::hash<const Def *>{}(def));
     return seed;
   }
 };

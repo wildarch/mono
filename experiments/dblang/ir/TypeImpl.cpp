@@ -11,12 +11,9 @@ bool TypeImpl::operator==(const TypeImpl &other) const {
   case TypeKind::UNRESOLVED:
     return static_cast<const TypeImplUnresolved &>(*this) ==
            static_cast<const TypeImplUnresolved &>(other);
-  case TypeKind::STRUCT:
-    return static_cast<const TypeImplStruct &>(*this) ==
-           static_cast<const TypeImplStruct &>(other);
-  case TypeKind::ENUM:
-    return static_cast<const TypeImplEnum &>(*this) ==
-           static_cast<const TypeImplEnum &>(other);
+  case TypeKind::DEF:
+    return static_cast<const TypeImplDef &>(*this) ==
+           static_cast<const TypeImplDef &>(other);
   case TypeKind::ARRAY:
     return static_cast<const TypeImplArray &>(*this) ==
            static_cast<const TypeImplArray &>(other);
@@ -36,10 +33,8 @@ std::size_t TypeImpl::hash() const {
   switch (kind) {
   case TypeKind::UNRESOLVED:
     return static_cast<const TypeImplUnresolved &>(*this).hash();
-  case TypeKind::STRUCT:
-    return static_cast<const TypeImplStruct &>(*this).hash();
-  case TypeKind::ENUM:
-    return static_cast<const TypeImplEnum &>(*this).hash();
+  case TypeKind::DEF:
+    return static_cast<const TypeImplDef &>(*this).hash();
   case TypeKind::ARRAY:
     return static_cast<const TypeImplArray &>(*this).hash();
   case TypeKind::POINTER:

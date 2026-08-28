@@ -52,30 +52,11 @@ Type TypePool::getFunction(std::span<const Type> params,
   return dedupe(size, alignof(TypeImplFunction), impl);
 }
 
-Type TypePool::getStruct(std::span<const InternedString> fieldNames,
-                         std::span<const Type> fieldTypes) {
-  assert(fieldNames.size() == fieldTypes.size());
-  const std::size_t nFields = fieldNames.size();
-  auto size = TypeImplStruct::computeAllocationSize(nFields);
-  auto *impl = static_cast<TypeImplStruct *>(alloca(size));
-  impl->kind = TypeKind::STRUCT;
-  impl->nFields = nFields;
-  for (std::size_t i = 0; i < nFields; i++) {
-    impl->fields[i].name = fieldNames[i];
-    impl->fields[i].type = fieldTypes[i];
-  }
-  return dedupe(size, alignof(TypeImplStruct), impl);
-}
-
-Type TypePool::getEnum(std::span<const InternedString> alts) {
-  const std::size_t nAlts = alts.size();
-  auto size = TypeImplEnum::computeAllocationSize(nAlts);
-  auto *impl = static_cast<TypeImplEnum *>(alloca(size));
-  impl->kind = TypeKind::ENUM;
-  impl->nAlts = nAlts;
-  for (std::size_t i = 0; i < nAlts; i++)
-    impl->alts[i] = alts[i];
-  return dedupe(size, alignof(TypeImplEnum), impl);
+Type TypePool::getDef(const Def *def) {
+  TypeImplDef impl;
+  impl.kind = TypeKind::DEF;
+  impl.def = def;
+  return dedupe(sizeof(TypeImplDef), alignof(TypeImplDef), &impl);
 }
 
 Type TypePool::dedupe(std::size_t size, std::size_t align,

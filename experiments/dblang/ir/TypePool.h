@@ -11,6 +11,8 @@
 
 namespace dblang::ir {
 
+struct Def;
+
 /**
  * Stores unique type implementations.
  *
@@ -32,9 +34,7 @@ public:
   Type getArray(Type elemType, std::size_t size);
   Type getPointer(Type pointee);
   Type getFunction(std::span<const Type> params, std::span<const Type> returns);
-  Type getStruct(std::span<const InternedString> fieldNames,
-                 std::span<const Type> fieldTypes);
-  Type getEnum(std::span<const InternedString> alts);
+  Type getDef(const Def *def);
 
 private:
   /// Structural hash of a \c TypeImpl, for the dedup set.
