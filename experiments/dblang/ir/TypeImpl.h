@@ -33,9 +33,9 @@ enum class TypeKind {
   ISIZE,
   USIZE,
   // Compound/nested types
-  STRUCT,
-  ENUM,
-  ARRAY, // fixed-size array
+  STRUCT, // TODO: maybe remove and have reference to 'Def' instead
+  ENUM,   // TODO: maybe remove and have reference to 'Def' instead
+  ARRAY,  // fixed-size array
   POINTER,
   FUNCTION, // function reference
 };

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <span>
 
 namespace dblang::ir {
 
@@ -34,6 +35,11 @@ public: /// Default-construct an empty (null) type.
   std::size_t hash() const {
     return std::hash<const impl::TypeImpl *>{}(_impl);
   }
+};
+
+class FunctionType : public Type {
+  std::span<const Type> paramTypes() const;
+  std::span<const Type> returnTypes() const;
 };
 
 } // namespace dblang::ir
