@@ -2,10 +2,13 @@
 
 namespace dblang::ir {
 
+struct Operation;
+
 /** A sequence of operations. */
 class Block {
 private:
-  // TODO: ops storage
+  Operation *head;
+  Operation *tail;
 };
 
 } // namespace dblang::ir
