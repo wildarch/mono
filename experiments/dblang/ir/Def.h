@@ -20,7 +20,7 @@ struct Def {
   InternedString name;
 };
 
-struct DefStruct {
+struct DefStruct : public Def {
   struct Field {
     InternedString name;
     Type type;
