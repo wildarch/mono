@@ -207,15 +207,30 @@
             highEl.textContent = q.high;
         }
 
-        function randomQuestion() {
-            return questions[Math.floor(Math.random() * questions.length)];
+        function shuffle(arr) {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
         }
 
-        document.getElementById("next").addEventListener("click", () => {
-            showQuestion(randomQuestion());
-        });
+        let deck = shuffle(questions);
+        let index = 0;
 
-        showQuestion(randomQuestion());
+        function nextQuestion() {
+            if (index >= deck.length) {
+                deck = shuffle(questions);
+                index = 0;
+            }
+            showQuestion(deck[index]);
+            index++;
+        }
+
+        document.getElementById("next").addEventListener("click", nextQuestion);
+
+        nextQuestion();
     </script>
 </body>
 
