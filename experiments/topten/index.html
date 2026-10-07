@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top Ten</title>
+    <style>
+        :root {
+            --bg: #1e1e2e;
+            --card: #2a2a3e;
+            --text: #e6e6f0;
+            --muted: #9a9ab0;
+            --accent: #7c6cf0;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100dvh;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 24px 20px;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 28px 20px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        }
+
+        .prompt {
+            font-size: 1.5rem;
+            line-height: 1.4;
+            font-weight: 600;
+            margin: 0 0 24px 0;
+        }
+
+        .scale {
+            font-size: 1.05rem;
+            line-height: 1.5;
+            color: var(--muted);
+        }
+
+        .scale .low {
+            color: #e06c75;
+        }
+
+        .scale .high {
+            color: #98c379;
+        }
+
+        footer {
+            padding: 20px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        button {
+            font-size: 1.1rem;
+            font-weight: 600;
+            padding: 16px 32px;
+            border: none;
+            border-radius: 12px;
+            background: var(--accent);
+            color: #fff;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        button:active {
+            transform: scale(0.96);
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <div class="card">
+            <p class="prompt" id="prompt"></p>
+            <p class="scale">
+                From <span class="low" id="low"></span> (1)
+                to <span class="high" id="high"></span> (2)
+            </p>
+        </div>
+    </main>
+
+    <footer>
+        <button id="next">New question</button>
+    </footer>
+
+    <script>
+        const questions = [
+            {
+                prompt: "You are a superhero with a special ability. What is your superpower?",
+                low: "completely useless",
+                high: "limitless power",
+            },
+        ];
+
+        const promptEl = document.getElementById("prompt");
+        const lowEl = document.getElementById("low");
+        const highEl = document.getElementById("high");
+
+        function showQuestion(q) {
+            promptEl.textContent = q.prompt;
+            lowEl.textContent = q.low;
+            highEl.textContent = q.high;
+        }
+
+        function randomQuestion() {
+            return questions[Math.floor(Math.random() * questions.length)];
+        }
+
+        document.getElementById("next").addEventListener("click", () => {
+            showQuestion(randomQuestion());
+        });
+
+        showQuestion(randomQuestion());
+    </script>
+</body>
+
+</html>
