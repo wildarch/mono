@@ -99,7 +99,7 @@
             <p class="prompt" id="prompt"></p>
             <p class="scale">
                 From <span class="low" id="low"></span> (1)
-                to <span class="high" id="high"></span> (2)
+                to <span class="high" id="high"></span> (10)
             </p>
         </div>
     </main>
@@ -111,9 +111,89 @@
     <script>
         const questions = [
             {
+                prompt: "Your promotor/boss calls you into their office for an urgent meeting. What is the meeting about, and how does it go?",
+                low: "very bad/embarrassing",
+                high: "fantastic",
+            },
+            {
+                prompt: "You receive an unsolicited email invitation to submit your work to a journal. What kind of journal is it?",
+                low: "garbage predatory journal",
+                high: "highly prestigious",
+            },
+            {
                 prompt: "You are a superhero with a special ability. What is your superpower?",
                 low: "completely useless",
                 high: "limitless power",
+            },
+            {
+                prompt: "You are a super villain trying to take over the world. What is your special power or weapon to try and achieve this?",
+                low: "adorably hopeless",
+                high: "ruthlessly effective",
+            },
+            {
+                prompt: "You take a bite of some food you have never eaten before, how does it taste?",
+                low: "disgusting",
+                high: "heavenly delicious",
+            },
+            {
+                prompt: "Sneeze.",
+                low: "barely noticeable",
+                high: "man-made hurricane",
+            },
+            {
+                prompt: "You forget to take your office key when you go to the toilet, and now you are locked out of your office. How hard is it to get back in?",
+                low: "trivial",
+                high: "extremely difficult",
+            },
+            {
+                prompt: "You turn on the radio. What kind of music (genre or artist) is playing?",
+                low: "I hate it",
+                high: "my favourite",
+            },
+            {
+                prompt: "Your friends organize a surprise activity for you. What do they have planned?",
+                low: "awful/boring/scary",
+                high: "awesome/fun",
+            },
+            {
+                prompt: "You have invented something (e.g. an algorithm). How big of a deal is it?",
+                low: "nobody cares",
+                high: "revolutionary",
+            },
+            {
+                prompt: "You get back to the office after being gone for about an hour. You tell your co-workers you just went to grab a coffee and take a walk. This is a lie! What were you actually doing?",
+                low: "nothing interesting",
+                high: "a huge scandal",
+            },
+            {
+                prompt: "The reviews for your paper are in. Reviewer #1 and Reviewer #2 give Weak Accept and Weak Accept, respectively, so the final decision hinges on Reviewer #3. What does Reviewer #3 say?",
+                low: "'Fundamentally flawed'",
+                high: "the best invention since sliced bread",
+            },
+            {
+                prompt: "You run into an acquaintance on the street, how do you greet them?",
+                low: "barely acknowledged",
+                high: "incredibly excited",
+            },
+            {
+                prompt: "You use an LLM to (try to) accomplish a task, what is the task?",
+                low: "pretty normal",
+                high: "really weird",
+            },
+            {
+                prompt: "You are served Dutch food. What is it?",
+                low: "disgusting",
+                high: "delicious",
+            },
+            {
+                prompt: "What are we doing for the next Database Group activity?",
+                low: "super boring",
+                high: "super fun",
+            },
+            {
+                prompt: "You are at a conference attending a paper presentation. What is it about, and how is it presented?",
+                low: "awful",
+                high: "fascinating",
             },
         ];
 
