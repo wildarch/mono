@@ -29,3 +29,12 @@ Check that you are successfully connected:
 ```bash
 tailscale status
 ```
+
+## Enable SSH
+If you want to be able to ssh into a node, install the OpenSSH server:
+
+```bash
+sudo apt install openssh-server
+```
+
+For better security, in `/etc/ssh/sshd_config` set `PasswordAuthentication no`.

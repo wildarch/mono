@@ -18,7 +18,7 @@
   - name: Install headscale
     become: true
     apt:
-      deb: https://github.com/juanfont/headscale/releases/download/v0.27.1/headscale_0.27.1_linux_arm64.deb
+      deb: https://github.com/juanfont/headscale/releases/download/v0.29.4/headscale_0.29.4_linux_arm64.deb
 
   - name: Enable headscale
     ansible.builtin.systemd:
