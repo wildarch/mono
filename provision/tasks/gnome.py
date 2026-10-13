@@ -8,11 +8,10 @@ GNOME_SETTINGS = [
     ("/org/gnome/settings-daemon/plugins/media-keys/volume-down", "['F2']"),
     ("/org/gnome/settings-daemon/plugins/media-keys/volume-up", "['F3']"),
     ("/org/gnome/settings-daemon/plugins/power/ambient-enabled", "false"),
+    # Read the current set with: dconf read /org/gnome/shell/favorite-apps
     (
         "/org/gnome/shell/favorite-apps",
-        "['firefox_firefox.desktop', 'spotify.desktop', "
-        "'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', "
-        "'code.desktop']",
+        "['firefox_firefox.desktop', 'org.gnome.Ptyxis.desktop', 'com.microsoft.VSCode.desktop', 'spotify.desktop', 'org.gnome.Nautilus.desktop']"
     ),
     (
         "/org/gnome/desktop/wm/keybindings/switch-windows",

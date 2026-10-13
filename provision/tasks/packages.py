@@ -12,8 +12,6 @@ LAPTOP_PACKAGES = [
     "vim-gtk3",
     "gimp",
     "inkscape",
-    "python3-psutil",  # Allows Ansible to set keyboard shortcuts
-    "sshpass",  # To use ask-ssh-pass with Ansible
     "bash-completion",  # Enable bash completion
     "zotero",
     # Latex related
