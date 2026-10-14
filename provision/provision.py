@@ -58,14 +58,14 @@ import tasks  # noqa: E402  (importing registers all tasks)
 COLLECTIONS = {
     "thinkpad": [
         # root tasks
-        "install_apt_packages",
         "install_eduvpn_repo",
         "install_zotero_repo",
         "install_displaylink_repo",
-        "install_vscode",
-        "install_zoom",
         "install_spotify_repo",
         "install_tailscale_repo",
+        "install_apt_packages",
+        "install_vscode",
+        "install_zoom",
         "install_docker",
         "set_default_editor",
         # user tasks

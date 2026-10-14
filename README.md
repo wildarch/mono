@@ -7,7 +7,9 @@ My own personal monorepo.
 sudo apt install keepassxc
 
 # Copy the KeepassXC database to your home directory.
-# Unlock it, then enable the SSH Agent (https://keepassxc.org/docs/KeePassXC_UserGuide#_setup_ssh_agent_integration)
+# Unlock it, then enable the SSH Agent
+# See https://keepassxc.org/docs/KeePassXC_UserGuide#_setup_ssh_agent_integration
+# Then, right-click on the SSH keys and click 'Add key to SSH agent'
 
 # Download git
 sudo apt install git
@@ -17,11 +19,8 @@ mkdir -p ~/workspace
 cd ~/workspace
 git clone git@github.com:wildarch/mono.git
 
-# Run commands below
-sudo apt install ansible
-ansible-galaxy install -r ansible/requirements.yml
-export ANSIBLE_BECOME_EXE=sudo.ws # Only on Ubuntu 26.04 (sudo-rs and ansible are incompatible)
-ansible-playbook ansible/thinkpad.yml -K
+sudo ./provision/provision.py --system thinkpad
+./provision/provision.py --system thinkpad
 
 # Configure git identity
 git config --global user.email "daandegraaf9@gmail.com"

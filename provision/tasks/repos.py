@@ -5,8 +5,6 @@ repositories.  Each task is idempotent: it only downloads keys and writes
 source files when they are missing or out of date.
 """
 
-import os
-
 from framework import register_task
 
 
@@ -17,7 +15,6 @@ def _codename(ctx):
             if line.startswith("VERSION_CODENAME="):
                 return line.split("=", 1)[1].strip().strip('"')
     return ctx.output("lsb_release", "-cs")
-
 
 def install_eduvpn_repo(ctx):
     """Add the EduVPN APT repository."""
@@ -38,34 +35,21 @@ register_task("install_eduvpn_repo", install_eduvpn_repo, root=True)
 def install_zotero_repo(ctx):
     """Add the Zotero APT repository."""
     key_path = "/usr/share/keyrings/zotero-archive-keyring.gpg"
-    changed = False
-    if not os.path.exists(key_path):
-        tmp = "/tmp/provision-zotero.key"
-        ctx.run(
-            "curl",
-            "-fsSL",
-            "-o",
-            tmp,
+    return ctx.apt_add_repo(
+        name="zotero",
+        key_url=(
             "https://raw.githubusercontent.com/retorquere/zotero-deb/"
-            "master/zotero-archive-keyring.asc",
-        )
-        with open(tmp, "rb") as src, open(key_path, "wb") as dst:
-            import subprocess
-
-            subprocess.run(["gpg", "--dearmor"], stdin=src, stdout=dst, check=True)
-        os.unlink(tmp)
-        changed = True
-
-    changed |= ctx.write_file(
-        "/etc/apt/sources.list.d/zotero.sources",
-        "Types: deb\n"
-        "URIs: https://zotero.retorque.re/file/apt-package-archive\n"
-        "Suites: ./\n"
-        "By-Hash: force\n"
-        f"Signed-By: {key_path}\n",
-        mode=0o644,
+            "master/zotero-archive-keyring.asc"
+        ),
+        key_path=key_path,
+        sources_content=(
+            "Types: deb\n"
+            "URIs: https://zotero.retorque.re/file/apt-package-archive\n"
+            "Suites: ./\n"
+            "By-Hash: force\n"
+            f"Signed-By: {key_path}\n"
+        ),
     )
-    return changed
 
 
 register_task("install_zotero_repo", install_zotero_repo, root=True)

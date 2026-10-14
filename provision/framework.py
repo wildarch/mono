@@ -16,6 +16,8 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
+import urllib.request
 
 
 class ProvisionError(RuntimeError):
@@ -181,7 +183,16 @@ class Context:
         "not modified" should guard on whether the binary is already present.
         """
         env = dict(os.environ, DEBIAN_FRONTEND="noninteractive")
-        self.run("apt-get", "install", "-y", url_or_path, env=env)
+        if "://" not in url_or_path:
+            self.run("apt-get", "install", "-y", os.path.abspath(url_or_path), env=env)
+            return True
+        # apt-get cannot fetch remote .deb files, so download it first.
+        with tempfile.TemporaryDirectory(prefix="provision-") as tmpdir:
+            # Let the unprivileged _apt user read the package.
+            os.chmod(tmpdir, 0o755)
+            path = os.path.join(tmpdir, "package.deb")
+            self.download(url_or_path, path, mode=0o644)
+            self.run("apt-get", "install", "-y", path, env=env)
         return True
 
     def apt_add_repo(
@@ -206,16 +217,18 @@ class Context:
         changed = False
         if key_url and key_path:
             if not os.path.exists(key_path):
-                tmp = f"/tmp/provision-{name}.key"
-                self.run("curl", "-fsSL", "-o", tmp, key_url)
-                if key_dearmor:
-                    with open(tmp, "rb") as src, open(key_path, "wb") as dst:
-                        subprocess.run(
-                            ["gpg", "--dearmor"], stdin=src, stdout=dst, check=True
-                        )
-                else:
-                    shutil.copyfile(tmp, key_path)
-                os.unlink(tmp)
+                with tempfile.TemporaryDirectory(prefix="provision-") as tmpdir:
+                    tmp = os.path.join(tmpdir, f"{name}.key")
+                    self.download(key_url, tmp)
+                    os.makedirs(os.path.dirname(key_path), exist_ok=True)
+                    if key_dearmor:
+                        with open(tmp, "rb") as src, open(key_path, "wb") as dst:
+                            subprocess.run(
+                                ["gpg", "--dearmor"], stdin=src, stdout=dst, check=True
+                            )
+                    else:
+                        shutil.copyfile(tmp, key_path)
+                    os.chmod(key_path, 0o644)
                 changed = True
 
         if sources_content is not None:
@@ -227,6 +240,20 @@ class Context:
         return changed
 
     # -- file helpers ------------------------------------------------------
+
+    def download(self, url, path, *, mode=0o644):
+        """Download ``url`` to ``path`` (without relying on curl/wget)."""
+        if self.verbose:
+            print(f"    $ download {url} -> {path}", file=sys.stderr)
+        request = urllib.request.Request(
+            url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) provision"}
+        )
+        try:
+            with urllib.request.urlopen(request) as response, open(path, "wb") as fh:
+                shutil.copyfileobj(response, fh)
+        except OSError as exc:
+            raise ProvisionError(f"download failed: {url}: {exc}") from exc
+        os.chmod(path, mode)
 
     def write_file(self, path, content, *, mode=0o644, owner=None, group=None):
         """Write ``content`` to ``path`` if it differs.  Returns True if changed."""
