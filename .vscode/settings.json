@@ -5,5 +5,6 @@
         "experiments/dblang/build/ChunkerTest": true,
         "./experiments/dblang/build/LexerTest": true
     },
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "clangd.path": "clangd-22"
 }

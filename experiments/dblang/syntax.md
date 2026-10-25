@@ -1,6 +1,12 @@
 # DBLang Syntax
 Details the grammar of DBLang.
 
+As in C (C23 §6.4), the grammar has two levels:
+- The *lexical grammar* splits source text into tokens.
+  Its rules have `snake_case` names, and are defined in [Lexical Structure](#lexical-structure).
+- The *syntactic grammar* builds definitions, statements and expressions from tokens.
+  Its rules have `PascalCase` names.
+
 ## Source Files
 A DBLang program is a collection of source files that are linked together.
 
@@ -114,10 +120,6 @@ TypeArray = "[" Type ";" Expr "]";
 TypePointer = "*" Type;
 TypeFunction = "func" "(" FuncParams? ")" ("->" Type)?;
 ```
-
-### Identifier
-An identifier is a C-style identifier.
-The first character must be a nondigit (from `a` to `z`, `A` to `Z` or `_`), subsequent characters may include digits `0` to `9`.
 
 ### Block
 A block is a collection of statements.
@@ -242,5 +244,105 @@ Compound literals use Rust syntax instead of C's `(T){ ... }`:
 
 There is no ambiguity between a struct literal and a block, because the conditions of `if`, `switch`, `while` and `for` are parenthesized.
 
-### TODO
-int_lit, float_lit, char_lit, string_lit
+## Lexical Structure
+Source files are UTF-8.
+Non-ASCII characters may only appear in comments and string literals.
+
+### Tokens
+The tokens are the keywords and punctuators that appear quoted in the syntactic grammar, plus `ident`, `int_lit`, `float_lit`, `char_lit` and `string_lit`.
+The other lexical rules only help to define these.
+
+Source text is split into tokens from left to right.
+The next token is always the longest sequence of characters that can form a token, so `a<<=b` is `a`, `<<=`, `b`.
+
+Whitespace (space, tab, carriage return and newline) and comments separate tokens and are otherwise ignored.
+
+```
+comment = "//" <any character except newline>*
+        | "/*" <any sequence of characters not containing "*/"> "*/";
+```
+
+Block comments do not nest.
+
+A numeric literal must not be directly followed by a digit, letter or `_`: `123abc`, `0x1g` are errors, not multiple tokens.
+
+### Keywords
+```
+alias    alignof  bool     break    case     cast     char     const
+continue def      default  do       else     enum     false    for
+func     global   i8       i16      i32      i64      i128     if
+import   isize    let      return   sizeof   struct   switch   true
+u8       u16      u32      u64      u128     usize    void     while
+```
+
+Keywords are reserved: a sequence of characters that matches `ident` and is spelled the same as a keyword is that keyword, not an identifier.
+
+### Identifier
+```
+ident = nondigit (nondigit | digit)*;
+nondigit = "_" | "a".."z" | "A".."Z";
+digit = "0".."9";
+```
+
+### Integer Literal
+```
+int_lit = decimal_lit | hex_lit | binary_lit;
+decimal_lit = "0" | nonzero_digit ("_"? digit)*;
+hex_lit = ("0x" | "0X") hex_digit_seq;
+binary_lit = ("0b" | "0B") binary_digit ("_"? binary_digit)*;
+
+digit_seq = digit ("_"? digit)*;
+hex_digit_seq = hex_digit ("_"? hex_digit)*;
+nonzero_digit = "1".."9";
+hex_digit = digit | "a".."f" | "A".."F";
+binary_digit = "0" | "1";
+```
+
+The character `_` can be used as a digit separator: `1_000_000`, `0xFFFF_0000`.
+
+Unlike C:
+- There are no octal literals. A decimal literal other than `0` cannot start with `0`, so `0755` is an error rather than 493.
+- There are no suffixes (`u`, `l`, `ll`, `wb`). The type of a literal is determined after parsing (use e.g. `cast<usize>(42)` to force a particular type).
+
+An integer literal is never negative: `-1` is unary `-` applied to `1`.
+
+### Floating-Point Literal
+```
+float_lit = digit_seq "." digit_seq? exponent?
+          | "." digit_seq exponent?
+          | digit_seq exponent;
+
+exponent = ("e" | "E") ("+" | "-")? digit_seq;
+```
+
+Examples: `3.14`, `1.`, `.5`, `1e9`, `6.022e+23`.
+
+Unlike C:
+- There are no hexadecimal floating-point literals such as `0x1.8p3`.
+- There are no suffixes (`f`, `l`, `df`, `dd`, `dl`). The type of a literal is determined after parsing.
+
+### Character Literal
+```
+char_lit = "'" c_char "'";
+c_char = <any ASCII character except ', \ or newline> | escape_seq;
+
+escape_seq = "\" simple_escape
+           | "\x" hex_digit+;
+simple_escape = "'" | '"' | "?" | "\" | "a" | "b" | "f" | "n" | "r" | "t" | "v";
+```
+
+The value of a character literal is the ASCII code of its character, or the value of its escape sequence.
+The value of a hexadecimal escape sequence must fit in a `char`, which is checked after lexing: `'\x41'` and `'\x00'` are valid, `'\x141'` is not.
+
+Unlike C:
+- A character literal contains exactly one `c_char`. There are no multi-character literals such as `'ab'`.
+- There are no octal escape sequences: write `'\x00'` instead of `'\0'`.
+- There are no encoding prefixes (`u8`, `u`, `U`, `L`) and no universal character names (`\u`, `\U`).
+
+### String Literal
+```
+string_lit = '"' s_char* '"';
+s_char = <any character except ", \ or newline> | escape_seq;
+```
+
+The contents of a string literal are a sequence of bytes: an escape sequence contributes one byte, and any other character contributes its UTF-8 encoding.
