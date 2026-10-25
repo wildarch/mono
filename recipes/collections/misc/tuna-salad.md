@@ -13,3 +13,6 @@ Simple Tuna salad that is perfect for a tuna melt.
 In a bowl, combine tuna, mayonnaise.
 Mix vigorously with a fork, streaming in olive oil bit by bit to emulsify it.
 Fold in the celery, scallions, salt and pepper to taste.
+
+## Info
+Original recipe: https://www.youtube.com/watch?v=CfnlQFTmbsY
