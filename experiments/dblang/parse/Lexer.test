@@ -1,90 +1,672 @@
-int main(int argc, char** argv) {
-    return 0;
+import "a/b/c"
+
+def Point = struct { x: i32, y: i32, }
+def Point::len = func(p: *Point) -> i64 {
+    let n: i64 = cast<i64>(p->x) * 2;
+    return n;
 }
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:1:1-4: INT_KW 'int'
-experiments/dblang/parse/Lexer.test:1:5-9: IDENT 'main'
-experiments/dblang/parse/Lexer.test:1:9-10: LPAREN '('
-experiments/dblang/parse/Lexer.test:1:10-13: INT_KW 'int'
-experiments/dblang/parse/Lexer.test:1:14-18: IDENT 'argc'
-experiments/dblang/parse/Lexer.test:1:18-19: COMMA ','
-experiments/dblang/parse/Lexer.test:1:20-24: CHAR_KW 'char'
-experiments/dblang/parse/Lexer.test:1:24-25: ASTERISK '*'
-experiments/dblang/parse/Lexer.test:1:25-26: ASTERISK '*'
-experiments/dblang/parse/Lexer.test:1:27-31: IDENT 'argv'
-experiments/dblang/parse/Lexer.test:1:31-32: RPAREN ')'
-experiments/dblang/parse/Lexer.test:1:33-34: LBRACE '{'
-experiments/dblang/parse/Lexer.test:2:5-11: RETURN 'return'
-experiments/dblang/parse/Lexer.test:2:12-13: INT '0'
-experiments/dblang/parse/Lexer.test:2:13-14: SEMI ';'
-experiments/dblang/parse/Lexer.test:3:1-2: RBRACE '}'
+experiments/dblang/parse/Lexer.test:1:1-7: IMPORT 'import'
+experiments/dblang/parse/Lexer.test:1:8-15: STRING 'a/b/c'
+experiments/dblang/parse/Lexer.test:3:1-4: DEF 'def'
+experiments/dblang/parse/Lexer.test:3:5-10: IDENT 'Point'
+experiments/dblang/parse/Lexer.test:3:11-12: ASSIGN '='
+experiments/dblang/parse/Lexer.test:3:13-19: STRUCT 'struct'
+experiments/dblang/parse/Lexer.test:3:20-21: LBRACE '{'
+experiments/dblang/parse/Lexer.test:3:22-23: IDENT 'x'
+experiments/dblang/parse/Lexer.test:3:23-24: COLON ':'
+experiments/dblang/parse/Lexer.test:3:25-28: I32 'i32'
+experiments/dblang/parse/Lexer.test:3:28-29: COMMA ','
+experiments/dblang/parse/Lexer.test:3:30-31: IDENT 'y'
+experiments/dblang/parse/Lexer.test:3:31-32: COLON ':'
+experiments/dblang/parse/Lexer.test:3:33-36: I32 'i32'
+experiments/dblang/parse/Lexer.test:3:36-37: COMMA ','
+experiments/dblang/parse/Lexer.test:3:38-39: RBRACE '}'
+experiments/dblang/parse/Lexer.test:4:1-4: DEF 'def'
+experiments/dblang/parse/Lexer.test:4:5-10: IDENT 'Point'
+experiments/dblang/parse/Lexer.test:4:10-12: DCOLON '::'
+experiments/dblang/parse/Lexer.test:4:12-15: IDENT 'len'
+experiments/dblang/parse/Lexer.test:4:16-17: ASSIGN '='
+experiments/dblang/parse/Lexer.test:4:18-22: FUNC 'func'
+experiments/dblang/parse/Lexer.test:4:22-23: LPAREN '('
+experiments/dblang/parse/Lexer.test:4:23-24: IDENT 'p'
+experiments/dblang/parse/Lexer.test:4:24-25: COLON ':'
+experiments/dblang/parse/Lexer.test:4:26-27: ASTERISK '*'
+experiments/dblang/parse/Lexer.test:4:27-32: IDENT 'Point'
+experiments/dblang/parse/Lexer.test:4:32-33: RPAREN ')'
+experiments/dblang/parse/Lexer.test:4:34-36: ARROW '->'
+experiments/dblang/parse/Lexer.test:4:37-40: I64 'i64'
+experiments/dblang/parse/Lexer.test:4:41-42: LBRACE '{'
+experiments/dblang/parse/Lexer.test:5:5-8: LET 'let'
+experiments/dblang/parse/Lexer.test:5:9-10: IDENT 'n'
+experiments/dblang/parse/Lexer.test:5:10-11: COLON ':'
+experiments/dblang/parse/Lexer.test:5:12-15: I64 'i64'
+experiments/dblang/parse/Lexer.test:5:16-17: ASSIGN '='
+experiments/dblang/parse/Lexer.test:5:18-22: CAST 'cast'
+experiments/dblang/parse/Lexer.test:5:22-23: LANGLE '<'
+experiments/dblang/parse/Lexer.test:5:23-26: I64 'i64'
+experiments/dblang/parse/Lexer.test:5:26-27: RANGLE '>'
+experiments/dblang/parse/Lexer.test:5:27-28: LPAREN '('
+experiments/dblang/parse/Lexer.test:5:28-29: IDENT 'p'
+experiments/dblang/parse/Lexer.test:5:29-31: ARROW '->'
+experiments/dblang/parse/Lexer.test:5:31-32: IDENT 'x'
+experiments/dblang/parse/Lexer.test:5:32-33: RPAREN ')'
+experiments/dblang/parse/Lexer.test:5:34-35: ASTERISK '*'
+experiments/dblang/parse/Lexer.test:5:36-37: INT '2'
+experiments/dblang/parse/Lexer.test:5:37-38: SEMI ';'
+experiments/dblang/parse/Lexer.test:6:5-11: RETURN 'return'
+experiments/dblang/parse/Lexer.test:6:12-13: IDENT 'n'
+experiments/dblang/parse/Lexer.test:6:13-14: SEMI ';'
+experiments/dblang/parse/Lexer.test:7:1-2: RBRACE '}'
 ================================================================================
 
-0x0123456789ABCDEFabcdef
+def Color = enum { RED = 1, GREEN }
+def MY_CONST = const { c::Color::RED }
+def counter = global { [u8; 16] }
+def alias_t = alias c::Point
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-25: INT '0x0123456789ABCDEFabcdef'
+experiments/dblang/parse/Lexer.test:2:1-4: DEF 'def'
+experiments/dblang/parse/Lexer.test:2:5-10: IDENT 'Color'
+experiments/dblang/parse/Lexer.test:2:11-12: ASSIGN '='
+experiments/dblang/parse/Lexer.test:2:13-17: ENUM 'enum'
+experiments/dblang/parse/Lexer.test:2:18-19: LBRACE '{'
+experiments/dblang/parse/Lexer.test:2:20-23: IDENT 'RED'
+experiments/dblang/parse/Lexer.test:2:24-25: ASSIGN '='
+experiments/dblang/parse/Lexer.test:2:26-27: INT '1'
+experiments/dblang/parse/Lexer.test:2:27-28: COMMA ','
+experiments/dblang/parse/Lexer.test:2:29-34: IDENT 'GREEN'
+experiments/dblang/parse/Lexer.test:2:35-36: RBRACE '}'
+experiments/dblang/parse/Lexer.test:3:1-4: DEF 'def'
+experiments/dblang/parse/Lexer.test:3:5-13: IDENT 'MY_CONST'
+experiments/dblang/parse/Lexer.test:3:14-15: ASSIGN '='
+experiments/dblang/parse/Lexer.test:3:16-21: CONST 'const'
+experiments/dblang/parse/Lexer.test:3:22-23: LBRACE '{'
+experiments/dblang/parse/Lexer.test:3:24-25: IDENT 'c'
+experiments/dblang/parse/Lexer.test:3:25-27: DCOLON '::'
+experiments/dblang/parse/Lexer.test:3:27-32: IDENT 'Color'
+experiments/dblang/parse/Lexer.test:3:32-34: DCOLON '::'
+experiments/dblang/parse/Lexer.test:3:34-37: IDENT 'RED'
+experiments/dblang/parse/Lexer.test:3:38-39: RBRACE '}'
+experiments/dblang/parse/Lexer.test:4:1-4: DEF 'def'
+experiments/dblang/parse/Lexer.test:4:5-12: IDENT 'counter'
+experiments/dblang/parse/Lexer.test:4:13-14: ASSIGN '='
+experiments/dblang/parse/Lexer.test:4:15-21: GLOBAL 'global'
+experiments/dblang/parse/Lexer.test:4:22-23: LBRACE '{'
+experiments/dblang/parse/Lexer.test:4:24-25: LSBRACKET '['
+experiments/dblang/parse/Lexer.test:4:25-27: U8 'u8'
+experiments/dblang/parse/Lexer.test:4:27-28: SEMI ';'
+experiments/dblang/parse/Lexer.test:4:29-31: INT '16'
+experiments/dblang/parse/Lexer.test:4:31-32: RSBRACKET ']'
+experiments/dblang/parse/Lexer.test:4:33-34: RBRACE '}'
+experiments/dblang/parse/Lexer.test:5:1-4: DEF 'def'
+experiments/dblang/parse/Lexer.test:5:5-12: IDENT 'alias_t'
+experiments/dblang/parse/Lexer.test:5:13-14: ASSIGN '='
+experiments/dblang/parse/Lexer.test:5:15-20: ALIAS 'alias'
+experiments/dblang/parse/Lexer.test:5:21-22: IDENT 'c'
+experiments/dblang/parse/Lexer.test:5:22-24: DCOLON '::'
+experiments/dblang/parse/Lexer.test:5:24-29: IDENT 'Point'
 ================================================================================
 
-3.14
+for (let i = 0; i < 10; i++) { a[i] += 1; }
+do { x--; } while (x != 0);
+switch (x) { case 1: break; default: continue; }
+if (a && b || !c) {} else if (d) {}
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-5: FLOAT '3.14'
+experiments/dblang/parse/Lexer.test:2:1-4: FOR 'for'
+experiments/dblang/parse/Lexer.test:2:5-6: LPAREN '('
+experiments/dblang/parse/Lexer.test:2:6-9: LET 'let'
+experiments/dblang/parse/Lexer.test:2:10-11: IDENT 'i'
+experiments/dblang/parse/Lexer.test:2:12-13: ASSIGN '='
+experiments/dblang/parse/Lexer.test:2:14-15: INT '0'
+experiments/dblang/parse/Lexer.test:2:15-16: SEMI ';'
+experiments/dblang/parse/Lexer.test:2:17-18: IDENT 'i'
+experiments/dblang/parse/Lexer.test:2:19-20: LANGLE '<'
+experiments/dblang/parse/Lexer.test:2:21-23: INT '10'
+experiments/dblang/parse/Lexer.test:2:23-24: SEMI ';'
+experiments/dblang/parse/Lexer.test:2:25-26: IDENT 'i'
+experiments/dblang/parse/Lexer.test:2:26-28: DPLUS '++'
+experiments/dblang/parse/Lexer.test:2:28-29: RPAREN ')'
+experiments/dblang/parse/Lexer.test:2:30-31: LBRACE '{'
+experiments/dblang/parse/Lexer.test:2:32-33: IDENT 'a'
+experiments/dblang/parse/Lexer.test:2:33-34: LSBRACKET '['
+experiments/dblang/parse/Lexer.test:2:34-35: IDENT 'i'
+experiments/dblang/parse/Lexer.test:2:35-36: RSBRACKET ']'
+experiments/dblang/parse/Lexer.test:2:37-39: PLUS_ASSIGN '+='
+experiments/dblang/parse/Lexer.test:2:40-41: INT '1'
+experiments/dblang/parse/Lexer.test:2:41-42: SEMI ';'
+experiments/dblang/parse/Lexer.test:2:43-44: RBRACE '}'
+experiments/dblang/parse/Lexer.test:3:1-3: DO 'do'
+experiments/dblang/parse/Lexer.test:3:4-5: LBRACE '{'
+experiments/dblang/parse/Lexer.test:3:6-7: IDENT 'x'
+experiments/dblang/parse/Lexer.test:3:7-9: DMINUS '--'
+experiments/dblang/parse/Lexer.test:3:9-10: SEMI ';'
+experiments/dblang/parse/Lexer.test:3:11-12: RBRACE '}'
+experiments/dblang/parse/Lexer.test:3:13-18: WHILE 'while'
+experiments/dblang/parse/Lexer.test:3:19-20: LPAREN '('
+experiments/dblang/parse/Lexer.test:3:20-21: IDENT 'x'
+experiments/dblang/parse/Lexer.test:3:22-24: NOT_EQUAL '!='
+experiments/dblang/parse/Lexer.test:3:25-26: INT '0'
+experiments/dblang/parse/Lexer.test:3:26-27: RPAREN ')'
+experiments/dblang/parse/Lexer.test:3:27-28: SEMI ';'
+experiments/dblang/parse/Lexer.test:4:1-7: SWITCH 'switch'
+experiments/dblang/parse/Lexer.test:4:8-9: LPAREN '('
+experiments/dblang/parse/Lexer.test:4:9-10: IDENT 'x'
+experiments/dblang/parse/Lexer.test:4:10-11: RPAREN ')'
+experiments/dblang/parse/Lexer.test:4:12-13: LBRACE '{'
+experiments/dblang/parse/Lexer.test:4:14-18: CASE 'case'
+experiments/dblang/parse/Lexer.test:4:19-20: INT '1'
+experiments/dblang/parse/Lexer.test:4:20-21: COLON ':'
+experiments/dblang/parse/Lexer.test:4:22-27: BREAK 'break'
+experiments/dblang/parse/Lexer.test:4:27-28: SEMI ';'
+experiments/dblang/parse/Lexer.test:4:29-36: DEFAULT 'default'
+experiments/dblang/parse/Lexer.test:4:36-37: COLON ':'
+experiments/dblang/parse/Lexer.test:4:38-46: CONTINUE 'continue'
+experiments/dblang/parse/Lexer.test:4:46-47: SEMI ';'
+experiments/dblang/parse/Lexer.test:4:48-49: RBRACE '}'
+experiments/dblang/parse/Lexer.test:5:1-3: IF 'if'
+experiments/dblang/parse/Lexer.test:5:4-5: LPAREN '('
+experiments/dblang/parse/Lexer.test:5:5-6: IDENT 'a'
+experiments/dblang/parse/Lexer.test:5:7-9: DAMPERSAND '&&'
+experiments/dblang/parse/Lexer.test:5:10-11: IDENT 'b'
+experiments/dblang/parse/Lexer.test:5:12-14: DPIPE '||'
+experiments/dblang/parse/Lexer.test:5:15-16: EXCLAMATION '!'
+experiments/dblang/parse/Lexer.test:5:16-17: IDENT 'c'
+experiments/dblang/parse/Lexer.test:5:17-18: RPAREN ')'
+experiments/dblang/parse/Lexer.test:5:19-20: LBRACE '{'
+experiments/dblang/parse/Lexer.test:5:20-21: RBRACE '}'
+experiments/dblang/parse/Lexer.test:5:22-26: ELSE 'else'
+experiments/dblang/parse/Lexer.test:5:27-29: IF 'if'
+experiments/dblang/parse/Lexer.test:5:30-31: LPAREN '('
+experiments/dblang/parse/Lexer.test:5:31-32: IDENT 'd'
+experiments/dblang/parse/Lexer.test:5:32-33: RPAREN ')'
+experiments/dblang/parse/Lexer.test:5:34-35: LBRACE '{'
+experiments/dblang/parse/Lexer.test:5:35-36: RBRACE '}'
 ================================================================================
 
-"hello world"
+alias alignof bool break case cast char const
+continue def default do else enum false for
+func global i8 i16 i32 i64 i128 if
+import isize let return sizeof struct switch true
+u8 u16 u32 u64 u128 usize void while
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-14: STRING 'hello world'
+experiments/dblang/parse/Lexer.test:2:1-6: ALIAS 'alias'
+experiments/dblang/parse/Lexer.test:2:7-14: ALIGNOF 'alignof'
+experiments/dblang/parse/Lexer.test:2:15-19: BOOL 'bool'
+experiments/dblang/parse/Lexer.test:2:20-25: BREAK 'break'
+experiments/dblang/parse/Lexer.test:2:26-30: CASE 'case'
+experiments/dblang/parse/Lexer.test:2:31-35: CAST 'cast'
+experiments/dblang/parse/Lexer.test:2:36-40: CHAR_KW 'char'
+experiments/dblang/parse/Lexer.test:2:41-46: CONST 'const'
+experiments/dblang/parse/Lexer.test:3:1-9: CONTINUE 'continue'
+experiments/dblang/parse/Lexer.test:3:10-13: DEF 'def'
+experiments/dblang/parse/Lexer.test:3:14-21: DEFAULT 'default'
+experiments/dblang/parse/Lexer.test:3:22-24: DO 'do'
+experiments/dblang/parse/Lexer.test:3:25-29: ELSE 'else'
+experiments/dblang/parse/Lexer.test:3:30-34: ENUM 'enum'
+experiments/dblang/parse/Lexer.test:3:35-40: FALSE 'false'
+experiments/dblang/parse/Lexer.test:3:41-44: FOR 'for'
+experiments/dblang/parse/Lexer.test:4:1-5: FUNC 'func'
+experiments/dblang/parse/Lexer.test:4:6-12: GLOBAL 'global'
+experiments/dblang/parse/Lexer.test:4:13-15: I8 'i8'
+experiments/dblang/parse/Lexer.test:4:16-19: I16 'i16'
+experiments/dblang/parse/Lexer.test:4:20-23: I32 'i32'
+experiments/dblang/parse/Lexer.test:4:24-27: I64 'i64'
+experiments/dblang/parse/Lexer.test:4:28-32: I128 'i128'
+experiments/dblang/parse/Lexer.test:4:33-35: IF 'if'
+experiments/dblang/parse/Lexer.test:5:1-7: IMPORT 'import'
+experiments/dblang/parse/Lexer.test:5:8-13: ISIZE 'isize'
+experiments/dblang/parse/Lexer.test:5:14-17: LET 'let'
+experiments/dblang/parse/Lexer.test:5:18-24: RETURN 'return'
+experiments/dblang/parse/Lexer.test:5:25-31: SIZEOF 'sizeof'
+experiments/dblang/parse/Lexer.test:5:32-38: STRUCT 'struct'
+experiments/dblang/parse/Lexer.test:5:39-45: SWITCH 'switch'
+experiments/dblang/parse/Lexer.test:5:46-50: TRUE 'true'
+experiments/dblang/parse/Lexer.test:6:1-3: U8 'u8'
+experiments/dblang/parse/Lexer.test:6:4-7: U16 'u16'
+experiments/dblang/parse/Lexer.test:6:8-11: U32 'u32'
+experiments/dblang/parse/Lexer.test:6:12-15: U64 'u64'
+experiments/dblang/parse/Lexer.test:6:16-20: U128 'u128'
+experiments/dblang/parse/Lexer.test:6:21-26: USIZE 'usize'
+experiments/dblang/parse/Lexer.test:6:27-31: VOID 'void'
+experiments/dblang/parse/Lexer.test:6:32-37: WHILE 'while'
 ================================================================================
 
-'x'
+_ _x x1 X_Y snake_case PascalCase i256 u7 int float auto Alias defs
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-4: CHAR 'x'
+experiments/dblang/parse/Lexer.test:2:1-2: IDENT '_'
+experiments/dblang/parse/Lexer.test:2:3-5: IDENT '_x'
+experiments/dblang/parse/Lexer.test:2:6-8: IDENT 'x1'
+experiments/dblang/parse/Lexer.test:2:9-12: IDENT 'X_Y'
+experiments/dblang/parse/Lexer.test:2:13-23: IDENT 'snake_case'
+experiments/dblang/parse/Lexer.test:2:24-34: IDENT 'PascalCase'
+experiments/dblang/parse/Lexer.test:2:35-39: IDENT 'i256'
+experiments/dblang/parse/Lexer.test:2:40-42: IDENT 'u7'
+experiments/dblang/parse/Lexer.test:2:43-46: IDENT 'int'
+experiments/dblang/parse/Lexer.test:2:47-52: IDENT 'float'
+experiments/dblang/parse/Lexer.test:2:53-57: IDENT 'auto'
+experiments/dblang/parse/Lexer.test:2:58-63: IDENT 'Alias'
+experiments/dblang/parse/Lexer.test:2:64-68: IDENT 'defs'
 ================================================================================
 
-[ ] < > : .
+( ) { } [ ] < > : :: , . ;
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-2: LSBRACKET '['
-experiments/dblang/parse/Lexer.test:2:3-4: RSBRACKET ']'
-experiments/dblang/parse/Lexer.test:2:5-6: LANGLE '<'
-experiments/dblang/parse/Lexer.test:2:7-8: RANGLE '>'
-experiments/dblang/parse/Lexer.test:2:9-10: COLON ':'
-experiments/dblang/parse/Lexer.test:2:11-12: DOT '.'
+experiments/dblang/parse/Lexer.test:2:1-2: LPAREN '('
+experiments/dblang/parse/Lexer.test:2:3-4: RPAREN ')'
+experiments/dblang/parse/Lexer.test:2:5-6: LBRACE '{'
+experiments/dblang/parse/Lexer.test:2:7-8: RBRACE '}'
+experiments/dblang/parse/Lexer.test:2:9-10: LSBRACKET '['
+experiments/dblang/parse/Lexer.test:2:11-12: RSBRACKET ']'
+experiments/dblang/parse/Lexer.test:2:13-14: LANGLE '<'
+experiments/dblang/parse/Lexer.test:2:15-16: RANGLE '>'
+experiments/dblang/parse/Lexer.test:2:17-18: COLON ':'
+experiments/dblang/parse/Lexer.test:2:19-21: DCOLON '::'
+experiments/dblang/parse/Lexer.test:2:22-23: COMMA ','
+experiments/dblang/parse/Lexer.test:2:24-25: DOT '.'
+experiments/dblang/parse/Lexer.test:2:26-27: SEMI ';'
 ================================================================================
 
-+ - / = ! ~ & | ? % ^
++ - * / % ! ~ & | ^ ?
 --------------------------------------------------------------------------------
 experiments/dblang/parse/Lexer.test:2:1-2: PLUS '+'
 experiments/dblang/parse/Lexer.test:2:3-4: MINUS '-'
-experiments/dblang/parse/Lexer.test:2:5-6: SLASH '/'
-experiments/dblang/parse/Lexer.test:2:7-8: ASSIGN '='
-experiments/dblang/parse/Lexer.test:2:9-10: EXCLAMATION '!'
-experiments/dblang/parse/Lexer.test:2:11-12: TILDE '~'
-experiments/dblang/parse/Lexer.test:2:13-14: AMPERSAND '&'
-experiments/dblang/parse/Lexer.test:2:15-16: PIPE '|'
-experiments/dblang/parse/Lexer.test:2:17-18: QMARK '?'
-experiments/dblang/parse/Lexer.test:2:19-20: PERCENT '%'
-experiments/dblang/parse/Lexer.test:2:21-22: CARET '^'
+experiments/dblang/parse/Lexer.test:2:5-6: ASTERISK '*'
+experiments/dblang/parse/Lexer.test:2:7-8: SLASH '/'
+experiments/dblang/parse/Lexer.test:2:9-10: PERCENT '%'
+experiments/dblang/parse/Lexer.test:2:11-12: EXCLAMATION '!'
+experiments/dblang/parse/Lexer.test:2:13-14: TILDE '~'
+experiments/dblang/parse/Lexer.test:2:15-16: AMPERSAND '&'
+experiments/dblang/parse/Lexer.test:2:17-18: PIPE '|'
+experiments/dblang/parse/Lexer.test:2:19-20: CARET '^'
+experiments/dblang/parse/Lexer.test:2:21-22: QMARK '?'
 ================================================================================
 
--> && || == != <= >= << >>
+-> ++ -- && || == != <= >= << >>
 --------------------------------------------------------------------------------
 experiments/dblang/parse/Lexer.test:2:1-3: ARROW '->'
-experiments/dblang/parse/Lexer.test:2:4-6: DAMPERSAND '&&'
-experiments/dblang/parse/Lexer.test:2:7-9: DPIPE '||'
-experiments/dblang/parse/Lexer.test:2:10-12: EQUAL '=='
-experiments/dblang/parse/Lexer.test:2:13-15: NOT_EQUAL '!='
-experiments/dblang/parse/Lexer.test:2:16-18: LEQ '<='
-experiments/dblang/parse/Lexer.test:2:19-21: GEQ '>='
-experiments/dblang/parse/Lexer.test:2:22-24: LSHIFT '<<'
-experiments/dblang/parse/Lexer.test:2:25-27: RSHIFT '>>'
+experiments/dblang/parse/Lexer.test:2:4-6: DPLUS '++'
+experiments/dblang/parse/Lexer.test:2:7-9: DMINUS '--'
+experiments/dblang/parse/Lexer.test:2:10-12: DAMPERSAND '&&'
+experiments/dblang/parse/Lexer.test:2:13-15: DPIPE '||'
+experiments/dblang/parse/Lexer.test:2:16-18: EQUAL '=='
+experiments/dblang/parse/Lexer.test:2:19-21: NOT_EQUAL '!='
+experiments/dblang/parse/Lexer.test:2:22-24: LEQ '<='
+experiments/dblang/parse/Lexer.test:2:25-27: GEQ '>='
+experiments/dblang/parse/Lexer.test:2:28-30: LSHIFT '<<'
+experiments/dblang/parse/Lexer.test:2:31-33: RSHIFT '>>'
 ================================================================================
 
-break
+= *= /= %= += -= <<= >>= &= ^= |=
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-6: BREAK 'break'
+experiments/dblang/parse/Lexer.test:2:1-2: ASSIGN '='
+experiments/dblang/parse/Lexer.test:2:3-5: ASTERISK_ASSIGN '*='
+experiments/dblang/parse/Lexer.test:2:6-8: SLASH_ASSIGN '/='
+experiments/dblang/parse/Lexer.test:2:9-11: PERCENT_ASSIGN '%='
+experiments/dblang/parse/Lexer.test:2:12-14: PLUS_ASSIGN '+='
+experiments/dblang/parse/Lexer.test:2:15-17: MINUS_ASSIGN '-='
+experiments/dblang/parse/Lexer.test:2:18-21: LSHIFT_ASSIGN '<<='
+experiments/dblang/parse/Lexer.test:2:22-25: RSHIFT_ASSIGN '>>='
+experiments/dblang/parse/Lexer.test:2:26-28: AMPERSAND_ASSIGN '&='
+experiments/dblang/parse/Lexer.test:2:29-31: CARET_ASSIGN '^='
+experiments/dblang/parse/Lexer.test:2:32-34: PIPE_ASSIGN '|='
+================================================================================
+
+a<<=b a>>=b a<<b a::b::c a->b x+++y x---y
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: IDENT 'a'
+experiments/dblang/parse/Lexer.test:2:2-5: LSHIFT_ASSIGN '<<='
+experiments/dblang/parse/Lexer.test:2:5-6: IDENT 'b'
+experiments/dblang/parse/Lexer.test:2:7-8: IDENT 'a'
+experiments/dblang/parse/Lexer.test:2:8-11: RSHIFT_ASSIGN '>>='
+experiments/dblang/parse/Lexer.test:2:11-12: IDENT 'b'
+experiments/dblang/parse/Lexer.test:2:13-14: IDENT 'a'
+experiments/dblang/parse/Lexer.test:2:14-16: LSHIFT '<<'
+experiments/dblang/parse/Lexer.test:2:16-17: IDENT 'b'
+experiments/dblang/parse/Lexer.test:2:18-19: IDENT 'a'
+experiments/dblang/parse/Lexer.test:2:19-21: DCOLON '::'
+experiments/dblang/parse/Lexer.test:2:21-22: IDENT 'b'
+experiments/dblang/parse/Lexer.test:2:22-24: DCOLON '::'
+experiments/dblang/parse/Lexer.test:2:24-25: IDENT 'c'
+experiments/dblang/parse/Lexer.test:2:26-27: IDENT 'a'
+experiments/dblang/parse/Lexer.test:2:27-29: ARROW '->'
+experiments/dblang/parse/Lexer.test:2:29-30: IDENT 'b'
+experiments/dblang/parse/Lexer.test:2:31-32: IDENT 'x'
+experiments/dblang/parse/Lexer.test:2:32-34: DPLUS '++'
+experiments/dblang/parse/Lexer.test:2:34-35: PLUS '+'
+experiments/dblang/parse/Lexer.test:2:35-36: IDENT 'y'
+experiments/dblang/parse/Lexer.test:2:37-38: IDENT 'x'
+experiments/dblang/parse/Lexer.test:2:38-40: DMINUS '--'
+experiments/dblang/parse/Lexer.test:2:40-41: MINUS '-'
+experiments/dblang/parse/Lexer.test:2:41-42: IDENT 'y'
+================================================================================
+
+:::
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: DCOLON '::'
+experiments/dblang/parse/Lexer.test:2:3-4: COLON ':'
+================================================================================
+
+<<<=
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: LSHIFT '<<'
+experiments/dblang/parse/Lexer.test:2:3-5: LEQ '<='
+================================================================================
+
+a.b...c
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: IDENT 'a'
+experiments/dblang/parse/Lexer.test:2:2-3: DOT '.'
+experiments/dblang/parse/Lexer.test:2:3-4: IDENT 'b'
+experiments/dblang/parse/Lexer.test:2:4-5: DOT '.'
+experiments/dblang/parse/Lexer.test:2:5-6: DOT '.'
+experiments/dblang/parse/Lexer.test:2:6-7: DOT '.'
+experiments/dblang/parse/Lexer.test:2:7-8: IDENT 'c'
+================================================================================
+
+x=-1;y=!z;
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: IDENT 'x'
+experiments/dblang/parse/Lexer.test:2:2-3: ASSIGN '='
+experiments/dblang/parse/Lexer.test:2:3-4: MINUS '-'
+experiments/dblang/parse/Lexer.test:2:4-5: INT '1'
+experiments/dblang/parse/Lexer.test:2:5-6: SEMI ';'
+experiments/dblang/parse/Lexer.test:2:6-7: IDENT 'y'
+experiments/dblang/parse/Lexer.test:2:7-8: ASSIGN '='
+experiments/dblang/parse/Lexer.test:2:8-9: EXCLAMATION '!'
+experiments/dblang/parse/Lexer.test:2:9-10: IDENT 'z'
+experiments/dblang/parse/Lexer.test:2:10-11: SEMI ';'
+================================================================================
+
+->
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: ARROW '->'
+================================================================================
+
+0 1 42 1234567890
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: INT '0'
+experiments/dblang/parse/Lexer.test:2:3-4: INT '1'
+experiments/dblang/parse/Lexer.test:2:5-7: INT '42'
+experiments/dblang/parse/Lexer.test:2:8-18: INT '1234567890'
+================================================================================
+
+1_000_000 0xFFFF_0000 0b1010_1010
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-10: INT '1_000_000'
+experiments/dblang/parse/Lexer.test:2:11-22: INT '0xFFFF_0000'
+experiments/dblang/parse/Lexer.test:2:23-34: INT '0b1010_1010'
+================================================================================
+
+0x0123456789ABCDEFabcdef 0X1f
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-25: INT '0x0123456789ABCDEFabcdef'
+experiments/dblang/parse/Lexer.test:2:26-30: INT '0X1f'
+================================================================================
+
+0b0 0b1 0B101
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-4: INT '0b0'
+experiments/dblang/parse/Lexer.test:2:5-8: INT '0b1'
+experiments/dblang/parse/Lexer.test:2:9-14: INT '0B101'
+================================================================================
+
+3.14 1. .5 1e9 6.022e+23 1E-5
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-5: FLOAT '3.14'
+experiments/dblang/parse/Lexer.test:2:6-8: FLOAT '1.'
+experiments/dblang/parse/Lexer.test:2:9-11: FLOAT '.5'
+experiments/dblang/parse/Lexer.test:2:12-15: FLOAT '1e9'
+experiments/dblang/parse/Lexer.test:2:16-25: FLOAT '6.022e+23'
+experiments/dblang/parse/Lexer.test:2:26-30: FLOAT '1E-5'
+================================================================================
+
+0.5 00.5 007.5 1_000.000_1 1.e5 .5e1 0e0
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-4: FLOAT '0.5'
+experiments/dblang/parse/Lexer.test:2:5-9: FLOAT '00.5'
+experiments/dblang/parse/Lexer.test:2:10-15: FLOAT '007.5'
+experiments/dblang/parse/Lexer.test:2:16-27: FLOAT '1_000.000_1'
+experiments/dblang/parse/Lexer.test:2:28-32: FLOAT '1.e5'
+experiments/dblang/parse/Lexer.test:2:33-37: FLOAT '.5e1'
+experiments/dblang/parse/Lexer.test:2:38-41: FLOAT '0e0'
+================================================================================
+
+1..2
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: FLOAT '1.'
+experiments/dblang/parse/Lexer.test:2:3-5: FLOAT '.2'
+================================================================================
+
+x.5
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: IDENT 'x'
+experiments/dblang/parse/Lexer.test:2:2-4: FLOAT '.5'
+================================================================================
+
+-1 -1.5
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: MINUS '-'
+experiments/dblang/parse/Lexer.test:2:2-3: INT '1'
+experiments/dblang/parse/Lexer.test:2:4-5: MINUS '-'
+experiments/dblang/parse/Lexer.test:2:5-8: FLOAT '1.5'
+================================================================================
+
+0x1.5
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-4: INT '0x1'
+experiments/dblang/parse/Lexer.test:2:4-6: FLOAT '.5'
+================================================================================
+
+0755
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-5: error: decimal integer literal cannot start with '0'
+================================================================================
+
+00
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: error: decimal integer literal cannot start with '0'
+================================================================================
+
+0_1
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-4: error: decimal integer literal cannot start with '0'
+================================================================================
+
+123abc
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-5: error: invalid character 'a' in numeric literal
+================================================================================
+
+0x1g
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-5: error: invalid character 'g' in numeric literal
+================================================================================
+
+0x
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: error: expected hex digit after '0x'
+================================================================================
+
+0x_1
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: error: expected hex digit after '0x'
+================================================================================
+
+0b
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: error: expected binary digit after '0b'
+================================================================================
+
+0b102
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-6: error: invalid character '2' in numeric literal
+================================================================================
+
+1__000
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: error: invalid character '_' in numeric literal
+================================================================================
+
+1_
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: error: invalid character '_' in numeric literal
+================================================================================
+
+1e
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: error: expected digit in exponent
+================================================================================
+
+1e+
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-4: error: expected digit in exponent
+================================================================================
+
+1.5f
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-5: error: invalid character 'f' in numeric literal
+================================================================================
+
+42u
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-4: error: invalid character 'u' in numeric literal
+================================================================================
+
+1.x
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-4: error: invalid character 'x' in numeric literal
+================================================================================
+
+'x' ' ' '"' '?'
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-4: CHAR 'x'
+experiments/dblang/parse/Lexer.test:2:5-8: CHAR ' '
+experiments/dblang/parse/Lexer.test:2:9-12: CHAR '"'
+experiments/dblang/parse/Lexer.test:2:13-16: CHAR '?'
+================================================================================
+
+'\'' '\"' '\?' '\\' '\a' '\b' '\f' '\n' '\r' '\t' '\v'
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-5: CHAR '\''
+experiments/dblang/parse/Lexer.test:2:6-10: CHAR '\"'
+experiments/dblang/parse/Lexer.test:2:11-15: CHAR '\?'
+experiments/dblang/parse/Lexer.test:2:16-20: CHAR '\\'
+experiments/dblang/parse/Lexer.test:2:21-25: CHAR '\a'
+experiments/dblang/parse/Lexer.test:2:26-30: CHAR '\b'
+experiments/dblang/parse/Lexer.test:2:31-35: CHAR '\f'
+experiments/dblang/parse/Lexer.test:2:36-40: CHAR '\n'
+experiments/dblang/parse/Lexer.test:2:41-45: CHAR '\r'
+experiments/dblang/parse/Lexer.test:2:46-50: CHAR '\t'
+experiments/dblang/parse/Lexer.test:2:51-55: CHAR '\v'
+================================================================================
+
+'\x41' '\x00' '\x141'
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-7: CHAR '\x41'
+experiments/dblang/parse/Lexer.test:2:8-14: CHAR '\x00'
+experiments/dblang/parse/Lexer.test:2:15-22: CHAR '\x141'
+================================================================================
+
+''
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: error: empty character literal
+================================================================================
+
+'ab'
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-4: error: character literal must contain exactly one character
+================================================================================
+
+'a
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: error: unterminated character literal
+================================================================================
+
+'a
+'
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: error: unterminated character literal
+================================================================================
+
+'\0'
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:2-4: error: invalid escape sequence: '0'
+================================================================================
+
+'\u0041'
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:2-4: error: invalid escape sequence: 'u'
+================================================================================
+
+'\x'
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:2-4: error: expected hex digit in escape sequence
+================================================================================
+
+'é'
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-3: error: non-ASCII character in character literal
+================================================================================
+
+"hello world" ""
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-14: STRING 'hello world'
+experiments/dblang/parse/Lexer.test:2:15-17: STRING ''
+================================================================================
+
+"a\"b" "\\" "\n\t\x7F\x00" "it's"
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-7: STRING 'a\"b'
+experiments/dblang/parse/Lexer.test:2:8-12: STRING '\\'
+experiments/dblang/parse/Lexer.test:2:13-27: STRING '\n\t\x7F\x00'
+experiments/dblang/parse/Lexer.test:2:28-34: STRING 'it's'
+================================================================================
+
+"héllo wörld 🎉"
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-21: STRING 'héllo wörld 🎉'
+================================================================================
+
+"/* not a comment */" "// not a comment"
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-22: STRING '/* not a comment */'
+experiments/dblang/parse/Lexer.test:2:23-41: STRING '// not a comment'
+================================================================================
+
+"unterminated
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-14: error: unterminated string literal
+================================================================================
+
+"multi
+line"
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-7: error: unterminated string literal
+================================================================================
+
+"bad \q escape"
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:6-8: error: invalid escape sequence: 'q'
+================================================================================
+
+"\x"
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:2-4: error: expected hex digit in escape sequence
+================================================================================
+
+"trailing backslash \
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-22: error: unterminated string literal
 ================================================================================
 
 // this is a comment
 --------------------------------------------------------------------------------
+================================================================================
+
+a // comment with é
+b
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: IDENT 'a'
+experiments/dblang/parse/Lexer.test:3:1-2: IDENT 'b'
 ================================================================================
 
 /*
@@ -95,33 +677,83 @@ experiments/dblang/parse/Lexer.test:2:1-6: BREAK 'break'
 --------------------------------------------------------------------------------
 ================================================================================
 
-...
+a /* inline */ b
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-4: ELLIPSIS '...'
+experiments/dblang/parse/Lexer.test:2:1-2: IDENT 'a'
+experiments/dblang/parse/Lexer.test:2:16-17: IDENT 'b'
 ================================================================================
 
-3.14e-2
+/* /* not nested */ x
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-8: FLOAT '3.14e-2'
+experiments/dblang/parse/Lexer.test:2:21-22: IDENT 'x'
 ================================================================================
 
-1e5
+/* /* not nested */ */
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-4: INT '1e5'
+experiments/dblang/parse/Lexer.test:2:21-22: ASTERISK '*'
+experiments/dblang/parse/Lexer.test:2:22-23: SLASH '/'
 ================================================================================
 
-42u 42L
+/* unterminated
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-4: INT '42u'
-experiments/dblang/parse/Lexer.test:2:5-8: INT '42L'
+experiments/dblang/parse/Lexer.test lines 2-3 characters 1-1: error: unterminated block comment
 ================================================================================
 
-'\n'
+/**/a/***/b
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-5: CHAR '\n'
+experiments/dblang/parse/Lexer.test:2:5-6: IDENT 'a'
+experiments/dblang/parse/Lexer.test:2:11-12: IDENT 'b'
 ================================================================================
 
-"a\"b"
+a/b /=c
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-7: STRING 'a\"b'
+experiments/dblang/parse/Lexer.test:2:1-2: IDENT 'a'
+experiments/dblang/parse/Lexer.test:2:2-3: SLASH '/'
+experiments/dblang/parse/Lexer.test:2:3-4: IDENT 'b'
+experiments/dblang/parse/Lexer.test:2:5-7: SLASH_ASSIGN '/='
+experiments/dblang/parse/Lexer.test:2:7-8: IDENT 'c'
+================================================================================
+
+	a
+b
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:2-3: IDENT 'a'
+experiments/dblang/parse/Lexer.test:3:1-2: IDENT 'b'
+================================================================================
+
+@
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: error: unrecognized input: '@'
+================================================================================
+
+#include
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: error: unrecognized input: '#'
+================================================================================
+
+$
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: error: unrecognized input: '$'
+================================================================================
+
+`
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: error: unrecognized input: '`'
+================================================================================
+
+\
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: error: unrecognized input: '\'
+================================================================================
+
+x é
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: IDENT 'x'
+experiments/dblang/parse/Lexer.test:2:3-4: error: unrecognized input: byte 0xC3
+================================================================================
+
+ab
+--------------------------------------------------------------------------------
+experiments/dblang/parse/Lexer.test:2:1-2: IDENT 'a'
+experiments/dblang/parse/Lexer.test:2:2-3: error: unrecognized input: byte 0x0C
 ================================================================================

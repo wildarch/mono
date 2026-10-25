@@ -82,17 +82,21 @@ static LogicalResult runTest(TestCase &test) {
   std::vector<Token> tokens;
   // TODO: allow setting start location in file.
   Loc loc{.filename = TESTS_PATH, .start = InFilePos::startOfFile()};
-  if (failed(lex(test.input, loc, tokens))) {
-    return LogicalResult::failure();
-  }
+
+  // Capture reported errors so they become part of the test output.
+  std::stringstream errors;
+  auto *origCerr = std::cerr.rdbuf(errors.rdbuf());
+  auto result = lex(test.input, loc, tokens);
+  std::cerr.rdbuf(origCerr);
 
   std::stringstream ss;
   for (const auto &token : tokens) {
     ss << token << "\n";
   }
 
+  ss << errors.str();
   test.actual = ss.str();
-  return LogicalResult::success();
+  return result;
 }
 
 int main(int argc, char **argv) {

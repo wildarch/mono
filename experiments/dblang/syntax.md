@@ -1,7 +1,7 @@
 # DBLang Syntax
 Details the grammar of DBLang.
 
-As in C (C23 §6.4), the grammar has two levels:
+The grammar has two levels:
 - The *lexical grammar* splits source text into tokens.
   Its rules have `snake_case` names, and are defined in [Lexical Structure](#lexical-structure).
 - The *syntactic grammar* builds definitions, statements and expressions from tokens.
@@ -128,7 +128,7 @@ A block is a collection of statements.
 Block = "{" Stmt* "}";
 ```
 
-### Statement
+## Statement
 Statements follow C (C23 §6.8), with the differences listed below.
 
 ```
@@ -179,7 +179,7 @@ Case expressions must be constant, which is checked after parsing.
 
 A `let` in the first clause of a `for` is scoped to the loop.
 
-### Expression
+## Expression
 Expressions follow the syntax of C (C23 §6.5), with these differences:
 - There are no comma, assignment, increment or decrement operators.
 - `sizeof` only takes a type.
@@ -317,10 +317,6 @@ exponent = ("e" | "E") ("+" | "-")? digit_seq;
 
 Examples: `3.14`, `1.`, `.5`, `1e9`, `6.022e+23`.
 
-Unlike C:
-- There are no hexadecimal floating-point literals such as `0x1.8p3`.
-- There are no suffixes (`f`, `l`, `df`, `dd`, `dl`). The type of a literal is determined after parsing.
-
 ### Character Literal
 ```
 char_lit = "'" c_char "'";
@@ -333,11 +329,6 @@ simple_escape = "'" | '"' | "?" | "\" | "a" | "b" | "f" | "n" | "r" | "t" | "v";
 
 The value of a character literal is the ASCII code of its character, or the value of its escape sequence.
 The value of a hexadecimal escape sequence must fit in a `char`, which is checked after lexing: `'\x41'` and `'\x00'` are valid, `'\x141'` is not.
-
-Unlike C:
-- A character literal contains exactly one `c_char`. There are no multi-character literals such as `'ab'`.
-- There are no octal escape sequences: write `'\x00'` instead of `'\0'`.
-- There are no encoding prefixes (`u8`, `u`, `U`, `L`) and no universal character names (`\u`, `\U`).
 
 ### String Literal
 ```

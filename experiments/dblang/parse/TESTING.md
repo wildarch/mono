@@ -105,6 +105,13 @@ experiments/dblang/parse/Lexer.test:1:1-4: INT_KW 'int'
 Comments and whitespace produce no tokens, so an input consisting only of a
 comment yields an empty expected block.
 
+The lexer stops at the first error. The tokens lexed before it are printed as
+usual, followed by the reported error:
+
+```
+experiments/dblang/parse/Lexer.test:2:1-5: error: decimal integer literal cannot start with '0'
+```
+
 ### Chunker output format
 
 For each chunk, `ChunkerTest` prints the chunk location followed by the chunk

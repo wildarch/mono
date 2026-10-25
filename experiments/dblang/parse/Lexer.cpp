@@ -5,6 +5,7 @@
 #include <cassert>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -30,8 +31,17 @@ private:
   }
 
   std::optional<std::string_view> peek(std::size_t n) {
-    if (offset + n < buffer.size()) {
+    if (offset + n <= buffer.size()) {
       return buffer.substr(offset, n);
+    } else {
+      return std::nullopt;
+    }
+  }
+
+  /// The character n positions ahead of the current one.
+  std::optional<char> lookahead(std::size_t n) {
+    if (offset + n < buffer.size()) {
+      return buffer[offset + n];
     } else {
       return std::nullopt;
     }
@@ -63,11 +73,13 @@ private:
 
   void initKeywords();
 
-  void eatWhitespace();
+  LogicalResult eatWhitespace();
 
   Token nextToken();
   Token lexIdent();
-  Token lexIntOrFloat();
+  Token lexNumber();
+  bool eatDigitSeq(bool (*isDigitFn)(char));
+  LogicalResult eatEscapeSeq();
   Token lexChar();
   Token lexString();
 
@@ -87,7 +99,7 @@ void Lexer::initKeywords() {
 #undef CASE
 }
 
-void Lexer::eatWhitespace() {
+LogicalResult Lexer::eatWhitespace() {
   while (cur()) {
     if (cur() == ' ' || cur() == '\t' || cur() == '\n' || cur() == '\r') {
       eat();
@@ -98,10 +110,14 @@ void Lexer::eatWhitespace() {
       }
     } else if (peek(2) == "/*") {
       /* multi-line comment */
+      auto locStart = pos;
       eat();
       eat();
-      while (cur()) {
-        if (peek(2) == "*/") {
+      while (true) {
+        if (!cur()) {
+          return reportError(locFromTo(locStart, pos),
+                             "unterminated block comment");
+        } else if (peek(2) == "*/") {
           eat();
           eat();
           break;
@@ -114,6 +130,8 @@ void Lexer::eatWhitespace() {
       break;
     }
   }
+
+  return LogicalResult::success();
 }
 
 static bool isAlpha(char c) {
@@ -123,28 +141,45 @@ static bool isDigit(char c) { return '0' <= c && c <= '9'; }
 static bool isHex(char c) {
   return isDigit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
 }
+static bool isBinary(char c) { return c == '0' || c == '1'; }
+static bool isAscii(char c) { return static_cast<unsigned char>(c) < 0x80; }
 
 static bool isIdentifierStart(char c) { return isAlpha(c) || c == '_'; }
 static bool isIdentifierContinue(char c) {
   return isIdentifierStart(c) || isDigit(c);
 }
 
+/// Prints a character for use in an error message.
+static std::string describeChar(char c) {
+  auto u = static_cast<unsigned char>(c);
+  if (0x20 <= u && u < 0x7F) {
+    return std::string("'") + c + "'";
+  }
+
+  const char *hex = "0123456789ABCDEF";
+  return std::string("byte 0x") + hex[u >> 4] + hex[u & 0xF];
+}
+
 Token Lexer::nextToken() {
-  eatWhitespace();
+  if (failed(eatWhitespace())) {
+    return Token{Loc{filename, pos, pos}, Token::INVALID};
+  }
+
   auto locStart = pos;
   if (!cur()) {
     return Token{Loc{filename, locStart}, Token::END_OF_FILE};
   } else if (isIdentifierStart(*cur())) {
     return lexIdent();
-  } else if (isDigit(*cur())) {
-    return lexIntOrFloat();
+  } else if (isDigit(*cur()) ||
+             (cur() == '.' && lookahead(1) && isDigit(*lookahead(1)))) {
+    return lexNumber();
   } else if (cur() == '\'') {
     return lexChar();
   } else if (cur() == '"') {
     return lexString();
   }
 
-  // Ellipsis
+  // Punctuators are matched longest first.
   auto three = peek(3);
   Loc locThree{filename, pos, InFilePos{pos.line, pos.column + 3}};
 #define THREE(c, t)                                                            \
@@ -155,10 +190,10 @@ Token Lexer::nextToken() {
     return Token{locThree, Token::t, *three};                                  \
   }
 
-  THREE("...", ELLIPSIS)
+  THREE("<<=", LSHIFT_ASSIGN)
+  THREE(">>=", RSHIFT_ASSIGN)
 #undef THREE
 
-  // Operators of length 2
   auto two = peek(2);
   Loc locTwo{filename, pos, InFilePos{pos.line, pos.column + 2}};
 #define TWO(c, t)                                                              \
@@ -168,7 +203,10 @@ Token Lexer::nextToken() {
     return Token{locTwo, Token::t, *two};                                      \
   }
 
+  TWO("::", DCOLON)
   TWO("->", ARROW)
+  TWO("++", DPLUS)
+  TWO("--", DMINUS)
   TWO("&&", DAMPERSAND)
   TWO("||", DPIPE)
   TWO("==", EQUAL)
@@ -177,9 +215,16 @@ Token Lexer::nextToken() {
   TWO(">=", GEQ)
   TWO("<<", LSHIFT)
   TWO(">>", RSHIFT)
+  TWO("*=", ASTERISK_ASSIGN)
+  TWO("/=", SLASH_ASSIGN)
+  TWO("%=", PERCENT_ASSIGN)
+  TWO("+=", PLUS_ASSIGN)
+  TWO("-=", MINUS_ASSIGN)
+  TWO("&=", AMPERSAND_ASSIGN)
+  TWO("^=", CARET_ASSIGN)
+  TWO("|=", PIPE_ASSIGN)
 #undef TWO
 
-  // Operators and punctuation (length 1)
   auto one = buffer.substr(offset, 1);
   Loc locOne{filename, locStart, InFilePos{locStart.line, locStart.column + 1}};
 #define ONE(c, t)                                                              \
@@ -203,18 +248,18 @@ Token Lexer::nextToken() {
   ONE('-', MINUS)
   ONE('*', ASTERISK)
   ONE('/', SLASH)
+  ONE('%', PERCENT)
   ONE('=', ASSIGN)
   ONE('!', EXCLAMATION)
   ONE('~', TILDE)
   ONE('&', AMPERSAND)
   ONE('|', PIPE)
-  ONE('?', QMARK)
-  ONE('%', PERCENT)
   ONE('^', CARET)
+  ONE('?', QMARK)
+#undef ONE
 
-  Loc invalidLoc{filename, locStart};
-  reportError(invalidLoc, "unrecognized input: ") << *cur();
-  return Token{invalidLoc, Token::INVALID};
+  reportError(locOne, "unrecognized input: ") << describeChar(*cur());
+  return Token{locOne, Token::INVALID};
 }
 
 Token Lexer::lexIdent() {
@@ -238,74 +283,134 @@ Token Lexer::lexIdent() {
   return Token{locFromTo(locStart, pos), kind, body};
 }
 
-Token Lexer::lexIntOrFloat() {
-  assert(isDigit(*cur()));
+/// Eats a sequence of digits, optionally separated by single underscores.
+/// Returns false if there is no digit at the current position.
+bool Lexer::eatDigitSeq(bool (*isDigitFn)(char)) {
+  if (!cur() || !isDigitFn(*cur())) {
+    return false;
+  }
+
+  eat();
+  while (cur()) {
+    if (isDigitFn(*cur())) {
+      eat();
+    } else if (cur() == '_' && lookahead(1) && isDigitFn(*lookahead(1))) {
+      eat(); // the '_'
+      eat();
+    } else {
+      break;
+    }
+  }
+
+  return true;
+}
+
+Token Lexer::lexNumber() {
   auto locStart = pos;
   std::size_t start = offset;
-  while (cur() && isDigit(*cur())) {
+  auto invalid = [&](std::string_view msg) {
+    auto loc = locFromTo(locStart, pos);
+    reportError(loc, msg);
+    return Token{loc, Token::INVALID};
+  };
+
+  auto kind = Token::INT;
+  auto prefix = peek(2);
+  if (prefix == "0x" || prefix == "0X") {
+    // hex notation, e.g. 0xDEADBEEF
     eat();
+    eat();
+    if (!eatDigitSeq(isHex)) {
+      return invalid("expected hex digit after '0x'");
+    }
+  } else if (prefix == "0b" || prefix == "0B") {
+    // binary notation, e.g. 0b1010
+    eat();
+    eat();
+    if (!eatDigitSeq(isBinary)) {
+      return invalid("expected binary digit after '0b'");
+    }
+  } else {
+    bool hasIntPart = eatDigitSeq(isDigit);
+    if (tryEat('.')) {
+      // float notation, e.g. 3.14, 1. or .5
+      kind = Token::FLOAT;
+      bool hasFracPart = eatDigitSeq(isDigit);
+      assert(hasIntPart || hasFracPart);
+    }
+
+    if (cur() == 'e' || cur() == 'E') {
+      // exponent, e.g. 1e9
+      kind = Token::FLOAT;
+      eat();
+      if (cur() == '+' || cur() == '-') {
+        eat();
+      }
+
+      if (!eatDigitSeq(isDigit)) {
+        return invalid("expected digit in exponent");
+      }
+    }
+
+    if (kind == Token::INT && buffer[start] == '0' && offset - start > 1) {
+      return invalid("decimal integer literal cannot start with '0'");
+    }
+  }
+
+  if (cur() && isIdentifierContinue(*cur())) {
+    char c = *cur();
+    eat();
+    reportError(locFromTo(locStart, pos), "invalid character ")
+        << describeChar(c) << " in numeric literal";
+    return Token{locFromTo(locStart, pos), Token::INVALID};
   }
 
   auto body = buffer.substr(start, offset - start);
-  bool isHexFormat = body == "0" && cur() == 'x';
-  if (isHexFormat) {
-    // hex notation, e.g. 0xDEADBEEF
-    eat(); // the 'x'
+  return Token{locFromTo(locStart, pos), kind, body};
+}
+
+LogicalResult Lexer::eatEscapeSeq() {
+  assert(cur() == '\\');
+  auto escStart = pos;
+  eat();
+  if (!cur() || cur() == '\n') {
+    // Reported by the caller as unterminated.
+    return LogicalResult::success();
+  }
+
+  switch (*cur()) {
+  case '\'':
+  case '"':
+  case '?':
+  case '\\':
+  case 'a':
+  case 'b':
+  case 'f':
+  case 'n':
+  case 'r':
+  case 't':
+  case 'v':
+    eat();
+    return LogicalResult::success();
+  case 'x':
+    eat();
+    if (!cur() || !isHex(*cur())) {
+      return reportError(locFromTo(escStart, pos),
+                         "expected hex digit in escape sequence");
+    }
+
     while (cur() && isHex(*cur())) {
       eat();
     }
 
-    body = buffer.substr(start, offset - start);
-    if (body == "0x") {
-      auto loc = locFromTo(locStart, pos);
-      reportError(loc,
-                  "invalid hex integer (must have at least one hex digit)");
-      return Token{loc, Token::INVALID};
-    }
-  }
-
-  // float notation, e.g. 3.14
-  if (!isHexFormat && cur() == '.') {
-    eat(); // the '.'
-    while (cur() && isDigit(*cur())) {
-      eat();
-    }
-
-    if (cur() == 'e') {
-      // exponent
-      eat();
-
-      if (cur() == '+' || cur() == '-') {
-        // exponent sign
-        eat();
-      }
-
-      while (cur() && isDigit(*cur())) {
-        // exponent digits
-        eat();
-      }
-    }
-
-    body = buffer.substr(start, offset - start);
-    return Token{locFromTo(locStart, pos), Token::FLOAT, body};
-  }
-
-  if (!isHexFormat && cur() == 'e') {
-    // exponent
-    eat(); // e
-    while (cur() && isDigit(*cur())) {
-      eat();
-    }
-  }
-
-  while (cur() == 'u' || cur() == 'U' || cur() == 'l' || cur() == 'L') {
-    // suffix
+    return LogicalResult::success();
+  default: {
+    char c = *cur();
     eat();
+    return reportError(locFromTo(escStart, pos), "invalid escape sequence: ")
+           << describeChar(c);
   }
-
-  body = buffer.substr(start, offset - start);
-
-  return Token{locFromTo(locStart, pos), Token::INT, body};
+  }
 }
 
 Token Lexer::lexChar() {
@@ -313,32 +418,35 @@ Token Lexer::lexChar() {
   auto locStart = pos;
   eat();
   std::size_t start = offset;
-  bool escaped;
-  if (cur() == '\\') {
-    // eat the escape
-    escaped = true;
-    eat();
-  }
+  auto invalid = [&](std::string_view msg) {
+    auto loc = locFromTo(locStart, pos);
+    reportError(loc, msg);
+    return Token{loc, Token::INVALID};
+  };
 
-  if (!cur()) {
-    // Unterminated
-    auto loc = locFromTo(locStart, pos);
-    reportError(loc, "unterminated character");
-    return Token{loc, Token::INVALID};
-  } else if (cur() == '\'' && !escaped) {
-    // got end of character too soon
-    auto loc = locFromTo(locStart, pos);
-    reportError(loc, "character literal of length 0");
-    return Token{loc, Token::INVALID};
+  if (!cur() || cur() == '\n') {
+    return invalid("unterminated character literal");
+  } else if (cur() == '\'') {
+    eat();
+    return invalid("empty character literal");
+  } else if (cur() == '\\') {
+    if (failed(eatEscapeSeq())) {
+      return Token{locFromTo(locStart, pos), Token::INVALID};
+    }
+  } else if (!isAscii(*cur())) {
+    eat();
+    return invalid("non-ASCII character in character literal");
   } else {
-    // The character.
     eat();
   }
 
   if (!tryEat('\'')) {
-    auto loc = locFromTo(locStart, pos);
-    reportError(loc, "character literal of length > 1");
-    return Token{loc, Token::INVALID};
+    if (!cur() || cur() == '\n') {
+      return invalid("unterminated character literal");
+    }
+
+    eat();
+    return invalid("character literal must contain exactly one character");
   }
 
   auto loc = locFromTo(locStart, pos);
@@ -352,18 +460,16 @@ Token Lexer::lexString() {
   eat();
   std::size_t start = offset;
   while (true) {
-    if (!cur()) {
+    if (!cur() || cur() == '\n') {
       auto loc = locFromTo(locStart, pos);
-      reportError(loc, "unterminated string");
+      reportError(loc, "unterminated string literal");
       return Token{loc, Token::INVALID};
     } else if (cur() == '"') {
       eat();
       break;
     } else if (cur() == '\\') {
-      eat();
-      // Also eat the next (escaped) character
-      if (cur()) {
-        eat();
+      if (failed(eatEscapeSeq())) {
+        return Token{locFromTo(locStart, pos), Token::INVALID};
       }
     } else {
       eat();
