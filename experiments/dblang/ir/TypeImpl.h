@@ -33,6 +33,8 @@ enum class TypeKind {
   U128,
   ISIZE,
   USIZE,
+  F32,
+  F64,
   // Compound/nested types
   DEF,
   ARRAY, // fixed-size array
