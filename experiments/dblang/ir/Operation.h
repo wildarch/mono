@@ -16,7 +16,6 @@ enum class OpKind {
   // Expression
   LITERAL,
   CALL,
-  CALL_MEMBER,
   CALL_INDIRECT,
   FIELD_PTR,
   ALLOCA,
@@ -49,45 +48,58 @@ struct Context {
   // OOL operand pool
 };
 
-struct OpHead {
+struct Operation {
   OpKind kind;
   Loc loc;
   Type resultType;
 };
 
-struct Operation : public OpHead {};
+struct Value {
+  unsigned off;
+};
 
-using Value = unsigned;
-using Block = unsigned;
+struct Block {
+  unsigned off;
+};
 
-struct IfOp {
+struct IfOp : public Operation {
   Value cond;
   Block ifBranch;
   Block elseBranch;
 };
 
-struct LoopOp {
+struct LoopOp : public Operation {
   Block body;
 };
 
-struct ReturnOp {
+struct ReturnOp : public Operation {
   Value val;
 };
 
-struct LiteralOp {
-  Literal val;
+struct ContinueOp : public Operation {};
+struct BreakOp : public Operation {};
+
+struct ConstOp : public Operation {
+  std::byte data[];
 };
 
-// Same idea for member and indirect versions (for those the first arg is
-// special)
-struct CallOp {
+struct CallOp : public Operation {
   DefFunction *target;
-  unsigned nargs;
-  void *ool;
+  Value args[];
 };
 
-struct BinOp {
-  Value lhs, rhs;
+struct CallIndirectOp : public Operation {
+  Value targetAddr;
+  Value args[];
+};
+
+struct FieldPtrOp : public Operation {
+  Value base;
+  unsigned fieldIdx;
+};
+
+struct AllocaOp : public Operation {
+  Value size;
 };
 
 } // namespace dblang::ir
