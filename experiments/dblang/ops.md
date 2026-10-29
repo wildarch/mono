@@ -113,3 +113,10 @@ These affect the op set:
 ## Changes to the Current `OpKind`
 - Add: `CONTINUE`, `SWITCH`, `YIELD`, `CALL_INDIRECT`, `ELEM_PTR`, `PTR_DIFF`, `GLOBAL_ADDR`, `CONST_STRING`, `CONST_FLOAT`, `NEG`, `BIT_NOT`, aggregate construction ops.
 - Change: `IF` gets results, `BREAK` gets a target, `AND`/`OR` are explicitly bitwise.
+
+## Extra Data
+Some ops require data beyond a result type and operands:
+- References to definitions (GLOBAL_ADDR, FUNC_ADDR, CALL)
+- Type (CAST, SIZEOF, ALIGNOF)
+- Indices (FIELD_PTR, EXTRACT_FIELD, ARRAY_SPLAT)
+- Flags (CMP)
