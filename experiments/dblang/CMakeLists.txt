@@ -10,6 +10,7 @@ include_directories(.)
 
 add_library(
     dblang
+    ir/Operation.cpp
     ir/StringPool.cpp
     ir/TypeImpl.cpp
     ir/TypePool.cpp

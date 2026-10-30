@@ -1,46 +1,17 @@
 #pragma once
 
+#include <algorithm>
+#include <cstddef>
+#include <span>
+#include <vector>
+
 #include "ir/Def.h"
-#include "ir/Literal.h"
 #include "ir/Type.h"
 #include "parse/Location.h"
 namespace dblang::ir {
 
-enum class OpKind {
-  // Control Flow
-  IF,
-  LOOP,
-  RETURN,
-  CONTINUE,
-  BREAK,
-  // Expression
-  LITERAL,
-  CALL,
-  CALL_INDIRECT,
-  FIELD_PTR,
-  ALLOCA,
-  CAST,
-  LOAD,
-  STORE,
-  FUNC_ADDR,
-  GLOBAL_ADDR,
-  CONST_ADDR,
-  // Arithmetic
-  ADD,
-  SUB,
-  MUL,
-  DIV,
-  MODULO,
-  CMP,
-  BIT_AND,
-  BIT_OR,
-  BIT_NOT,
-  BIT_XOR,
-  SHIFT_LEFT,
-  SHIFT_RIGHT,
-  PTR_ADD,
-  PTR_SUB,
-};
+#define GEN_OP_KIND
+#include "Operation.inc.h"
 
 struct Context {
   // type pool
@@ -62,44 +33,19 @@ struct Block {
   unsigned off;
 };
 
-struct IfOp : public Operation {
-  Value cond;
-  Block ifBranch;
-  Block elseBranch;
+enum class Comparator {
+  EQ,
+  NEQ,
+  LT,
+  LTE,
+  GT,
+  GTE,
 };
 
-struct LoopOp : public Operation {
-  Block body;
-};
+#define GEN_OP_CLASSES
+#include "Operation.inc.h"
 
-struct ReturnOp : public Operation {
-  Value val;
-};
-
-struct ContinueOp : public Operation {};
-struct BreakOp : public Operation {};
-
-struct ConstOp : public Operation {
-  std::byte data[];
-};
-
-struct CallOp : public Operation {
-  DefFunction *target;
-  Value args[];
-};
-
-struct CallIndirectOp : public Operation {
-  Value targetAddr;
-  Value args[];
-};
-
-struct FieldPtrOp : public Operation {
-  Value base;
-  unsigned fieldIdx;
-};
-
-struct AllocaOp : public Operation {
-  Value size;
-};
+#define GEN_OP_BUILD_DECL
+#include "Operation.inc.h"
 
 } // namespace dblang::ir
