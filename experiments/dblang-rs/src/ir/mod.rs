@@ -1,4 +1,5 @@
 mod generated;
+
 pub use generated::*;
 
 mod r#type;
@@ -7,19 +8,17 @@ pub use r#type::*;
 mod def;
 pub use def::*;
 
+#[derive(Clone, Copy, Debug)]
 pub struct Value {
     offset: u32,
 }
 
-pub struct Block {
+#[derive(Clone, Copy, Debug)]
+pub struct BlockRef {
     offset: u32,
 }
 
-pub struct Function {
-    offset: u32,
-}
-
-pub struct Def {
+pub struct DefRef {
     offset: u32,
 }
 
@@ -36,6 +35,10 @@ pub struct Operation {
     // TODO: loc
     pub result_type: Type,
     pub kind: OpKind,
+}
+
+pub struct Block {
+    ops: Vec<Value>,
 }
 
 pub enum Const {
@@ -55,8 +58,53 @@ pub enum Const {
     F64(f64),
 }
 
-pub struct Context {
-    // TODO: ops (values)
-    // TODO: blocks
-    // TODO: defs
+/// Context for a full program
+pub struct ProgramContext {
+    defs: Vec<Def>,
+}
+
+impl ProgramContext {
+    pub fn new() -> ProgramContext {
+        ProgramContext { defs: Vec::new() }
+    }
+}
+
+/// Context for an executable code region with one or more blocks of operations
+pub struct RegionContext {
+    ops: Vec<Operation>,
+    blocks: Vec<Block>,
+}
+
+impl RegionContext {
+    pub fn new() -> RegionContext {
+        RegionContext {
+            ops: Vec::new(),
+            blocks: Vec::new(),
+        }
+    }
+
+    pub fn new_builder(&mut self) -> OpBuilder<'_> {
+        OpBuilder {
+            region: self,
+            insertion_block: None,
+        }
+    }
+}
+
+pub struct OpBuilder<'a> {
+    region: &'a mut RegionContext,
+    insertion_block: Option<BlockRef>,
+}
+
+impl<'a> OpBuilder<'a> {
+    fn insert_op(&mut self, result_type: Type, kind: OpKind) -> Value {
+        let insert_block = self.insertion_block.expect("no insertion block");
+        // insert the op
+        let offset = self.region.ops.len() as u32;
+        self.region.ops.push(Operation { result_type, kind });
+        // place into the block
+        let block = &mut self.region.blocks[insert_block.offset as usize];
+        block.ops.push(Value { offset });
+        Value { offset }
+    }
 }

@@ -31,12 +31,12 @@ pub enum OpKind {
 
 pub struct IfOp {
     pub cond: Value,
-    pub if_branch: Block,
-    pub else_branch: Block,
+    pub if_branch: BlockRef,
+    pub else_branch: BlockRef,
 }
 
 pub struct LoopOp {
-    pub body: Block,
+    pub body: BlockRef,
 }
 
 pub struct ReturnOp {
@@ -52,7 +52,7 @@ pub struct ConstOp {
 }
 
 pub struct CallOp {
-    pub func: Function,
+    pub func: DefRef,
     pub args: Vec<Value>,
 }
 
@@ -84,7 +84,7 @@ pub struct StoreOp {
 }
 
 pub struct DefAddrOp {
-    pub def: Def,
+    pub def: DefRef,
 }
 
 pub struct CmpOp {
@@ -140,4 +140,130 @@ pub struct ShiftLeftOp {
 pub struct ShiftRightOp {
     pub lhs: Value,
     pub rhs: Value,
+}
+
+impl<'a> OpBuilder<'a> {
+    pub fn build_if(&mut self, cond: Value, if_branch: BlockRef, else_branch: BlockRef) {
+        self.insert_op(
+            Type::void(),
+            OpKind::If(IfOp {
+                cond,
+                if_branch,
+                else_branch,
+            }),
+        );
+    }
+
+    pub fn build_loop(&mut self, body: BlockRef) {
+        self.insert_op(Type::void(), OpKind::Loop(LoopOp { body }));
+    }
+
+    pub fn build_return(&mut self, val: Value) {
+        self.insert_op(Type::void(), OpKind::Return(ReturnOp { val }));
+    }
+
+    pub fn build_continue(&mut self) {
+        self.insert_op(Type::void(), OpKind::Continue(ContinueOp));
+    }
+
+    pub fn build_break(&mut self) {
+        self.insert_op(Type::void(), OpKind::Break(BreakOp));
+    }
+
+    pub fn build_const(&mut self, result_type: Type, value: Const) -> Value {
+        self.insert_op(result_type, OpKind::Const(ConstOp { value }))
+    }
+
+    pub fn build_call(&mut self, result_type: Type, func: DefRef, args: Vec<Value>) -> Value {
+        self.insert_op(result_type, OpKind::Call(CallOp { func, args }))
+    }
+
+    pub fn build_call_indirect(
+        &mut self,
+        result_type: Type,
+        target_addr: Value,
+        args: Vec<Value>,
+    ) -> Value {
+        self.insert_op(
+            result_type,
+            OpKind::CallIndirect(CallIndirectOp { target_addr, args }),
+        )
+    }
+
+    pub fn build_field_ptr(&mut self, result_type: Type, base: Value, field_idx: u32) -> Value {
+        self.insert_op(
+            result_type,
+            OpKind::FieldPtr(FieldPtrOp { base, field_idx }),
+        )
+    }
+
+    pub fn build_alloca(&mut self, result_type: Type, size: Value) -> Value {
+        self.insert_op(result_type, OpKind::Alloca(AllocaOp { size }))
+    }
+
+    pub fn build_cast(&mut self, result_type: Type, input: Value) -> Value {
+        self.insert_op(result_type, OpKind::Cast(CastOp { input }))
+    }
+
+    pub fn build_load(&mut self, result_type: Type, base: Value) -> Value {
+        self.insert_op(result_type, OpKind::Load(LoadOp { base }))
+    }
+
+    pub fn build_store(&mut self, target: Value, value: Value) {
+        self.insert_op(Type::void(), OpKind::Store(StoreOp { target, value }));
+    }
+
+    pub fn build_def_addr(&mut self, result_type: Type, def: DefRef) -> Value {
+        self.insert_op(result_type, OpKind::DefAddr(DefAddrOp { def }))
+    }
+
+    pub fn build_cmp(
+        &mut self,
+        result_type: Type,
+        lhs: Value,
+        cmp: Comparator,
+        rhs: Value,
+    ) -> Value {
+        self.insert_op(result_type, OpKind::Cmp(CmpOp { lhs, cmp, rhs }))
+    }
+
+    pub fn build_bit_not(&mut self, result_type: Type, input: Value) -> Value {
+        self.insert_op(result_type, OpKind::BitNot(BitNotOp { input }))
+    }
+
+    pub fn build_add(&mut self, result_type: Type, lhs: Value, rhs: Value) -> Value {
+        self.insert_op(result_type, OpKind::Add(AddOp { lhs, rhs }))
+    }
+
+    pub fn build_sub(&mut self, result_type: Type, lhs: Value, rhs: Value) -> Value {
+        self.insert_op(result_type, OpKind::Sub(SubOp { lhs, rhs }))
+    }
+
+    pub fn build_mul(&mut self, result_type: Type, lhs: Value, rhs: Value) -> Value {
+        self.insert_op(result_type, OpKind::Mul(MulOp { lhs, rhs }))
+    }
+
+    pub fn build_div(&mut self, result_type: Type, lhs: Value, rhs: Value) -> Value {
+        self.insert_op(result_type, OpKind::Div(DivOp { lhs, rhs }))
+    }
+
+    pub fn build_bit_and(&mut self, result_type: Type, lhs: Value, rhs: Value) -> Value {
+        self.insert_op(result_type, OpKind::BitAnd(BitAndOp { lhs, rhs }))
+    }
+
+    pub fn build_bit_or(&mut self, result_type: Type, lhs: Value, rhs: Value) -> Value {
+        self.insert_op(result_type, OpKind::BitOr(BitOrOp { lhs, rhs }))
+    }
+
+    pub fn build_bit_xor(&mut self, result_type: Type, lhs: Value, rhs: Value) -> Value {
+        self.insert_op(result_type, OpKind::BitXor(BitXorOp { lhs, rhs }))
+    }
+
+    pub fn build_shift_left(&mut self, result_type: Type, lhs: Value, rhs: Value) -> Value {
+        self.insert_op(result_type, OpKind::ShiftLeft(ShiftLeftOp { lhs, rhs }))
+    }
+
+    pub fn build_shift_right(&mut self, result_type: Type, lhs: Value, rhs: Value) -> Value {
+        self.insert_op(result_type, OpKind::ShiftRight(ShiftRightOp { lhs, rhs }))
+    }
 }

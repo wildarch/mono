@@ -27,3 +27,16 @@ pub struct Type {
     pub basic_type: BasicType,
     pub pointer_depth: u32,
 }
+
+impl Type {
+    pub fn basic(basic_type: BasicType) -> Type {
+        Type {
+            basic_type,
+            pointer_depth: 0,
+        }
+    }
+
+    pub fn void() -> Type {
+        Type::basic(BasicType::Void)
+    }
+}

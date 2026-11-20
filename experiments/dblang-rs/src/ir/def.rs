@@ -28,12 +28,12 @@ pub struct EnumDef {
 }
 
 pub struct AliasDef {
-    aliased: Type,
+    pub aliased: Type,
 }
 
 pub struct FuncDef {
-    param_types: Vec<Type>,
-    return_type: Type,
+    pub param_types: Vec<Type>,
+    pub return_type: Type,
 }
 
 pub struct ConstDef {
@@ -41,5 +41,5 @@ pub struct ConstDef {
 }
 
 pub struct GlobalDef {
-    typ: Type,
+    pub typ: Type,
 }
