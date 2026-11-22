@@ -27,6 +27,9 @@ def binop(name):
 
 
 OPS = [
+    Op("Param", [
+        OpField("param_idx", "u32"),
+    ], returns=True),
     Op("If", [
         OpField("cond", "Value"),
         OpField("if_branch", "BlockRef"),
@@ -96,6 +99,7 @@ def field_type(f):
 
 
 def write_kind_enum(out):
+    print("#[derive(Debug)]", file=out)
     print("pub enum OpKind {", file=out)
     for op in OPS:
         print(f"    {op.name}({op.name}Op),", file=out)
@@ -104,10 +108,11 @@ def write_kind_enum(out):
 
 def write_op_structs(out):
     for op in OPS:
+        print("\n#[derive(Debug)]", file=out)
         if not op.fields:
-            print(f"\npub struct {op.name}Op;", file=out)
+            print(f"pub struct {op.name}Op;", file=out)
             continue
-        print(f"\npub struct {op.name}Op {{", file=out)
+        print(f"pub struct {op.name}Op {{", file=out)
         for f in op.fields:
             print(f"    pub {f.name}: {field_type(f)},", file=out)
         print("}", file=out)

@@ -23,6 +23,7 @@ pub struct DefRef {
     offset: u32,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum Comparator {
     Eq,
     Ne,
@@ -42,6 +43,7 @@ pub struct Block {
     ops: Vec<Value>,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum Const {
     Bool(bool),
     Char(char),
@@ -60,13 +62,13 @@ pub enum Const {
 }
 
 /// Context for a full program
-pub struct ProgramContext {
+pub struct Program {
     defs: Vec<Def>,
 }
 
-impl ProgramContext {
-    pub fn new() -> ProgramContext {
-        ProgramContext { defs: Vec::new() }
+impl Program {
+    pub fn new() -> Program {
+        Program { defs: Vec::new() }
     }
 
     pub fn add_def(&mut self, def: Def) -> DefRef {
@@ -110,6 +112,10 @@ pub struct OpBuilder<'a> {
 }
 
 impl<'a> OpBuilder<'a> {
+    pub fn set_insertion_block(&mut self, block: BlockRef) {
+        self.insertion_block = Some(block);
+    }
+
     fn insert_op(&mut self, result_type: Type, kind: OpKind) -> Value {
         let insert_block = self.insertion_block.expect("no insertion block");
         // insert the op

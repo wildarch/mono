@@ -48,3 +48,52 @@ pub struct ConstDef {
 pub struct GlobalDef {
     pub typ: Type,
 }
+
+#[cfg(test)]
+mod tests {
+    use std::assert_matches;
+
+    use crate::ir::{BasicType, Const, ConstOp, OpKind, Program};
+
+    use super::*;
+
+    #[test]
+    fn const_def() {
+        let mut region = RegionContext::new();
+        let block = region.add_block();
+        let value = {
+            let mut builder = region.new_builder();
+            builder.set_insertion_block(block);
+            builder.build_const(Type::basic(BasicType::I32), Const::I32(42))
+        };
+
+        let mut program = Program::new();
+        let def_ref = program.add_def(Def {
+            name: "ANSWER".to_string(),
+            kind: DefKind::Const(ConstDef { region, value }),
+        });
+
+        assert_eq!(def_ref.offset, 0);
+        assert_eq!(program.defs.len(), 1);
+
+        let def = &program.defs[0];
+        assert_eq!(def.name, "ANSWER");
+        let DefKind::Const(const_def) = &def.kind else {
+            panic!("expected a const def");
+        };
+
+        assert_eq!(const_def.region.blocks.len(), 1);
+        assert_eq!(const_def.region.blocks[0].ops.len(), 1);
+        assert_eq!(const_def.region.ops.len(), 1);
+        assert_eq!(const_def.value.offset, 0);
+
+        let op = &const_def.region.ops[const_def.value.offset as usize];
+        assert_matches!(op.result_type.basic_type, BasicType::I32);
+        assert_matches!(
+            op.kind,
+            OpKind::Const(ConstOp {
+                value: Const::I32(42)
+            })
+        );
+    }
+}

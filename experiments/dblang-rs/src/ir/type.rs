@@ -1,4 +1,5 @@
 #[repr(u32)]
+#[derive(Clone, Copy, Debug)]
 pub enum BasicType {
     Unresolved,
     Void,
@@ -23,6 +24,7 @@ pub enum BasicType {
     Function, // Function reference, TODO: type info
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct Type {
     pub basic_type: BasicType,
     pub pointer_depth: u32,
