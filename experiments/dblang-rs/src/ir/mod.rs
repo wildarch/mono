@@ -1,12 +1,12 @@
-mod generated;
-
-pub use generated::*;
-
-mod r#type;
-pub use r#type::*;
-
 mod def;
+mod generated;
+mod loc;
+mod r#type;
+
 pub use def::*;
+pub use generated::*;
+pub use loc::*;
+pub use r#type::*;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Value {
@@ -24,6 +24,11 @@ pub struct DefRef {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct LocRef {
+    offset: u32,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub enum Comparator {
     Eq,
     Ne,
@@ -35,6 +40,7 @@ pub enum Comparator {
 
 pub struct Operation {
     // TODO: loc
+    pub loc: LocRef,
     pub result_type: Type,
     pub kind: OpKind,
 }
@@ -61,14 +67,35 @@ pub enum Const {
     F64(f64),
 }
 
+pub struct SourceFile {
+    filename: String,
+}
+
 /// Context for a full program
 pub struct Program {
+    source_files: Vec<SourceFile>,
     defs: Vec<Def>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct SourceFileRef {
+    offset: u32,
 }
 
 impl Program {
     pub fn new() -> Program {
-        Program { defs: Vec::new() }
+        Program {
+            source_files: Vec::new(),
+            defs: Vec::new(),
+        }
+    }
+
+    pub fn add_source_file(&mut self, filename: &str) -> SourceFileRef {
+        let offset = self.source_files.len() as u32;
+        self.source_files.push(SourceFile {
+            filename: filename.to_string(),
+        });
+        SourceFileRef { offset }
     }
 
     pub fn add_def(&mut self, def: Def) -> DefRef {
@@ -80,6 +107,7 @@ impl Program {
 
 /// Context for an executable code region with one or more blocks of operations
 pub struct RegionContext {
+    locs: Vec<Loc>,
     ops: Vec<Operation>,
     blocks: Vec<Block>,
 }
@@ -87,6 +115,7 @@ pub struct RegionContext {
 impl RegionContext {
     pub fn new() -> RegionContext {
         RegionContext {
+            locs: Vec::new(),
             ops: Vec::new(),
             blocks: Vec::new(),
         }
@@ -116,11 +145,22 @@ impl<'a> OpBuilder<'a> {
         self.insertion_block = Some(block);
     }
 
-    fn insert_op(&mut self, result_type: Type, kind: OpKind) -> Value {
+    fn add_loc(&mut self, loc: Loc) -> LocRef {
+        let offset = self.region.locs.len() as u32;
+        self.region.locs.push(loc);
+        LocRef { offset }
+    }
+
+    fn insert_op(&mut self, loc: Loc, result_type: Type, kind: OpKind) -> Value {
         let insert_block = self.insertion_block.expect("no insertion block");
         // insert the op
+        let loc = self.add_loc(loc);
         let offset = self.region.ops.len() as u32;
-        self.region.ops.push(Operation { result_type, kind });
+        self.region.ops.push(Operation {
+            loc,
+            result_type,
+            kind,
+        });
         // place into the block
         let block = &mut self.region.blocks[insert_block.offset as usize];
         block.ops.push(Value { offset });

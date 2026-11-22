@@ -53,21 +53,28 @@ pub struct GlobalDef {
 mod tests {
     use std::assert_matches;
 
-    use crate::ir::{BasicType, Const, ConstOp, OpKind, Program};
+    use crate::ir::{BasicType, Const, ConstOp, InFilePos, Loc, OpKind, Program};
 
     use super::*;
 
     #[test]
     fn const_def() {
+        let mut program = Program::new();
+        let source_file = program.add_source_file("test.db");
+        let loc = Loc {
+            source_file,
+            start: InFilePos::unknown(),
+            end: InFilePos::unknown(),
+        };
+
         let mut region = RegionContext::new();
         let block = region.add_block();
         let value = {
             let mut builder = region.new_builder();
             builder.set_insertion_block(block);
-            builder.build_const(Type::basic(BasicType::I32), Const::I32(42))
+            builder.build_const(loc, Type::basic(BasicType::I32), Const::I32(42))
         };
 
-        let mut program = Program::new();
         let def_ref = program.add_def(Def {
             name: "ANSWER".to_string(),
             kind: DefKind::Const(ConstDef { region, value }),

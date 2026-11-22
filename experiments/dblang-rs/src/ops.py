@@ -130,7 +130,7 @@ def write_builder_impl(out):
     for i, op in enumerate(OPS):
         if i > 0:
             print("", file=out)
-        params = ["&mut self"]
+        params = ["&mut self", "loc: Loc"]
         if op.returns:
             params.append("result_type: Type")
         params += [f"{f.name}: {field_type(f)}" for f in op.fields]
@@ -145,9 +145,9 @@ def write_builder_impl(out):
             kind = f"OpKind::{op.name}({op.name}Op)"
 
         if op.returns:
-            print(f"        self.insert_op(result_type, {kind})", file=out)
+            print(f"        self.insert_op(loc, result_type, {kind})", file=out)
         else:
-            print(f"        self.insert_op(Type::void(), {kind});", file=out)
+            print(f"        self.insert_op(loc, Type::void(), {kind});", file=out)
         print("    }", file=out)
     print("}", file=out)
 
