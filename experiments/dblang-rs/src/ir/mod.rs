@@ -18,6 +18,7 @@ pub struct BlockRef {
     offset: u32,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct DefRef {
     offset: u32,
 }
@@ -67,6 +68,12 @@ impl ProgramContext {
     pub fn new() -> ProgramContext {
         ProgramContext { defs: Vec::new() }
     }
+
+    pub fn add_def(&mut self, def: Def) -> DefRef {
+        let offset = self.defs.len() as u32;
+        self.defs.push(def);
+        DefRef { offset }
+    }
 }
 
 /// Context for an executable code region with one or more blocks of operations
@@ -88,6 +95,12 @@ impl RegionContext {
             region: self,
             insertion_block: None,
         }
+    }
+
+    pub fn add_block(&mut self) -> BlockRef {
+        let offset = self.blocks.len() as u32;
+        self.blocks.push(Block { ops: Vec::new() });
+        BlockRef { offset }
     }
 }
 

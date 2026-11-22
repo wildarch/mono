@@ -1,3 +1,5 @@
+use crate::ir::{BlockRef, RegionContext, Value};
+
 pub use super::Type;
 
 pub struct Def {
@@ -34,10 +36,13 @@ pub struct AliasDef {
 pub struct FuncDef {
     pub param_types: Vec<Type>,
     pub return_type: Type,
+    pub region: RegionContext,
+    pub entry_block: BlockRef,
 }
 
 pub struct ConstDef {
-    // TODO: expression body
+    pub region: RegionContext,
+    pub value: Value,
 }
 
 pub struct GlobalDef {
