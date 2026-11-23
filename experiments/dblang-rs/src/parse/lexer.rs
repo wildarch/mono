@@ -678,17 +678,16 @@ mod tests {
         out
     }
 
-    /// Runs the golden tests shared with the C++ implementation.
+    /// Runs the golden tests in `lexer.test`.
     #[test]
     fn golden() {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../dblang/parse/Lexer.test");
-        let content = std::fs::read_to_string(path).unwrap();
+        let content = include_str!("lexer.test");
         let mid_sep = format!("{}\n", "-".repeat(80));
         let test_sep = format!("{}\n", "=".repeat(80));
 
         let mut failures = Vec::new();
         let mut count = 0;
-        let mut rest = content.as_str();
+        let mut rest = content;
         while let Some(end) = rest.find(&test_sep) {
             // Separators must be at the start of a line.
             assert!(end == 0 || rest.as_bytes()[end - 1] == b'\n');
