@@ -623,7 +623,7 @@ experiments/dblang/parse/Lexer.test:2:28-34: STRING 'it's'
 
 "héllo wörld 🎉"
 --------------------------------------------------------------------------------
-experiments/dblang/parse/Lexer.test:2:1-21: STRING 'héllo wörld 🎉'
+experiments/dblang/parse/Lexer.test:2:1-16: STRING 'héllo wörld 🎉'
 ================================================================================
 
 "/* not a comment */" "// not a comment"
